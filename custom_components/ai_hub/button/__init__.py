@@ -120,6 +120,53 @@ class AIHubTranslationButton(ButtonEntity):
             _LOGGER.error("Failed to run translation process: %s", e)
 
 
+class AIHubBlueprintTranslationButton(ButtonEntity):
+    """AI Hub Blueprint Translation button."""
+
+    _attr_has_entity_name = False
+    _attr_should_poll = False
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:file-document-outline"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, subentry: config_entry_flow.ConfigSubentry) -> None:
+        """Initialize the button."""
+        super().__init__()
+
+        self._hass = hass
+        self._subentry = subentry
+
+        # Use subentry ID as base unique_id
+        self._attr_unique_id = f"{subentry.subentry_id}_blueprint_translate"
+        self._attr_name = "蓝图汉化"
+
+        # Set device info to match existing device exactly
+        self._attr_device_info = dr.DeviceInfo(
+            identifiers={(DOMAIN, subentry.subentry_id)},
+            name=subentry.title,
+            manufacturer="老王杂谈说",  # Match existing device
+            model="Blueprint Translation",
+            entry_type=dr.DeviceEntryType.SERVICE,
+        )
+
+    async def async_press(self) -> None:
+        """Press the button - trigger blueprint translation."""
+        try:
+            _LOGGER.info("Blueprint Translation button pressed, starting translation process")
+            result = await self._hass.services.async_call(
+                "ai_hub",
+                "translate_blueprints",
+                {
+                    "list_blueprints": False,
+                    "force_translation": False
+                },
+                blocking=True,
+                return_response=True,
+            )
+            _LOGGER.info("Blueprint translation process completed: %s", result)
+        except Exception as e:
+            _LOGGER.error("Failed to run blueprint translation process: %s", e)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -162,6 +209,12 @@ async def async_setup_entry(
             buttons.append(button)
             _LOGGER.info("Created Translation button for subentry: %s", subentry.subentry_id)
             _LOGGER.info("Button unique_id: %s", button._attr_unique_id)
+        elif subentry.subentry_type == "blueprint_translation":
+            _LOGGER.info("Found Blueprint Translation subentry: %s, creating button", subentry.subentry_id)
+            button = AIHubBlueprintTranslationButton(hass, entry, subentry)
+            buttons.append(button)
+            _LOGGER.info("Created Blueprint Translation button for subentry: %s", subentry.subentry_id)
+            _LOGGER.info("Button unique_id: %s", button._attr_unique_id)
         else:
             _LOGGER.debug("Skipping non-button subentry: %s", subentry.subentry_type)
 
@@ -173,9 +226,9 @@ async def async_setup_entry(
             async_add_entities([button], config_subentry_id=button._subentry.subentry_id)
         _LOGGER.info("Successfully added %d button(s)", len(buttons))
     else:
-        if not wechat_found and not translation_found:
-            _LOGGER.info("No WeChat or Translation subentries found, no buttons created")
+        if not wechat_found and not translation_found and "blueprint_translation" not in [s.subentry_type for s in entry.subentries.values()]:
+            _LOGGER.info("No WeChat, Translation, or Blueprint Translation subentries found, no buttons created")
         else:
-            _LOGGER.warning("WeChat or Translation subentries found but no buttons were created!")
+            _LOGGER.warning("WeChat, Translation, or Blueprint Translation subentries found but no buttons were created!")
 
     _LOGGER.info("=== BUTTON SETUP END ===")

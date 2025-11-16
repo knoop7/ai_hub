@@ -173,12 +173,21 @@
       "abort": {
         "translation_no_reconfigure": "集成汉化不支持重新配置。如需修改设置，请删除后重新添加。"
       }
+    },
+    "blueprint_translation": {
+      "initiate_flow": {
+        "user": "添加蓝图汉化"
+      },
+      "entry_type": "AI Hub 蓝图汉化",
+      "abort": {
+        "blueprint_translation_no_reconfigure": "蓝图汉化不支持重新配置。如需修改设置，请删除后重新添加。"
+      }
     }
   },
   "services": {
     "generate_image": {
       "name": "生成图像",
-      "description": "使用AI Hub CogView模型生成图像",
+      "description": "使用AI Hub图像生成模型生成图像",
       "fields": {
         "prompt": {
           "name": "提示词",
@@ -300,21 +309,21 @@
       "fields": {
         "custom_components_path": {
           "name": "集成路径",
-          "description": "自定义集成目录路径，默认为custom_components"
+          "description": "自定义集成目录路径，默认为集成目录"
         }
       }
     },
     "translate_blueprints": {
-      "name": "Blueprint汉化",
-      "description": "汉化Home Assistant Blueprint文件的英文界面为中文",
+      "name": "蓝图汉化",
+      "description": "汉化Home Assistant 蓝图文件的英文界面为中文",
       "fields": {
         "list_blueprints": {
-          "name": "列出Blueprint",
-          "description": "仅列出已导入的Blueprint文件及其翻译状态，不执行翻译操作"
+          "name": "列出蓝图",
+          "description": "仅列出已导入的蓝图文件及其翻译状态，不执行翻译操作"
         },
         "target_blueprint": {
-          "name": "指定Blueprint",
-          "description": "指定要汉化的Blueprint文件名（不含扩展名），留空则汉化所有Blueprint"
+          "name": "指定蓝图",
+          "description": "指定要汉化的蓝图文件名（不含扩展名），留空则汉化所有蓝图"
         },
         "force_translation": {
           "name": "强制汉化",

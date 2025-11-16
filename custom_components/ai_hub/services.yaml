@@ -1,6 +1,6 @@
 generate_image:
   name: 生成图像
-  description: 使用智谱AI CogView模型生成图像（需要智谱API密钥）
+  description: 使用智谱AI图像生成模型生成图像（需要智谱API密钥）
   fields:
     prompt:
       name: 提示词
@@ -280,7 +280,7 @@ translate_components:
         boolean:
     target_component:
       name: 指定集成
-      description: 指定要汉化的集成名称，如"my_component"。留空则汉化所有集成
+      description: 指定要汉化的集成名称，如"my_integration"。留空则汉化所有集成
       required: false
       default: ""
       selector:
@@ -315,19 +315,19 @@ stt_transcribe:
             - "TeleAI/TeleSpeechASR"
 
 translate_blueprints:
-  name: Blueprint汉化
-  description: 汉化Home Assistant Blueprint文件的英文界面为中文（需要智谱API密钥）
+  name: 蓝图汉化
+  description: 汉化Home Assistant 蓝图文件的英文界面为中文（需要智谱API密钥）
   fields:
     list_blueprints:
-      name: 列出Blueprint
-      description: 仅列出已导入的Blueprint文件及其翻译状态，不执行翻译操作
+      name: 列出蓝图
+      description: 仅列出已导入的蓝图文件及其翻译状态，不执行翻译操作
       required: false
       default: false
       selector:
         boolean:
     target_blueprint:
-      name: 指定Blueprint
-      description: 指定要汉化的Blueprint文件名（不含扩展名），留空则汉化所有Blueprint
+      name: 指定蓝图
+      description: 指定要汉化的蓝图文件名（不含扩展名），留空则汉化所有蓝图
       required: false
       default: ""
       selector:

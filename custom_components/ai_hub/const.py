@@ -622,6 +622,8 @@ DEFAULT_WECHAT_NAME: Final = "AI Hub 微信通知"
 DEFAULT_WECHAT_NAME_EN: Final = "AI Hub WeChat"
 DEFAULT_TRANSLATION_NAME: Final = "AI Hub 集成汉化"
 DEFAULT_TRANSLATION_NAME_EN: Final = "AI Hub Integration Localization"
+DEFAULT_BLUEPRINT_TRANSLATION_NAME: Final = "AI Hub 蓝图汉化"
+DEFAULT_BLUEPRINT_TRANSLATION_NAME_EN: Final = "AI Hub Blueprint Translation"
 DEFAULT_CONVERSATION_NAME_EN: Final = "AI Hub Assistant"
 DEFAULT_AI_TASK_NAME_EN: Final = "AI Hub Task"
 
@@ -633,6 +635,8 @@ CONF_CUSTOM_COMPONENTS_PATH: Final = "custom_components_path"
 CONF_FORCE_TRANSLATION: Final = "force_translation"
 CONF_TARGET_COMPONENT: Final = "target_component"
 CONF_LIST_COMPONENTS: Final = "list_components"
+CONF_TARGET_BLUEPRINT: Final = "target_blueprint"
+CONF_LIST_BLUEPRINTS: Final = "list_blueprints"
 
 # Error Messages
 ERROR_GETTING_RESPONSE: Final = "获取响应时出错"
@@ -699,6 +703,13 @@ RECOMMENDED_TRANSLATION_OPTIONS: Final = {
     CONF_FORCE_TRANSLATION: False,
     CONF_TARGET_COMPONENT: "",
     CONF_LIST_COMPONENTS: False,
+}
+
+RECOMMENDED_BLUEPRINT_TRANSLATION_OPTIONS: Final = {
+    CONF_RECOMMENDED: True,
+    CONF_FORCE_TRANSLATION: False,
+    CONF_TARGET_BLUEPRINT: "",
+    CONF_LIST_BLUEPRINTS: False,
 }
 
 # Services
