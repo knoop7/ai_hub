@@ -104,7 +104,6 @@ STT_SCHEMA = {
 WECHAT_SCHEMA = {
     vol.Required("device_entity"): cv.entity_id,
     vol.Required("message"): cv.string,
-    vol.Optional("group", default="default"): cv.string,
     vol.Optional("url", default=""): cv.string,
 }
 
@@ -632,7 +631,6 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
 
             device_entity = call.data["device_entity"]
             message = call.data["message"].strip()
-            group = call.data.get("group", "default")
             url = call.data.get("url", "")
 
             if not device_entity or not message:
@@ -650,20 +648,27 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
                 friendly_name = device_entity
                 state_value = "无实体状态"
 
-            final_message = f"{friendly_name}（状态：{state_value}）: {message}"
-            _LOGGER.debug("最终发送微信消息内容：%s", final_message)
+            # Create title with entity name and state
+            device_title = f"{friendly_name}（状态：{state_value}）"
 
+            # Message content remains as the original message only
+            message_content = message
+
+            _LOGGER.debug("微信设备标题：%s", device_title)
+            _LOGGER.debug("微信消息内容：%s", message_content)
+
+            # Use device field as title
             payload = {
                 "uid": bemfa_uid,
-                "device": device_entity.replace(".", "_"),
-                "message": final_message,
-                "group": group,
+                "device": device_title,  # Use device field for entity name and state
+                "message": message_content,  # Message contains only the user-provided message
+                "group": "default",  # Always use default group
                 "url": url,
             }
 
             headers = {"Content-Type": "application/json; charset=utf-8"}
-
             timeout = aiohttp.ClientTimeout(total=10)
+
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(
                     BEMFA_API_URL,
@@ -676,8 +681,7 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
                         return {
                             "success": True,
                             "message": "微信消息发送成功",
-                            "device": device_entity,
-                            "group": group
+                            "device": device_entity
                         }
                     else:
                         _LOGGER.error("发送失败 [%s]: %s", response.status, resp_text)

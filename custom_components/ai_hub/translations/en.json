@@ -50,8 +50,7 @@
             "top_p": "Top P",
             "top_k": "Top K",
             "max_tokens": "Max Tokens",
-            "max_history_messages": "Max History Messages",
-            "web_search": "Web Search"
+            "max_history_messages": "Max History Messages"
           },
           "data_description": {
             "recommended": "Use recommended settings",
@@ -59,8 +58,7 @@
             "temperature": "Control creativity (0-2)",
             "top_p": "Sampling parameter (0-1)",
             "max_tokens": "Maximum response length",
-            "max_history_messages": "Number of history messages to keep",
-            "web_search": "Allow searching the internet"
+            "max_history_messages": "Number of history messages to keep"
           }
         }
       }

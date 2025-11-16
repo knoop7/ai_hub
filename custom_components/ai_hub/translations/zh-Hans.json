@@ -49,8 +49,7 @@
             "top_p": "Top P",
             "top_k": "Top K",
             "max_tokens": "最大令牌数",
-            "max_history_messages": "历史消息数",
-            "web_search": "联网搜索"
+            "max_history_messages": "历史消息数"
           },
           "data_description": {
             "recommended": "使用推荐配置",
@@ -58,8 +57,7 @@
             "temperature": "控制创造性（0-2）",
             "top_p": "采样参数（0-1）",
             "max_tokens": "最大响应长度",
-            "max_history_messages": "保留的历史消息数量",
-            "web_search": "允许搜索互联网"
+            "max_history_messages": "保留的历史消息数量"
           }
         }
       }
@@ -283,19 +281,15 @@
     },
     "send_wechat_message": {
       "name": "发送微信消息",
-      "description": "通过巴法云发送微信消息通知",
+      "description": "通过巴法云发送微信消息通知，设备标题显示实体名称和状态",
       "fields": {
         "device_entity": {
           "name": "设备实体",
-          "description": "要监控状态的实体ID"
+          "description": "要监控状态的实体ID，其友好名称和状态将作为设备标题显示"
         },
         "message": {
           "name": "消息内容",
-          "description": "要发送的消息内容"
-        },
-        "group": {
-          "name": "消息分组",
-          "description": "消息分组标识，默认为default"
+          "description": "要发送的纯消息内容（实体名称和状态将自动作为设备标题显示）"
         },
         "url": {
           "name": "链接地址",

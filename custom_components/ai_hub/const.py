@@ -116,7 +116,6 @@ DOMAIN: Final = "ai_hub"
 AI_HUB_API_BASE: Final = "https://open.bigmodel.cn/api/paas/v4"
 AI_HUB_CHAT_URL: Final = f"{AI_HUB_API_BASE}/chat/completions"
 AI_HUB_IMAGE_GEN_URL: Final = f"{AI_HUB_API_BASE}/images/generations"
-AI_HUB_WEB_SEARCH_URL: Final = f"{AI_HUB_API_BASE}/web_search"
 AI_HUB_TTS_URL: Final = f"{AI_HUB_API_BASE}/audio/speech"
 AI_HUB_STT_URL: Final = f"{AI_HUB_API_BASE}/audio/transcriptions"
 
@@ -136,7 +135,6 @@ CONF_TOP_P: Final = "top_p"
 CONF_TOP_K: Final = "top_k"
 CONF_LLM_HASS_API: Final = "llm_hass_api"
 CONF_RECOMMENDED: Final = "recommended"
-CONF_WEB_SEARCH: Final = "web_search"
 CONF_MAX_HISTORY_MESSAGES: Final = "max_history_messages"
 
 # Recommended Values for Conversation
@@ -643,15 +641,6 @@ ERROR_GETTING_RESPONSE: Final = "获取响应时出错"
 ERROR_INVALID_API_KEY: Final = "API密钥无效"
 ERROR_CANNOT_CONNECT: Final = "无法连接到AI Hub服务"
 
-# Web Search Tool
-WEB_SEARCH_TOOL: Final = {
-    "type": "web_search",
-    "web_search": {
-        "enable": False,
-        "search_query": ""
-    }
-}
-
 # Recommended Options
 RECOMMENDED_CONVERSATION_OPTIONS: Final = {
     CONF_RECOMMENDED: True,
@@ -663,7 +652,6 @@ RECOMMENDED_CONVERSATION_OPTIONS: Final = {
     CONF_TOP_K: RECOMMENDED_TOP_K,
     CONF_MAX_TOKENS: RECOMMENDED_MAX_TOKENS,
     CONF_MAX_HISTORY_MESSAGES: RECOMMENDED_MAX_HISTORY_MESSAGES,
-    CONF_WEB_SEARCH: False,
 }
 
 RECOMMENDED_AI_TASK_OPTIONS: Final = {

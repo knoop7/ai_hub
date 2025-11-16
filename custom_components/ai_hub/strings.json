@@ -51,8 +51,7 @@
             "top_p": "Top P（采样）",
             "top_k": "Top K",
             "max_tokens": "最大令牌数",
-            "max_history_messages": "最大历史消息数",
-            "web_search": "启用联网搜索"
+            "max_history_messages": "最大历史消息数"
           },
           "data_description": {
             "recommended": "启用后将使用推荐的配置参数",
@@ -60,8 +59,7 @@
             "temperature": "控制回复的创造性，0=严谨，2=发散",
             "top_p": "控制词汇多样性，较低值更保守",
             "max_tokens": "单次回复的最大长度",
-            "max_history_messages": "保留的对话历史数量",
-            "web_search": "允许AI搜索互联网获取最新信息"
+            "max_history_messages": "保留的对话历史数量"
           }
         }
       }

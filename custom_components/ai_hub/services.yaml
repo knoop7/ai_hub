@@ -237,28 +237,21 @@ tts_speech:
 
 send_wechat_message:
   name: 发送微信消息
-  description: 通过巴法云发送微信消息通知（需要Bemfa UID）
+  description: 通过巴法云发送微信消息通知，设备标题显示实体名称和状态（需要Bemfa UID）
   fields:
     device_entity:
       name: 设备实体
-      description: 要监控状态的实体ID
+      description: 要监控状态的实体ID，其友好名称和状态将作为设备标题显示
       required: true
       selector:
         entity:
     message:
       name: 消息内容
-      description: 要发送的消息内容
+      description: 要发送的纯消息内容（实体名称和状态将自动作为标题显示）
       required: true
       selector:
         text:
           multiline: true
-    group:
-      name: 消息分组
-      description: 消息分组标识
-      required: false
-      default: "default"
-      selector:
-        text:
     url:
       name: 链接地址
       description: 可选的链接地址

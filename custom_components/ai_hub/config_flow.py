@@ -49,7 +49,6 @@ from .const import (
     CONF_TEMPERATURE,
     CONF_TOP_K,
     CONF_TOP_P,
-    CONF_WEB_SEARCH,
     CONF_TTS_VOICE,
     CONF_TTS_LANG,
     CONF_TTS_RATE,
@@ -465,11 +464,6 @@ async def ai_hub_config_option_schema(
                 default=options.get(CONF_MAX_HISTORY_MESSAGES, RECOMMENDED_MAX_HISTORY_MESSAGES),
                 description={"suggested_value": options.get(CONF_MAX_HISTORY_MESSAGES)},
             ): int,
-            vol.Optional(
-                CONF_WEB_SEARCH,
-                default=options.get(CONF_WEB_SEARCH, False),
-                description={"suggested_value": options.get(CONF_WEB_SEARCH)},
-            ): bool,
         })
 
     elif subentry_type == "ai_task_data":

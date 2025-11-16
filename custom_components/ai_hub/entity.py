@@ -31,7 +31,6 @@ from .const import (
     CONF_TEMPERATURE,
     CONF_TOP_K,
     CONF_TOP_P,
-    CONF_WEB_SEARCH,
     DOMAIN,
     ERROR_GETTING_RESPONSE,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
@@ -40,7 +39,6 @@ from .const import (
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TOP_K,
     RECOMMENDED_TOP_P,
-    WEB_SEARCH_TOOL,
     AI_HUB_CHAT_URL,
 )
 from .markdown_filter import filter_markdown_content, filter_markdown_streaming
@@ -150,10 +148,7 @@ class AIHubBaseLLMEntity(Entity):
                 for tool in chat_log.llm_api.tools
             ])
 
-        # Add web search tool if enabled
-        if options.get(CONF_WEB_SEARCH, False):
-            tools.append(WEB_SEARCH_TOOL)
-
+        
         # Build minimal request parameters using only essential parameters
         request_params = {
             "model": model_config.get("model"),

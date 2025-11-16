@@ -73,6 +73,14 @@ If you don't need some entries, just leave the api key blank or delete it. You c
 - **Batch Processing**: Supports batch localization for multiple components.
 - **Intelligent Recognition**: Automatically detects components needing translation, skipping already localized ones.
 
+#### 🏗️ Blueprint Localization
+- **One-Click Localization**: Add "Blueprint Localization" button in the integration interface for one-click translation of all blueprints.
+- **In-Place Translation**: Directly modify original blueprint files without creating additional translation files.
+- **Smart Protection**: Automatically protect technical parameters and variables, only translating user interface text.
+- **Recursive Scanning**: Automatically scan blueprints directory and its subdirectories for all YAML files.
+- **Status Detection**: Intelligently detect already localized files to avoid duplicate processing.
+- **Complete Support**: Support complex nested structures and Home Assistant special syntax.
+
 #### 📱 WeChat Notification (Bemfa)
 - **Real-Time Notifications**: Integrate Bemfa service to send device status notifications via WeChat.
 
@@ -119,6 +127,7 @@ AI Hub supports sub-entry configuration for independent functionality:
 - **AI Hub STT**: For speech-to-text.
 - **AI Hub WeChat Notification**: For WeChat messages.
 - **AI Hub Localization**: For component translation.
+- **AI Hub Blueprint Localization**: For blueprint translation.
 
 ---
 
@@ -266,6 +275,87 @@ data:
   force_translation: false  # Force re-translate
 ```
 
+### G. 🏗️ Blueprint Localization
+
+#### One-Click Localization (Recommended)
+1. **Add Blueprint Localization Sub-Entry**: In AI Hub integration details page, click "Add Sub-Entry" and select "AI Hub Blueprint Localization"
+2. **One-Click Localization**: Click the "Blueprint Localization" button in the integration details page. The system will automatically:
+   - Scan all YAML files in `/config/blueprints` directory and its subdirectories
+   - Intelligently detect already localized files and skip duplicate processing
+   - Protect technical parameters, variable names, and Home Assistant syntax
+   - Perform localization directly on original files without creating additional files
+
+#### Service-Based Localization
+```yaml
+# List all Blueprint files and their localization status
+service: ai_hub.translate_blueprints
+data:
+  list_blueprints: true  # Only list status, do not perform localization
+  target_blueprint: ""  # Leave empty to view all files
+  force_translation: false  # Force re-localization
+
+# Localize specific Blueprint file
+service: ai_hub.translate_blueprints
+data:
+  list_blueprints: false  # Perform localization operation
+  target_blueprint: "my_blueprint.yaml"  # Specify file name (without path)
+  force_translation: false  # Force re-localization of already localized files
+
+# Localize all Blueprint files
+service: ai_hub.translate_blueprints
+data:
+  list_blueprints: false  # Perform localization operation
+  target_blueprint: ""  # Leave empty to localize all files
+  force_translation: false  # Force re-localization of already localized files
+```
+
+#### Localization Rules
+**Smart Protection Mechanism:**
+- **Technical Parameter Protection**: Automatically protects `input`, `variable`, `trigger` and other technical fields
+- **Home Assistant Syntax**: Protects `!input`, `!secret`, `!include` and other special syntax
+- **Variable Name Protection**: Does not translate YAML key names and variable references
+- **Default Value Translation**: Only translates descriptive text such as `name`, `description`, default values, etc.
+
+**Supported Translation Content:**
+- Blueprint `name` and `description` fields
+- `input` fields like `name`, `description`, `default` and other user interface text
+- `name` and `state` attributes of entities like `binary_sensor`, `sensor`
+- Descriptive text in conditions and actions
+
+**Status Detection:**
+- Automatically detects if files contain Chinese characters
+- Files containing Chinese are considered localized and skipped by default
+- Use `force_translation: true` to force re-localization
+
+**Usage Example:**
+Before localization:
+```yaml
+blueprint:
+  name: "Motion Light Automation"
+  description: "Turn on lights when motion is detected"
+  input:
+    motion_sensor:
+      name: "Motion Sensor"
+      description: "Select motion sensor entity"
+      selector:
+        entity:
+          domain: binary_sensor
+```
+
+After localization:
+```yaml
+blueprint:
+  name: "移动感应灯光自动化"
+  description: "检测到移动时自动开启灯光"
+  input:
+    motion_sensor:
+      name: "移动感应器"
+      description: "选择移动感应器实体"
+      selector:
+        entity:
+          domain: binary_sensor
+```
+
 ---
 
 ## 🔧 Service Details
@@ -339,6 +429,15 @@ data:
   force_translation: false  # optional
   target_component: "custom_component_name"  # optional
   list_components: false  # optional
+```
+
+### Blueprint Localization
+```yaml
+service: ai_hub.translate_blueprints
+data:
+  list_blueprints: false  # optional: Only list blueprint files and their status
+  target_blueprint: "my_blueprint.yaml"  # optional: Specify specific blueprint file name
+  force_translation: false  # optional: Force re-localization of already localized files
 ```
 
 ---

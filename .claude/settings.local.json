@@ -10,7 +10,8 @@
       "WebSearch",
       "Bash(find:*)",
       "Bash(python:*)",
-      "WebFetch(domain:open.bigmodel.cn)"
+      "WebFetch(domain:open.bigmodel.cn)",
+      "Read(//c/Users/**)"
     ],
     "deny": [],
     "ask": []
