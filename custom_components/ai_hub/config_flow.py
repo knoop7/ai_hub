@@ -519,27 +519,11 @@ async def ai_hub_config_option_schema(
         })
 
     elif subentry_type == "tts":
+        # Simple TTS configuration to avoid potential issues
+        # Use basic string selectors for now to isolate the problem
+
         # Create language options from unique languages in EDGE_TTS_VOICES
         unique_languages = sorted(list(set(EDGE_TTS_VOICES.values())))
-
-        # Create voice options grouped by language for better UX
-        voice_options = []
-        # Group voices by language
-        languages = {}
-        for voice_id, lang_code in EDGE_TTS_VOICES.items():
-            if lang_code not in languages:
-                languages[lang_code] = []
-            languages[lang_code].append(voice_id)
-
-        # Sort voices within each language and create grouped options
-        for lang_code in sorted(languages.keys()):
-            # Add language separator
-            voice_options.append({"separator": True, "label": f"--- {lang_code.upper()} ---"})
-            # Add voices for this language
-            for voice_id in sorted(languages[lang_code]):
-                # Extract voice name for display
-                voice_name = voice_id.replace(f"{lang_code}-", "")
-                voice_options.append({"value": voice_id, "label": f"{voice_name} ({lang_code})"})
 
         schema.update({
             vol.Optional(
@@ -556,14 +540,7 @@ async def ai_hub_config_option_schema(
                 CONF_TTS_VOICE,
                 default=options.get(CONF_TTS_VOICE, TTS_DEFAULT_VOICE),
                 description={"suggested_value": options.get(CONF_TTS_VOICE)},
-            ): SelectSelector(
-                SelectSelectorConfig(
-                    options=voice_options,
-                    mode=SelectSelectorMode.DROPDOWN,
-                    custom_value=False,
-                    sort=False,
-                )
-            ),
+            ): str,
             vol.Optional(
                 CONF_TTS_RATE,
                 default=options.get(CONF_TTS_RATE, TTS_DEFAULT_RATE),

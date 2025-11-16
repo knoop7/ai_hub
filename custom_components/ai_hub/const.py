@@ -531,7 +531,7 @@ TTS_DEFAULT_VOICE: Final = "zh-CN-XiaoxiaoNeural"  # 默认使用晓晓女声
 TTS_DEFAULT_LANG: Final = "zh-CN"
 TTS_DEFAULT_RATE: Final = "+0%"
 TTS_DEFAULT_VOLUME: Final = "+0%"
-TTS_DEFAULT_PITCH: Final = "+0Hz"
+TTS_DEFAULT_PITCH: Final = "+0%"
 
 # Silicon Flow STT Configuration
 # STT Configuration Keys
