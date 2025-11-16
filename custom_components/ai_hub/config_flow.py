@@ -293,8 +293,8 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
                 # Use user input directly (no complex model name processing needed)
                 processed_input = user_input.copy()
 
-                # Set LLM_HASS_API for conversation in recommended mode
-                if self._subentry_type == "conversation" and user_input[CONF_RECOMMENDED]:
+                # Always enable LLM_HASS_API for conversation
+                if self._subentry_type == "conversation":
                     processed_input[CONF_LLM_HASS_API] = llm.LLM_API_ASSIST
 
                 # Update or create subentry
@@ -417,12 +417,10 @@ async def ai_hub_config_option_schema(
 
     # Show advanced options only when not in recommended mode
     if subentry_type == "conversation":
+        # Always enable LLM Hass API for conversation, don't show to user
+        options[CONF_LLM_HASS_API] = llm.LLM_API_ASSIST
+
         schema.update({
-            vol.Optional(
-                CONF_LLM_HASS_API,
-                default=options.get(CONF_LLM_HASS_API, llm.LLM_API_ASSIST),
-                description={"suggested_value": options.get(CONF_LLM_HASS_API)},
-            ): selector.Selector(selector.LlmApiSelectorConfig()),
             vol.Optional(
                 CONF_PROMPT,
                 default=options.get(CONF_PROMPT, llm.DEFAULT_INSTRUCTIONS_PROMPT),
