@@ -174,9 +174,23 @@
     },
     "blueprint_translation": {
       "initiate_flow": {
-        "user": "添加蓝图汉化"
+        "user": "添加蓝图汉化",
+        "reconfigure": "重新配置蓝图汉化"
       },
       "entry_type": "AI Hub 蓝图汉化",
+      "step": {
+        "init": {
+          "title": "配置蓝图汉化",
+          "description": "配置蓝图汉化功能。使用智谱AI自动将英文蓝图文件翻译为中文。",
+          "data": {
+            "name": "名称",
+            "recommended": "推荐模式"
+          },
+          "data_description": {
+            "recommended": "使用推荐配置"
+          }
+        }
+      },
       "abort": {
         "blueprint_translation_no_reconfigure": "蓝图汉化不支持重新配置。如需修改设置，请删除后重新添加。"
       }
