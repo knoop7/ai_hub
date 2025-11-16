@@ -44,6 +44,7 @@
           "data": {
             "name": "Name",
             "recommended": "Recommended Mode",
+            "llm_hass_api": "Enable LLM Hass API",
             "prompt": "Prompt Template",
             "chat_model": "Chat Model",
             "temperature": "Temperature",
@@ -54,6 +55,7 @@
           },
           "data_description": {
             "recommended": "Use recommended settings",
+            "llm_hass_api": "Enable Home Assistant tool calling, allows AI to control devices",
             "prompt": "Custom system prompt",
             "temperature": "Control creativity (0-2)",
             "top_p": "Sampling parameter (0-1)",

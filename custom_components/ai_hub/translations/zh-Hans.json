@@ -43,6 +43,7 @@
           "data": {
             "name": "名称",
             "recommended": "推荐模式",
+            "llm_hass_api": "启用LLM Hass API",
             "prompt": "提示词模板",
             "chat_model": "聊天模型",
             "temperature": "温度",
@@ -53,6 +54,7 @@
           },
           "data_description": {
             "recommended": "使用推荐配置",
+            "llm_hass_api": "启用Home Assistant工具调用，允许AI控制设备",
             "prompt": "自定义系统提示词",
             "temperature": "控制创造性（0-2）",
             "top_p": "采样参数（0-1）",
