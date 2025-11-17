@@ -630,7 +630,7 @@ CONF_API_KEY: Final = "api_key"
 CONF_SILICONFLOW_API_KEY: Final = "siliconflow_api_key"
 CONF_BEMFA_UID: Final = "bemfa_uid"
 CONF_CUSTOM_COMPONENTS_PATH: Final = "custom_components_path"
-CONF_FORCE_TRANSLATION: Final = "force_translation"
+CONF_FORCE_TRANSLATION: Final = "force_translation"  # 仅用于集成汉化
 CONF_TARGET_COMPONENT: Final = "target_component"
 CONF_LIST_COMPONENTS: Final = "list_components"
 CONF_TARGET_BLUEPRINT: Final = "target_blueprint"
@@ -695,7 +695,6 @@ RECOMMENDED_TRANSLATION_OPTIONS: Final = {
 
 RECOMMENDED_BLUEPRINT_TRANSLATION_OPTIONS: Final = {
     CONF_RECOMMENDED: True,
-    CONF_FORCE_TRANSLATION: False,
     CONF_TARGET_BLUEPRINT: "",
     CONF_LIST_BLUEPRINTS: False,
 }

@@ -325,9 +325,9 @@ translate_blueprints:
       default: ""
       selector:
         text:
-    force_translation:
-      name: 强制汉化
-      description: 无论中文翻译文件是否存在，都强制重新翻译并覆盖现有翻译
+    retranslate:
+      name: 重新汉化
+      description: 强制重新汉化所有蓝图，包括已经汉化过的文件
       required: false
       default: false
       selector:

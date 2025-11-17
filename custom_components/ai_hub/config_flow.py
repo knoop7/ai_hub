@@ -402,16 +402,16 @@ async def ai_hub_config_option_schema(
                     description={"suggested_value": options.get(CONF_LIST_COMPONENTS)},
                 ): bool,
                 vol.Optional(
-                    CONF_TARGET_COMPONENT,
-                    default=options.get(CONF_TARGET_COMPONENT, ""),
-                    description={"suggested_value": options.get(CONF_TARGET_COMPONENT)},
-                ): str,
-                vol.Optional(
                     CONF_FORCE_TRANSLATION,
                     default=options.get(CONF_FORCE_TRANSLATION, False),
                     description={"suggested_value": options.get(CONF_FORCE_TRANSLATION)},
                 ): bool,
-            })
+                vol.Optional(
+                    CONF_TARGET_COMPONENT,
+                    default=options.get(CONF_TARGET_COMPONENT, ""),
+                    description={"suggested_value": options.get(CONF_TARGET_COMPONENT)},
+                ): str,
+              })
         # blueprint_translation doesn't show any options in recommended mode - it's a one-click action
         return schema
 
@@ -589,16 +589,16 @@ async def ai_hub_config_option_schema(
                 description={"suggested_value": options.get(CONF_LIST_COMPONENTS)},
             ): bool,
             vol.Optional(
-                CONF_TARGET_COMPONENT,
-                default=options.get(CONF_TARGET_COMPONENT, ""),
-                description={"suggested_value": options.get(CONF_TARGET_COMPONENT)},
-            ): str,
-            vol.Optional(
                 CONF_FORCE_TRANSLATION,
                 default=options.get(CONF_FORCE_TRANSLATION, False),
                 description={"suggested_value": options.get(CONF_FORCE_TRANSLATION)},
             ): bool,
-        })
+            vol.Optional(
+                CONF_TARGET_COMPONENT,
+                default=options.get(CONF_TARGET_COMPONENT, ""),
+                description={"suggested_value": options.get(CONF_TARGET_COMPONENT)},
+            ): str,
+            })
     # blueprint_translation doesn't show any configuration options - it's a one-click action
 
     return schema
@@ -694,8 +694,8 @@ class AIHubTranslationFlowHandler(ConfigSubentryFlow):
             title=DEFAULT_TRANSLATION_NAME,
             data={
                 CONF_LIST_COMPONENTS: False,
-                CONF_TARGET_COMPONENT: "",
                 CONF_FORCE_TRANSLATION: False,
+                CONF_TARGET_COMPONENT: "",
                 CONF_RECOMMENDED: True,
             }
         )
@@ -735,8 +735,7 @@ class AIHubBlueprintTranslationFlowHandler(ConfigSubentryFlow):
             data={
                 CONF_LIST_BLUEPRINTS: False,
                 CONF_TARGET_BLUEPRINT: "",
-                CONF_FORCE_TRANSLATION: False,
-                CONF_RECOMMENDED: True,
+                  CONF_RECOMMENDED: True,
             }
         )
 

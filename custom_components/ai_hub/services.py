@@ -110,15 +110,15 @@ WECHAT_SCHEMA = {
 # Schema for translation service
 TRANSLATION_SCHEMA = {
     vol.Optional("list_components", default=False): cv.boolean,
-    vol.Optional("target_component", default=""): cv.string,
     vol.Optional("force_translation", default=False): cv.boolean,
+    vol.Optional("target_component", default=""): cv.string,
 }
 
 # Schema for blueprints translation service
 BLUEPRINTS_TRANSLATION_SCHEMA = {
     vol.Optional("list_blueprints", default=False): cv.boolean,
     vol.Optional("target_blueprint", default=""): cv.string,
-    vol.Optional("force_translation", default=False): cv.boolean,
+    vol.Optional("retranslate", default=False): cv.boolean,
 }
 
 
@@ -747,9 +747,9 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             # Get parameters
             list_blueprints = call.data.get("list_blueprints", False)
             target_blueprint = call.data.get("target_blueprint", "").strip()
+            retranslate = call.data.get("retranslate", False)
             # Use standard Home Assistant blueprints directory
             blueprints_path = "/config/blueprints"
-            force_translation = call.data.get("force_translation", False)
 
             # 仅列出模式不需要API密钥
             if not list_blueprints:
@@ -769,7 +769,7 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             result = await hass.async_add_executor_job(
                 translate_all_blueprints,
                 api_key if not list_blueprints else None,
-                force_translation,
+                retranslate,
                 target_blueprint,
                 list_blueprints
             )
@@ -1219,7 +1219,7 @@ def _translate_simple_text(text: str, api_key: str) -> str:
         return text  # Return original on failure
 
 
-def translate_all_blueprints(api_key: str, force_translation: bool = False, target_blueprint: str = "", list_blueprints: bool = False) -> dict:
+def translate_all_blueprints(api_key: str, retranslate: bool = False, target_blueprint: str = "", list_blueprints: bool = False) -> dict:
     """Translate or list blueprints in the standard Home Assistant blueprints directory."""
     # Use standard Home Assistant blueprints directory
     blueprints_path = "/config/blueprints"
@@ -1302,7 +1302,8 @@ def translate_all_blueprints(api_key: str, force_translation: bool = False, targ
     for yaml_file in yaml_files:
         try:
             # 检查是否已经汉化（包含中文字符）
-            if not force_translation:
+            # 蓝图汉化默认跳过已汉化的文件，除非用户选择重新汉化
+            if not retranslate:
                 try:
                     with open(yaml_file, 'r', encoding='utf-8') as f:
                         content_str = f.read()
@@ -1316,7 +1317,8 @@ def translate_all_blueprints(api_key: str, force_translation: bool = False, targ
                 except Exception:
                     pass
 
-            result = translate_blueprint_file(yaml_file, api_key, force_translation)
+            # 翻译文件（或重新汉化）
+            result = translate_blueprint_file(yaml_file, api_key)
             if result == "translated":
                 translated += 1
                 translated_blueprints.append(str(yaml_file.relative_to(base_path)))
@@ -1340,7 +1342,7 @@ def translate_all_blueprints(api_key: str, force_translation: bool = False, targ
     }
 
 
-def translate_blueprint_file(yaml_file: Path, api_key: str, force_translation: bool = False) -> str:
+def translate_blueprint_file(yaml_file: Path, api_key: str) -> str:
     """Translate a single blueprint YAML file in-place."""
     # Always translate the original file directly
     _LOGGER.info(f"Translating {yaml_file.name}")
@@ -1377,8 +1379,27 @@ def translate_blueprint_file(yaml_file: Path, api_key: str, force_translation: b
         if 'input' in blueprint_section and isinstance(blueprint_section['input'], dict):
             translate_blueprint_inputs(blueprint_section['input'], api_key)
 
+        # Translate variables fields
+        if 'variables' in blueprint_section and isinstance(blueprint_section['variables'], dict):
+            translate_blueprint_variables(blueprint_section['variables'], api_key)
+
         # Update the blueprint section
         blueprint_data['blueprint'] = blueprint_section
+
+        # Translate description fields in action, trigger, and condition sections
+        for section in ['action', 'trigger', 'condition']:
+            if section in blueprint_data and isinstance(blueprint_data[section], list):
+                for item in blueprint_data[section]:
+                    if isinstance(item, dict):
+                        translate_blueprint_section_descriptions(item, api_key)
+
+        # Translate mode section
+        if 'mode' in blueprint_data and isinstance(blueprint_data['mode'], dict):
+            translate_blueprint_section_descriptions(blueprint_data['mode'], api_key)
+
+        # Translate trace section
+        if 'trace' in blueprint_data and isinstance(blueprint_data['trace'], dict):
+            translate_blueprint_section_descriptions(blueprint_data['trace'], api_key)
 
         # Save back to original file with custom dumper for Home Assistant tags
         class HomeAssistantDumper(yaml.SafeDumper):
@@ -1406,12 +1427,20 @@ def translate_blueprint_inputs(inputs: dict, api_key: str) -> None:
         if not isinstance(input_config, dict):
             continue
 
-        # Translate name and description
+        # Translate name and description at this level
         if 'name' in input_config and isinstance(input_config['name'], str):
             input_config['name'] = translate_text(input_config['name'], api_key)
 
         if 'description' in input_config and isinstance(input_config['description'], str):
             input_config['description'] = translate_text(input_config['description'], api_key)
+
+        # Translate selector fields at this level
+        if 'selector' in input_config and isinstance(input_config['selector'], dict):
+            translate_blueprint_selectors(input_config['selector'], api_key)
+
+        # 递归处理嵌套的input字段（这是关键修复！）
+        if 'input' in input_config and isinstance(input_config['input'], dict):
+            translate_blueprint_inputs(input_config['input'], api_key)
 
         # Do not translate default values if they look like technical parameters
         if 'default' in input_config:
@@ -1423,3 +1452,66 @@ def translate_blueprint_inputs(inputs: dict, api_key: str) -> None:
                 not any(char in default_val for char in ['.', '_', '-']) and
                 len(default_val.split()) > 1):
                 input_config['default'] = translate_text(default_val, api_key)
+
+
+def translate_blueprint_variables(variables: dict, api_key: str) -> None:
+    """Translate variable descriptions in a blueprint while preserving values."""
+    for var_key, var_config in variables.items():
+        if isinstance(var_config, dict):
+            # Translate name and description if present
+            if 'name' in var_config and isinstance(var_config['name'], str):
+                var_config['name'] = translate_text(var_config['name'], api_key)
+
+            if 'description' in var_config and isinstance(var_config['description'], str):
+                var_config['description'] = translate_text(var_config['description'], api_key)
+
+            # Translate selector fields
+            if 'selector' in var_config and isinstance(var_config['selector'], dict):
+                translate_blueprint_selectors(var_config['selector'], api_key)
+        elif isinstance(var_config, str):
+            # Simple string variable, only translate if it's descriptive
+            if (len(var_config.split()) > 1 and
+                not var_config.startswith('{{') and
+                not var_config.startswith('!') and
+                not var_config.isupper()):
+                variables[var_key] = translate_text(var_config, api_key)
+
+
+def translate_blueprint_selectors(selector: dict, api_key: str) -> None:
+    """Translate selector fields in a blueprint."""
+    for selector_type, config in selector.items():
+        if isinstance(config, dict):
+            # Translate common selector fields
+            for field in ['label', 'description']:
+                if field in config and isinstance(config[field], str):
+                    config[field] = translate_text(config[field], api_key)
+
+            # Translate options if present
+            if 'options' in config and isinstance(config['options'], dict):
+                for option_key, option_value in config['options'].items():
+                    if isinstance(option_value, str) and not option_value.startswith('{{'):
+                        config['options'][option_key] = translate_text(option_value, api_key)
+
+
+def translate_blueprint_section_descriptions(item: dict, api_key: str) -> None:
+    """Translate description fields in blueprint sections."""
+    # Translate description field if present
+    if 'description' in item and isinstance(item['description'], str):
+        item['description'] = translate_text(item['description'], api_key)
+
+    # Translate alias if present
+    if 'alias' in item and isinstance(item['alias'], str):
+        item['alias'] = translate_text(item['alias'], api_key)
+
+    # Translate mode name in mode section
+    if 'mode' in item and isinstance(item['mode'], str):
+        item['mode'] = translate_text(item['mode'], api_key)
+
+    # Recursively translate nested structures
+    for key, value in item.items():
+        if isinstance(value, dict):
+            translate_blueprint_section_descriptions(value, api_key)
+        elif isinstance(value, list):
+            for list_item in value:
+                if isinstance(list_item, dict):
+                    translate_blueprint_section_descriptions(list_item, api_key)

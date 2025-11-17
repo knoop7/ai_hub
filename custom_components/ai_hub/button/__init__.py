@@ -158,7 +158,7 @@ class AIHubBlueprintTranslationButton(ButtonEntity):
                 "translate_blueprints",
                 {
                     "list_blueprints": False,
-                    "force_translation": False
+                    "target_blueprint": ""
                 },
                 blocking=True,
                 return_response=True,
