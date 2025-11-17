@@ -63,7 +63,6 @@ class AIHubWeChatButton(ButtonEntity):
                 {
                     "device_entity": "sun.sun",
                     "message": f"🤖 AI Hub 微信测试 - 时间: {datetime.now().strftime('%H:%M:%S')}",
-                    "group": "test",
                     "url": ""
                 },
                 blocking=True,
@@ -110,7 +109,9 @@ class AIHubTranslationButton(ButtonEntity):
                 "ai_hub",
                 "translate_components",
                 {
-                    "custom_components_path": self._subentry.data.get("custom_components_path", "custom_components")
+                    "list_components": False,
+                    "target_component": "",
+                    "force_translation": False
                 },
                 blocking=True,
                 return_response=True,

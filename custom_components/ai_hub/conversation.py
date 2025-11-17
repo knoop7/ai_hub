@@ -13,7 +13,7 @@ from homeassistant.helpers import intent
 
 from .const import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN
 from .entity import AIHubBaseLLMEntity
-from .intents import extract_intent_info
+from .intents import extract_intent_info, get_intent_handler
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -87,19 +87,15 @@ class AIHubConversationEntity(
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult:
-        """Process a sentence and return a response."""
-        options = self.subentry.data
+        """Process a sentence and return a response.
 
-        # 首先尝试进行意图识别
-        try:
-            intent_info = extract_intent_info(user_input.text, self.hass)
-            if intent_info:
-                _LOGGER.debug("Detected intent: %s", intent_info)
-                result = await self._handle_intent(intent_info, user_input)
-                if result:
-                    return result
-        except Exception as e:
-            _LOGGER.debug("Intent detection failed: %s", e)
+        Processing order:
+        1. Automation request handling
+        2. Enhanced intent matching (this integration's custom intents)
+        3. Fallback to Home Assistant native intent processing
+        4. LLM-powered conversation processing
+        """
+        options = self.subentry.data
 
         # 检查是否是自动化创建请求
         try:
@@ -108,6 +104,91 @@ class AIHubConversationEntity(
                 return automation_result
         except Exception as e:
             _LOGGER.debug("Automation handling failed: %s", e)
+
+        # 步骤2: 使用增强意图处理系统
+        # 优先尝试我们的自定义意图，这些意图提供更丰富的中文支持
+        try:
+            intent_info = await extract_intent_info(user_input.text, self.hass)
+            if intent_info:
+                _LOGGER.debug("Enhanced intent detected: %s", intent_info)
+
+                handler = get_intent_handler(self.hass)
+                result = await handler.handle_intent(intent_info)
+
+                if result.get("success"):
+                    # 增强意图处理成功，直接返回结果
+                    intent_response = intent.IntentResponse(language=user_input.language)
+                    intent_response.async_set_speech(result.get("message", "操作完成"))
+
+                    return conversation.ConversationResult(
+                        response=intent_response,
+                        conversation_id=user_input.conversation_id
+                    )
+                else:
+                    _LOGGER.debug("Enhanced intent handling failed: %s", result.get("error"))
+                    # 增强意图处理失败，继续尝试Home Assistant原生
+            else:
+                _LOGGER.debug("No enhanced intent matched, trying Home Assistant native intents")
+
+        except Exception as e:
+            _LOGGER.debug("Enhanced intent processing failed: %s", e)
+
+        # 步骤3: 回退到Home Assistant原生意图处理
+        # 如果我们的增强意图没有匹配到，尝试使用Home Assistant内置的意图系统
+        try:
+            _LOGGER.debug("Attempting Home Assistant native intent processing")
+
+            # 使用Home Assistant的原生意图识别和处理系统
+            from homeassistant.helpers import intent as ha_intent
+            from homeassistant.components.intent import IntentResponse
+
+            # 尝试识别和处理意图
+            try:
+                # 使用Home Assistant的意图识别器
+                intent_type = await ha_intent.async_match_intent(self.hass, user_input.text, user_input.language)
+
+                if intent_type:
+                    _LOGGER.debug("Home Assistant matched intent: %s", intent_type.intent_type)
+
+                    # 创建意图对象
+                    ha_intent_obj = ha_intent.Intent(
+                        intent_type.intent_type,
+                        slots=intent_type.slots or {}
+                    )
+
+                    # 处理意图
+                    result = await ha_intent.async_handle(
+                        self.hass,
+                        "conversation",  # 使用conversation作为平台
+                        ha_intent_obj,
+                        user_input.text,
+                        user_input.language or "zh-CN"
+                    )
+
+                    # 如果有结果，创建响应
+                    if result and hasattr(result, 'response') and result.response:
+                        speech = result.response.speech.get("plain", {}).get("speech", "")
+                        if speech:
+                            intent_response = IntentResponse(language=user_input.language or "zh-CN")
+                            intent_response.async_set_speech(speech)
+
+                            _LOGGER.debug("Home Assistant native intent processing successful")
+                            return conversation.ConversationResult(
+                                response=intent_response,
+                                conversation_id=user_input.conversation_id
+                            )
+
+                _LOGGER.debug("Home Assistant native intent processing returned no result")
+
+            except ha_intent.UnknownIntent:
+                _LOGGER.debug("No matching Home Assistant native intent found")
+            except Exception as intent_error:
+                _LOGGER.debug("Home Assistant native intent processing error: %s", intent_error)
+
+        except Exception as e:
+            _LOGGER.debug("Failed to setup Home Assistant native intent processing: %s", e)
+
+        # 步骤4: LLM处理 (如果所有意图处理都失败)
 
         try:
             # Provide LLM data (tools, home info, etc.)
@@ -188,12 +269,22 @@ class AIHubConversationEntity(
         """Handle automation creation requests."""
         user_text = user_input.text.lower()
 
-        # 检查是否包含自动化相关的关键词
-        automation_keywords = [
-            "创建自动化", "创建一个自动化", "设置自动化", "自动执行",
-            "automation", "create automation", "自动", "定时执行",
-            "当...时候", "如果...就", "当...就", "帮我创建"
-        ]
+        # 加载配置获取自动化关键词
+        try:
+            from .intents import _load_config
+            config = await _load_config()
+            if not config:
+                _LOGGER.debug("No config available for automation keywords")
+                return None
+
+            automation_keywords = config.get('automation_keywords', [])
+            if not automation_keywords:
+                _LOGGER.debug("No automation_keywords found in config")
+                return None
+
+        except Exception as e:
+            _LOGGER.debug("Failed to load automation keywords: %s", e)
+            return None
 
         if not any(keyword in user_text for keyword in automation_keywords):
             return None
@@ -214,20 +305,41 @@ class AIHubConversationEntity(
             intent_response = intent.IntentResponse(language=user_input.language)
 
             if result.get("success", False):
-                config = result.get("config", {})
-                automation_name = config.get("alias", "新自动化")
-                message = f"我已经为您创建了自动化: {automation_name}"
+                config_data = result.get("config", {})
+                automation_name = config_data.get("alias", "新自动化")
+
+                # 使用配置化的成功消息
+                responses = config.get('responses', {})
+                success_template = responses.get('automation', {}).get('creation_success')
+                if success_template:
+                    try:
+                        message = success_template.format(automation_name=automation_name)
+                    except KeyError:
+                        message = success_template
+                else:
+                    message = f"我已经为您创建了自动化: {automation_name}"
 
                 # 可以添加更多配置详情
-                if config.get("trigger"):
-                    triggers = [t.get("platform", "unknown") for t in config["trigger"]]
+                if config_data.get("trigger"):
+                    triggers = [t.get("platform", "unknown") for t in config_data["trigger"]]
                     message += f"\\n触发条件: {', '.join(triggers)}"
 
                 intent_response.async_set_speech(message)
             else:
+                # 使用配置化的错误消息
+                responses = config.get('responses', {})
+                error_template = responses.get('automation', {}).get('creation_error')
+                if error_template:
+                    try:
+                        error_msg = error_template.format(error=result.get('error', '未知错误'))
+                    except KeyError:
+                        error_msg = error_template
+                else:
+                    error_msg = f"创建自动化失败: {result.get('error', '未知错误')}"
+
                 intent_response.async_set_error(
                     intent.IntentResponseErrorCode.UNKNOWN,
-                    f"创建自动化失败: {result.get('error', '未知错误')}"
+                    error_msg
                 )
 
             return conversation.ConversationResult(
@@ -241,11 +353,26 @@ class AIHubConversationEntity(
 
     def _extract_automation_description(self, user_text: str) -> Optional[str]:
         """Extract automation description from user input."""
-        # 移除常见的自动化创建前缀
-        prefixes = [
-            "创建自动化", "创建一个自动化", "设置自动化", "帮我创建",
-            "create automation", "automation", "自动", "帮我设置"
-        ]
+        # 加载配置获取自动化前缀
+        try:
+            from .intents import _load_config
+            import asyncio
+
+            # Try to get config sync or async
+            try:
+                loop = asyncio.get_running_loop()
+                config = loop.run_until_complete(_load_config())
+            except RuntimeError:
+                config = asyncio.run(_load_config())
+
+            if not config:
+                prefixes = []
+            else:
+                prefixes = config.get('automation_prefixes', [])
+
+        except Exception as e:
+            _LOGGER.debug("Failed to load automation prefixes: %s", e)
+            prefixes = []
 
         description = user_text
         for prefix in prefixes:

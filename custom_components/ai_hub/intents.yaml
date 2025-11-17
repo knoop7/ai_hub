@@ -1,348 +1,480 @@
-language: "zh-cn"
+language: "zh-CN"
+
+# 增强意图配置 - 基于官方中英文意图文件的严格差异分析
+# 完整补充中文官方缺失的所有意图，提供与英文版同等的功能覆盖
+
+# 可配置参数 - 避免硬编码
+cancel_patterns:
+  - "算了"
+  - "取消"
+  - "不用了"
+  - "nevermind"
+  - "cancel"
+
+responses:
+  cancel:
+    message: "好的，已取消。"
+  default:
+    success_message: "操作已完成"
+    error_message: "操作失败，请稍后再试"
+  error:
+    default_error: "操作失败"
+  automation:
+    creation_success: "我已经为您创建了自动化: {automation_name}"
+    creation_error: "创建自动化失败: {error}"
+
+# 自动化关键词配置
+automation_keywords:
+  - "创建自动化"
+  - "创建一个自动化"
+  - "设置自动化"
+  - "自动执行"
+  - "automation"
+  - "create automation"
+  - "定时执行"
+  - "当...时候"
+  - "如果...就"
+  - "当...就"
+  - "帮我创建"
+
+# 自动化创建前缀
+automation_prefixes:
+  - "创建自动化"
+  - "创建一个自动化"
+  - "设置自动化"
+  - "帮我创建"
+  - "create automation"
+  - "帮我设置"
+
+# 配置化的区域和设备名称
+common_areas:
+  - "客厅"
+  - "卧室"
+  - "厨房"
+  - "浴室"
+  - "书房"
+  - "阳台"
+  - "玄关"
+  - "餐厅"
+  - "卫生间"
+  - "车库"
+  - "花园"
+
+# 设备映射配置
+device_mappings:
+  name_to_domain:
+    "灯": "light"
+    "灯光": "light"
+    "照明": "light"
+    "吸顶灯": "light"
+    "筒灯": "light"
+    "射灯": "light"
+    "台灯": "light"
+    "床头灯": "light"
+    "风扇": "fan"
+    "电扇": "fan"
+    "空调": "climate"
+    "电视": "media_player"
+    "音箱": "media_player"
+    "窗帘": "cover"
+    "车库门": "cover"
+    "开关": "switch"
+    "插座": "switch"
+    "扫地机": "vacuum"
+    "吸尘器": "vacuum"
+    "摄像头": "camera"
+    "门锁": "lock"
+
+# 扩展规则 - 性能优化版本
+expansion_rules:
+  let: "请|帮我|麻烦|给|能否|可以吗|麻烦您|劳驾|拜托|请问"
+  turn: "打开|开启|开|启动"
+  close: "关闭|关上|关|停止"
+  set: "设置|设定|调节|调|设"
+  brightness: "亮度|明亮度|光亮度"
+  volume: "音量|声音|声量"
+  temperature: "温度|气温|室温"
+  all: "所有|全部|整个"
+
+
 intents:
 
-  MassPlayMediaAssist:
-    data:
-      - sentences:
-          - "在<area><play>(歌手|艺术家){artist}的(歌|音乐)"
-          - "在<area><play><album>{album}"
-          - "在<area><play><track>{track}"
-          - "在<area><play><playlist>{playlist}"
-          - "在<area><play><radio_station>{radio}"
-        expansion_rules:
-          play: "(play|播放|收听)"
-          track: "(track|歌曲|音乐)"
-          album: "(album|专辑|唱片|合集|单曲)"
-          playlist: "(playlist|播放列表)"
-          radio_station: "(radio_station|广播电台|电台|频道)"
+  # ========== 增强意图 - Home Assistant原生意图的中文增强版本 ==========
 
+  HassTurnOn:
+    use_home_assistant: true
+    data:
+      # 打开所有设备
       - sentences:
-          - "用{name}<play>(歌手|艺术家){artist}的(歌|音乐)"
-          - "用{name}<play><album>{album}"
-          - "用{name}<play><track>{track}"
-          - "用{name}<play><playlist>{playlist}"
-          - "用{name}<play><radio_station>{radio}"
-        expansion_rules:
-          play: "(play|播放|收听)"
-          track: "(track|歌曲|音乐)"
-          album: "(album|专辑|唱片|合集|单曲)"
-          playlist: "(playlist|播放列表)"
-          radio_station: "(radio_station|广播电台|电台|频道)"
+          - "[<let>][打开|开启|开][所有]设备"
+          - "[<let>][打开|开启|开]所有设备"
+          - "[<let>][打开|开启|开][所有][灯]"
+          - "[<let>][打开|开启|开]所有[灯]"
+        slots:
+          domain: "all"
+          name: "all"
+
+      # 打开特定设备
+      - sentences:
+          - "[<let>][打开|开启|开]{name}"
+          - "[<let>]{name}[打开|开启|开]"
+          - "[<let>][把]{name}[打开|开启|开]"
+          - "[<let>][让]{name}[打开|开启|开]"
         requires_context:
-          domain: "media_player"
+          domain: any
 
+      # 打开区域的设备
       - sentences:
-          - "用在<area>[里]的{name}<play>(歌手|艺术家){artist}的(歌|音乐)"
-          - "用在<area>[里]的{name}<play><album>{album}"
-          - "用在<area>[里]的{name}<play><track>{track}"
-          - "用在<area>[里]的{name}<play><playlist>{playlist}"
-          - "用在<area>[里]的{name}<play><radio_station>{radio}"
-        expansion_rules:
-          play: "(play|播放|收听)"
-          track: "(track|歌曲|音乐)"
-          album: "(album|专辑|唱片|合集|单曲)"
-          playlist: "(playlist|播放列表)"
-          radio_station: "(radio_station|广播电台|电台|频道)"
+          - "[<let>][打开|开启|开][所有]{area}[的]设备"
+          - "[<let>][打开|开启|开]{area}[所有]的设备"
+          - "[<let>][打开|开启|开]{area}[所有]的灯"
+          - "[<let>][打开|开启|开][所有]{area}[的]灯"
+        slots:
+          domain: "all"
+          name: "all"
 
+  HassTurnOff:
+    use_home_assistant: true
+    data:
+      # 关闭所有设备
       - sentences:
-          - "<play>(歌手|艺术家){artist}的(歌|音乐)"
-          - "<play><album>{album}"
-          - "<play><track>{track}"
-          - "<play><playlist>{playlist}"
-          - "<play><radio_station>{radio}"
-        expansion_rules:
-          play: "(play|播放|收听)"
-          track: "(track|歌曲|音乐)"
-          album: "(album|专辑|唱片|合集|单曲)"
-          playlist: "(playlist|播放列表)"
-          radio_station: "(radio_station|广播电台|电台|频道)"
+          - "[<let>][关闭|关上|关][所有]设备"
+          - "[<let>][关闭|关上|关]所有设备"
+          - "[<let>][关闭|关上|关][所有][灯]"
+          - "[<let>][关闭|关上|关]所有[灯]"
+        slots:
+          domain: "all"
+          name: "all"
+
+      # 关闭特定设备
+      - sentences:
+          - "[<let>][关闭|关上|关]{name}"
+          - "[<let>]{name}[关闭|关上|关]"
+          - "[<let>][把]{name}[关闭|关上|关]"
+          - "[<let>][让]{name}[关闭|关上|关]"
         requires_context:
-          area:
-            slot: true
+          domain: any
 
-  AI_HUB_CoverGetStateIntent:
+      # 关闭区域的设备
+      - sentences:
+          - "[<let>][关闭|关上|关][所有]{area}[的]设备"
+          - "[<let>][关闭|关上|关]{area}[所有]的设备"
+          - "[<let>][关闭|关上|关]{area}[所有]的灯"
+          - "[<let>][关闭|关上|关][所有]{area}[的]灯"
+        slots:
+          domain: "all"
+          name: "all"
+
+  HassSetPosition: # 灯光亮度控制
+    use_home_assistant: true
     data:
       - sentences:
-          - "[<area>]{name}(是|是不是){cover_states:state}[吗|不]"
-        response: one_yesno
+          - "[<let>][把|将]{name}[的][亮度][调节|设置|设][到][<brightness_level>]"
+          - "[<let>][设置|调节]{name}[亮度][为][<brightness_level>]"
+          - "[<let>]{name}[亮度][调到][<brightness_level>]"
+          - "[<let>][让]{name}[亮度][变为][<brightness_level>]"
+        requires_context:
+          domain: light
+
+  HassTurnOnFan: # 风扇控制
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][打开|开启|开]{name}[风扇]"
+          - "[<let>][启动]{name}[风扇]"
+          - "[<let>]{name}[风扇][打开|开启|开]"
+        requires_context:
+          domain: fan
+
+  HassTurnOffFan: # 关闭风扇
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][关闭|关上|关]{name}[风扇]"
+          - "[<let>][停止]{name}[风扇]"
+          - "[<let>]{name}[风扇][关闭|关上|关]"
+        requires_context:
+          domain: fan
+
+  HassClimateSetTemperature: # 空调温度设置
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][把|将]{name}[温度][设置|设|调][到][<temperature>][度]"
+          - "[<let>][设置|调节]{name}[温度][为][<temperature>][度]"
+          - "[<let>]{name}[温度][调到][<temperature>][度]"
+          - "[<let>][让]{name}[温度][变为][<temperature>][度]"
+        requires_context:
+          domain: climate
+
+  HassMediaNext: # 媒体下一首
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][播放|切换到][下一首|下一个]"
+          - "[<let>][切歌|换一首]"
+          - "[<let>][跳过][这]首[歌]"
+        requires_context:
+          domain: media_player
+
+  HassMediaPrevious: # 媒体上一首
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][播放|切换到][上一首|上一个]"
+          - "[<let>][回到][上一首|上一个]"
+        requires_context:
+          domain: media_player
+
+  HassMediaPause: # 媒体暂停
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][暂停][播放]"
+          - "[<let>][停一下]"
+          - "[<let>][暂停]"
+        requires_context:
+          domain: media_player
+
+  HassMediaUnpause: # 媒体继续播放
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][继续][播放]"
+          - "[<let>][开始][播放]"
+          - "[<let>][播放]"
+        requires_context:
+          domain: media_player
+
+  HassIncreaseVolume: # 增加音量
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][调高|增大|提高][音量]"
+          - "[<let>][声音][大一点]"
+          - "[<let>][音量]+"
+        requires_context:
+          domain: media_player
+
+  HassDecreaseVolume: # 减少音量
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][调低|减小|降低][音量]"
+          - "[<let>][声音][小一点]"
+          - "[<let>][音量]-"
+        requires_context:
+          domain: media_player
+
+  # ========== 查询类意图 ==========
+
+  HassGetState: # 获取设备状态
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][查看|检查|看看]{name}[的][状态]"
+          - "[<let>]{name}[怎么样了|还好吗|状态如何]"
+          - "[<let>][告诉我]{name}[的][状态]"
+        requires_context:
+          domain: any
+
+  HassGetWeather: # 天气查询
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][今天|明天][天气][怎么样]"
+          - "[<let>][查一下][今天|明天][的][天气]"
+          - "[<let>][告诉我][今天|明天][的][天气]"
+          - "[<let>][现在][天气][如何]"
+
+  # ========== 窗帘控制类意图 ==========
+
+  HassOpenCover: # 打开窗帘
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][打开|拉开]{name}"
+          - "[<let>][拉开]{name}[窗帘]"
+          - "[<let>]{name}[窗帘][打开|拉开]"
         requires_context:
           domain: cover
-        slots:
-          domain: cover
 
-      - sentences:
-          - "[{area}][有|有没有]{cover_classes:device_class}[是|是不是]{cover_states:state}[吗|不]"
-        response: any
-        slots:
-          domain: cover
-
-      - sentences:
-          - "[<area>][<all>]{cover_classes:device_class}[是|是不是]都[是]{cover_states:state}[吗|不]"
-          - "<all><area>{cover_classes:device_class}[是|是不是]都[是]{cover_states:state}[吗|不]"
-        response: all
-        slots:
-          domain: cover
-
-      - sentences:
-          - "[<area>]<which>{cover_classes:device_class}[是]{cover_states:state}"
-          - "<which>[<area>]{cover_classes:device_class}[是]{cover_states:state}"
-        response: which
-        slots:
-          domain: cover
-
-      - sentences:
-          - "[{area}]<how_many_is>{cover_classes:device_class}[是]{cover_states:state}"
-          - "<how_many_is>[<area>]{cover_classes:device_class}[是]{cover_states:state}"
-        response: how_many
-        slots:
-          domain: cover
-
-  AI_HUB_CoverSetPositionIntent:
+  HassCloseCover: # 关闭窗帘
+    use_home_assistant: true
     data:
       - sentences:
-          - "(<numeric_value_set>|<open>|<close>) <name> [position] <to> <position>"
+          - "[<let>][关闭|拉上]{name}"
+          - "[<let>][拉上]{name}[窗帘]"
+          - "[<let>]{name}[窗帘][关闭|拉上]"
         requires_context:
           domain: cover
-        slots:
-          domain: cover
 
-      - sentences:
-          - "(<numeric_value_set>|<open>|<close>) <area> {cover_classes:device_class}[ position] <to> <position>"
-        slots:
-          domain: cover
+  # ========== 清洁设备控制 ==========
 
+  HassStart: # 开始清洁
+    use_home_assistant: true
+    data:
       - sentences:
-          - "[<let>] <name> (<numeric_value_set>|<open>|<close>) [position] <to> <position>"
+          - "[<let>][启动|开始]{name}[工作|清洁]"
+          - "[<let>]{name}[开始][清洁|工作]"
+          - "[<let>][让]{name}[开始][清洁]"
         requires_context:
-          domain: cover
-        slots:
-          domain: cover
+          domain: vacuum
 
-      - sentences:
-          - "[<let>]<area>{cover_classes:device_class}(<numeric_value_set>|<open>|<close>)[ position] <to> <position>"
-        slots:
-          domain: cover
-
-  HassGetState:
+  HassPause: # 暂停清洁
+    use_home_assistant: true
     data:
       - sentences:
-          - "[查询|查看][<area>]{name}[的]状态"
-          - "[<area>]{name}[现在|当前]是什么状态"
-          - "[<area>]{name}[怎么样|如何]"
-        slots:
-          domain: all
-
-      - sentences:
-          - "[<area>]{name}[的锁](是不是|有没有){lock_states:state}"
-          - "[<area>]{name}[的锁][是|有]{lock_states:state}[吗|不]"
-        response: one_yesno
+          - "[<let>][暂停]{name}[工作|清洁]"
+          - "[<let>]{name}[暂停][工作]"
+          - "[<let>][让]{name}[暂停]"
         requires_context:
-          domain: lock
-        slots:
-          domain: lock
+          domain: vacuum
 
-  AI HubWebSearch:
+  HassReturnToBase: # 回充
+    use_home_assistant: true
     data:
       - sentences:
-          - "(联网|上网|互联网)(搜索|查找|查询){query}"
-          - "[帮我|请](联网|上网|互联网)(搜索|查找|查询){query}"
-          - "(百度|谷歌|必应|夸克|搜狗|gj|jc|sg|kk)(搜索|查找|查询){query}"
-          - "(夸克|高阶版|基础版|搜索|搜狗)(搜索|查找|查询){query}"
-        slots:
-          query:
-            type: text
-            example: "中国队奥运会奖牌数"
-          search_engine:
-            type: list
-            values:
-              - "基础版"
-              - "高阶版"
-              - "夸克"
-              - "搜狗"
-              - "jc"
-              - "gj"
-              - "kk"
-              - "sg"
+          - "[<let>]{name}[回][去][充电]"
+          - "[<let>][让]{name}[回][去][充电]"
+          - "[<let>]{name}[返回][充电座]"
+        requires_context:
+          domain: vacuum
 
-  CameraAnalyzeIntent:
+  # ========== 通用控制意图 ==========
+
+  HassToggle: # 切换设备状态
+    use_home_assistant: true
     data:
       - sentences:
-          - "查看{camera_name}的{question}"
-          - "看看{camera_name}的{question}"
-          - "告诉我{camera_name}的{question}"
-          - "{camera_name}现在{question}"
-          - "分析{camera_name}的{question}"
-          - "查看{camera_name}的{question}"
-          - "检查{camera_name}的{question}"
-          - "观察{camera_name}的{question}"
-          - "识别{camera_name}的{question}"
-          - "告诉我{camera_name}的{question}"
-          - "帮我看看{camera_name}的{question}"
-          - "帮我分析{camera_name}的{question}"
-          - "帮我检查{camera_name}的{question}"
-          - "帮我识别{camera_name}的{question}"
-          - "{camera_name}那里的{question}"
-          - "{camera_name}现在的{question}"
-          - "{camera_name}目前的{question}"
-          - "看一下{camera_name}的{question}"
-          - "分析一下{camera_name}的{question}"
-          - "检查一下{camera_name}的{question}"
-          - "观察一下{camera_name}的{question}"
-          - "识别一下{camera_name}的{question}"
-          - "分析下{camera_name}{question}"
-          - "查看下{camera_name}{question}"
-          - "看看{camera_name}{question}"
-          - "analyze {camera_name} {question}"
-          - "check {camera_name} {question}"
-          - "look at {camera_name} {question}"
-          - "identify {camera_name} {question}"
-        slots:
-          camera_name:
-            type: text
-          question:
-            type: text
-    speech:
-      text: "正在分析摄像头画面，请稍等..."
+          - "[<let>][切换]{name}[状态]"
+          - "[<let>][切换]{name}"
+          - "[<let>]{name}[切换][一下]"
+        requires_context:
+          domain: any
 
-  HassTimerIntent:
-    action:
-      - timer
-    speech:
-      text: 设置计时器
-    slots:
-      action:
-        type: text
-      duration:
-        type: text
-      timer_name:
-        type: text
-    templates:
-      - "[设置|创建|添加|开始|启动]一个{duration}的[计时器|定时器]{timer_name}"
-      - "[设置|创建|添加|开始|启动]{duration}的[计时器|定时器]{timer_name}"
-      - "在{duration}[后|以后|之后][提醒我|叫我|通知我]{timer_name}"
-      - "{duration}[后|以后|之后][提醒我|叫我|通知我]{timer_name}"
-      - "[设置|创建|添加|开始|启动]{duration}[倒计时|计时]{timer_name}"
-      - "[取消|停止|关闭|结束|删除][计时器|定时器]{timer_name}"
-      - "{duration}[后|以后|之后][叫我|提示我]{timer_name}"
-
-  HassNotifyIntent:
-    action:
-      - notify
-    speech:
-      text: 发送通知
-    slots:
-      message:
-        type: text
-    templates:
-      - "[记住|记录|记一下|备忘]{message}"
-      - "帮我[记住|记录|记一下|备忘]{message}"
-      - "[创建|发送|做个]通知{message}"
-      - "[记住|记录|记一下|备忘][这个|这件事]{message}"
-      - "帮我[记住|记录|记一下|备忘][这个|这件事]{message}"
-      - "[帮我|请|麻烦|给我][记住|记录|记一下|备忘][这个|这件事]{message}"
-      - "[帮我|请|麻烦|给我][创建|发送]一个通知{message}"
-      - "[提醒我|提醒|提醒一下]{message}"
-      - "帮我[提醒|提醒一下]{message}"
-      - "帮我[提醒|提醒一下][这个|这件事]{message}"
-
-  ClimateSetTemperature:
+  HassCancel: # 取消操作 - 最高优先级，直接处理
+    use_home_assistant: false
+    bypass_home_assistant: true
     data:
       - sentences:
-          - "[把|将]{name}[温度|]调[到|成|为]{temperature}[度|]"
-          - "[把|将]{name}调[到|成|为]{temperature}[度|]"
-          - "设置{name}[温度|]为{temperature}[度|]"
-          - "{name}[温度|]调[到|成|为]{temperature}[度|]"
-          - "调{name}[温度|]到{temperature}[度|]"
-          - "把{name}的温度调[到|成|为]{temperature}[度|]"
-          - "给{name}[调|设置]温度[到|为]{temperature}[度|]"
-        slots:
-          name:
-            type: text
-          temperature:
-            type: number
+          - "[<let>][算了|取消|不用了]"
+          - "[<let>]nevermind"
+          - "[<let>]cancel"
 
-  ClimateSetMode:
+  # ========== 定时器意图 ==========
+
+  TimerStart: # 开始定时
+    use_home_assistant: true
     data:
       - sentences:
-          - "[把|将]{name}设[为|成]{mode}[模式|]"
-          - "设置{name}为{mode}[模式|]"
-          - "{name}[切换到|改成|改为]{mode}[模式|]"
-          - "[打开|启动]{name}[的|]{mode}[模式|]"
-          - "{name}{mode}[模式|]"
-        slots:
-          name:
-            type: text
-          mode:
-            type: list
-            values:
-              - 制冷
-              - 制热
-              - 自动
-              - 除湿
-              - 送风
-              - 关闭
-              - 停止
+          - "[<let>][设置|设定]定时器[<timer_duration>]"
+          - "[<let>][定时][<timer_duration>]"
+          - "[<let>][提醒][我][<timer_duration>][后]"
 
-  ClimateSetFanMode:
+  TimerCancel: # 取消定时
+    use_home_assistant: true
     data:
       - sentences:
-          - "[把|将]{name}[的|]风速调[到|成|为]{fan_mode}"
-          - "设置{name}[的|]风速[为|到]{fan_mode}"
-          - "{name}风速调[成|为]{fan_mode}"
-          - "调[整|]{name}[的|]风速[为|到]{fan_mode}"
-          - "{name}调[成|为]{fan_mode}风速"
-        slots:
-          name:
-            type: text
-          fan_mode:
-            type: list
-            values:
-              - 高档
-              - 低档
-              - 高速
-              - 低速
-              - 自动高
-              - 自动低
-              - 强劲
-              - 自动
+          - "[<let>][取消][定时器]"
+          - "[<let>][停止][定时器]"
+          - "[<let>][关掉][定时器]"
 
-  ClimateSetSwingMode:
+  HassShoppingListAddItem: # 购物清单添加
+    use_home_assistant: true
     data:
       - sentences:
-          - "[把|将]{name}[的|]摆风[设置|调|调到|调成|改成|改到]{swing_mode}"
-          - "[把|将]{name}[的|]摆动[设置|调|调到|调成|改成|改到]{swing_mode}"
-          - "设置{name}[的|]摆风[为|到]{swing_mode}"
-          - "设置{name}[的|]摆动[为|到]{swing_mode}"
-        slots:
-          name:
-            type: text
-          swing_mode:
-            type: text
-        response:
-          success: 已将{name}的摆动模式设置为{swing_mode}
-          not_found: 找不到名为{name}的空调
-          not_supported: "{name}不支持摆动模式设置"
-          invalid_mode: 不支持的摆动模式。{name}支持的模式有：{modes}
-          operation_failed: 设置摆动模式失败：{error}
+          - "[<let>][添加]{item}[到][购物清单]"
+          - "[<let>][把]{item}[加入][购物清单]"
+          - "[<let>][购物清单][添加]{item}"
 
+  # ========== 摄像头意图 ==========
 
-  ClimateSetHumidity:
+  HassCameraRecord: # 录制视频
+    use_home_assistant: true
     data:
       - sentences:
-          - "[把|将]{name}[的|]湿度[设置|调][到|成|为]{humidity}[%|度]"
-          - "设置{name}[的|]湿度[为|到]{humidity}[%|度]"
-          - "{name}湿度[设置|调][成|为]{humidity}[%|度]"
-          - "调[整|]{name}[的|]湿度[为|到]{humidity}[%|度]"
-        slots:
-          name:
-            type: text
-          humidity:
-            type: number
-        response:
-          success:
-            text: 已将{name}湿度设置为{humidity}%
-          error:
-            not_found: 未找到名为{name}的空调
-            operation_failed: 设置湿度失败，{error}
-            invalid_humidity: 湿度必须在0%到100%之间
+          - "[<let>][开始][录制]{name}[视频]"
+          - "[<let>]{name}[开始][录制]"
+          - "[<let>][录制]{name}[视频]"
+        requires_context:
+          domain: camera
 
+  HassCameraImage: # 拍照
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][拍一张][照片]"
+          - "[<let>][给][我][拍照]"
+          - "[<let>][拍摄][照片]"
+        requires_context:
+          domain: camera
+
+  HassCameraStream: # 查看实时画面
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][查看|看看]{name}[实时画面]"
+          - "[<let>]{name}[实时画面]"
+          - "[<let>][打开]{name}[摄像头]"
+        requires_context:
+          domain: camera
+
+  # ========== 场景意图 ==========
+
+  HassActivateScene: # 激活场景
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][激活|启动|开启]{name}[场景]"
+          - "[<let>][执行]{name}[场景]"
+          - "[<let>]{name}[场景][激活|启动]"
+        requires_context:
+          domain: scene
+
+  # ========== 音乐控制意图 ==========
+
+  MusicPlay: # 播放音乐
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][播放][音乐|歌曲]"
+          - "[<let>][来][点][音乐|歌曲]"
+          - "[<let>][放一首][歌]"
+        requires_context:
+          domain: media_player
+
+  MusicPlayQuery: # 搜索播放
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][播放|放|听|看][音乐|歌曲|视频]{query}"
+          - "[<let>][帮我|请][播放|放|听|看][音乐|歌曲|视频]{query}"
+        requires_context:
+          domain: media_player
+
+  # ========== 自定义AI助手意图 ==========
+
+  AIAssistantIntent: # AI助手对话 - 自定义意图，不经过HA
+    use_home_assistant: false
+    bypass_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>]ai助手[帮我|请|麻烦]"
+          - "[<let>][ai助手|智能助手][帮我|请|麻烦]{message}"
+          - "[<let>][你好|您好|hi|hello]"
+          - "[<let>][谢谢|感谢|thank you]"
+          - "[<let>][我们|让我][聊天|说话|对话]吧"
+          - "[<let>][请问|可以|能不能][问|说|告诉]我{message}"
+          - "[<let>][让我知道]{message}"
+
+  # ========== 感谢意图 ==========
+
+  HassThankYou: # 感谢意图 - 自定义意图，不经过HA
+    use_home_assistant: false
+    bypass_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][谢谢|感谢|thank you]"
+          - "[<let>]多谢"
+          - "[<let>]非常感谢"
