@@ -8,8 +8,6 @@ cancel_patterns:
   - "算了"
   - "取消"
   - "不用了"
-  - "nevermind"
-  - "cancel"
 
 responses:
   cancel:
@@ -95,6 +93,11 @@ expansion_rules:
   volume: "音量|声音|声量"
   temperature: "温度|气温|室温"
   all: "所有|全部|整个"
+  brightness_level: "1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95|96|97|98|99|100"
+  volume_level: "0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95|96|97|98|99|100"
+  color: "红色|绿色|蓝色|黄色|白色|黑色|橙色|紫色|粉色|棕色|灰色"
+  percentage: "1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59|60|61|62|63|64|65|66|67|68|69|70|71|72|73|74|75|76|77|78|79|80|81|82|83|84|85|86|87|88|89|90|91|92|93|94|95|96|97|98|99|100"
+  timer_duration: "1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31|32|33|34|35|36|37|38|39|40|41|42|43|44|45|46|47|48|49|50|51|52|53|54|55|56|57|58|59"
 
 
 intents:
@@ -110,9 +113,7 @@ intents:
           - "[<let>][打开|开启|开]所有设备"
           - "[<let>][打开|开启|开][所有][灯]"
           - "[<let>][打开|开启|开]所有[灯]"
-        slots:
-          domain: "all"
-          name: "all"
+        # 不指定domain和name，让Home Assistant自动处理"所有"
 
       # 打开特定设备
       - sentences:
@@ -155,17 +156,22 @@ intents:
         requires_context:
           domain: any
 
-      # 关闭区域的设备
+      # 关闭所有设备
+      - sentences:
+          - "[<let>][关闭|关上|关][所有]设备"
+          - "[<let>][关闭|关上|关]所有设备"
+          - "[<let>][关闭|关上|关][所有][灯]"
+          - "[<let>][关闭|关上|关]所有[灯]"
+        # 不指定domain和name，让Home Assistant自动处理"所有"
+
+    # 关闭区域的设备
       - sentences:
           - "[<let>][关闭|关上|关][所有]{area}[的]设备"
           - "[<let>][关闭|关上|关]{area}[所有]的设备"
           - "[<let>][关闭|关上|关]{area}[所有]的灯"
           - "[<let>][关闭|关上|关][所有]{area}[的]灯"
-        slots:
-          domain: "all"
-          name: "all"
 
-  HassSetPosition: # 灯光亮度控制
+  HassSetPosition: # 灯光亮度控制 - 保留原有功能
     use_home_assistant: true
     data:
       - sentences:
@@ -175,6 +181,60 @@ intents:
           - "[<let>][让]{name}[亮度][变为][<brightness_level>]"
         requires_context:
           domain: light
+
+  HassLightSet: # 完整的灯光控制 - 新增官方意图
+    use_home_assistant: true
+    data:
+      # 亮度控制
+      - sentences:
+          - "[<let>][把|将]{name}[的][亮度][调|设][到][<brightness_level>%]"
+          - "[<let>][设置|调节]{name}[亮度][为][<brightness_level>%]"
+          - "[<let>]{name}[亮度][调到][<brightness_level>%]"
+          - "[<let>][把|将]{name}[的][亮度][设为][<brightness_level>]"
+          - "[<let>][让]{name}[亮度][变为][<brightness_level>]"
+          - "[<let>]{name}[亮度][<brightness_level>]"
+        requires_context:
+          domain: light
+
+      # 颜色控制
+      - sentences:
+          - "[<let>][把|将]{name}[的][颜色][调|设][为]{color}"
+          - "[<let>][设置|调节]{name}[为]{color}色"
+          - "[<let>]{name}[灯光][变成]{color}"
+          - "[<let>][把|将]{name}[设成]{color}色"
+          - "[<let>]{name}[变成]{color}色"
+          - "[<let>]{name}[是]{color}色"
+        requires_context:
+          domain: light
+
+      # 区域灯光亮度控制
+      - sentences:
+          - "[<let>][把|将]{area}[的][灯][亮度][调|设][到][<brightness_level>%]"
+          - "[<let>][设置|调节]{area}[的][灯][亮度][为][<brightness_level>%]"
+          - "[<let>]{area}[的][灯][亮度][调到][<brightness_level>%]"
+        slots:
+          domain: "light"
+          name: "all"
+
+      # 区域灯光颜色控制
+      - sentences:
+          - "[<let>][把|将]{area}[的][灯][设为]{color}色"
+          - "[<let>][设置]{area}[的][灯][为]{color}色"
+          - "[<let>]{area}[的][灯][变成]{color}"
+        slots:
+          domain: "light"
+          name: "all"
+
+      # 所有灯光颜色控制
+      - sentences:
+          - "[<let>][把|将][所有]的[灯][设为]{color}色"
+          - "[<let>][把|将][所有][灯][设为]{color}色"
+          - "[<let>][设置][所有]的[灯][为]{color}色"
+          - "[<let>][设置][所有][灯][为]{color}色"
+          - "[<let>][所有]的[灯][变成]{color}"
+          - "[<let>][所有][灯][变成]{color}"
+          - "[<let>][所有]的[灯][全调成]{color}"
+          - "[<let>][所有][灯][全调成]{color}"
 
   HassTurnOnFan: # 风扇控制
     use_home_assistant: true
@@ -196,6 +256,26 @@ intents:
         requires_context:
           domain: fan
 
+  HassFanSetSpeed: # 风扇速度设置 - 新增官方意图
+    use_home_assistant: true
+    data:
+      # 特定设备速度设置
+      - sentences:
+          - "[<let>][把|将]{name}[风速|速度][调|设][到][<percentage>%]"
+          - "[<let>][设置]{name}[风速|速度][为][<percentage>%]"
+          - "[<let>]{name}[风速|速度][设为][<percentage>%]"
+          - "[<let>]{name}[风速|速度][<percentage>%]"
+        requires_context:
+          domain: fan
+
+      # 区域风扇速度设置
+      - sentences:
+          - "[<let>][把|将]{area}[的]风扇[风速|速度][调|设][到][<percentage>%]"
+          - "[<let>][设置]{area}[的]风扇[风速|速度][为][<percentage>%]"
+          - "[<let>]{area}[的]风扇[风速|速度][设为][<percentage>%]"
+        slots:
+          domain: "fan"
+
   HassClimateSetTemperature: # 空调温度设置
     use_home_assistant: true
     data:
@@ -206,6 +286,33 @@ intents:
           - "[<let>][让]{name}[温度][变为][<temperature>][度]"
         requires_context:
           domain: climate
+
+  HassClimateGetTemperature: # 获取当前温度 - 新增官方意图
+    use_home_assistant: true
+    data:
+      # 通用温度查询
+      - sentences:
+          - "[<let>][现在|当前][多少度|几度|温度多少]"
+          - "[<let>][现在|当前][温度][是多少|怎么样]"
+          - "[<let>][查看|看看][温度]"
+        requires_context:
+          domain: climate
+
+      # 特定设备温度查询
+      - sentences:
+          - "[<let>]{name}[现在|当前][多少度|几度]"
+          - "[<let>]{name}[的][温度][是多少|怎么样]"
+          - "[<let>][查看|看看]{name}[的][温度]"
+        requires_context:
+          domain: climate
+
+      # 区域温度查询
+      - sentences:
+          - "[<let>]{area}[现在|当前][多少度|几度]"
+          - "[<let>]{area}[的][温度][是多少|怎么样]"
+          - "[<let>][查看|看看]{area}[的][温度]"
+        slots:
+          domain: "climate"
 
   HassMediaNext: # 媒体下一首
     use_home_assistant: true
@@ -266,6 +373,71 @@ intents:
         requires_context:
           domain: media_player
 
+  HassSetVolume: # 精确音量设置 - 新增官方意图
+    use_home_assistant: true
+    data:
+      # 具体音量值设置
+      - sentences:
+          - "[<let>][把|将]音量[调|设][到][<volume_level>%]"
+          - "[<let>][设置]音量[为][<volume_level>%]"
+          - "[<let>][音量][设为][<volume_level>%]"
+          - "[<let>][音量][<volume_level>%]"
+        requires_context:
+          domain: media_player
+
+      # 特定设备音量设置
+      - sentences:
+          - "[<let>][把|将]{name}[的]音量[调|设][到][<volume_level>%]"
+          - "[<let>][设置]{name}[的]音量[为][<volume_level>%]"
+          - "[<let>]{name}[音量][设为][<volume_level>%]"
+          - "[<let>]{name}[音量][<volume_level>%]"
+        requires_context:
+          domain: media_player
+
+      # 区域音量设置
+      - sentences:
+          - "[<let>][把|将]{area}[的]音量[调|设][到][<volume_level>%]"
+          - "[<let>][设置]{area}[的]音量[为][<volume_level>%]"
+          - "[<let>]{area}[的]音量[设为][<volume_level>%]"
+        slots:
+          domain: "media_player"
+
+  HassMediaPlayerMute: # 静音 - 新增官方意图
+    use_home_assistant: true
+    data:
+      # 通用静音
+      - sentences:
+          - "[<let>][静音|关闭声音|消音]"
+          - "[<let>][把|将]声音[关了|静音]"
+        requires_context:
+          domain: media_player
+
+      # 特定设备静音
+      - sentences:
+          - "[<let>][把|将]{name}[静音|消音]"
+          - "[<let>]{name}[静音|消音|关闭声音]"
+          - "[<let>][关掉]{name}[的声音]"
+        requires_context:
+          domain: media_player
+
+  HassMediaPlayerUnmute: # 取消静音 - 新增官方意图
+    use_home_assistant: true
+    data:
+      # 通用取消静音
+      - sentences:
+          - "[<let>][取消静音|打开声音|恢复声音]"
+          - "[<let>][把|将]声音[打开|恢复]"
+        requires_context:
+          domain: media_player
+
+      # 特定设备取消静音
+      - sentences:
+          - "[<let>][把|将]{name}[取消静音|恢复声音]"
+          - "[<let>]{name}[取消静音|恢复声音|打开声音]"
+          - "[<let>][打开]{name}[的声音]"
+        requires_context:
+          domain: media_player
+
   # ========== 查询类意图 ==========
 
   HassGetState: # 获取设备状态
@@ -286,6 +458,24 @@ intents:
           - "[<let>][查一下][今天|明天][的][天气]"
           - "[<let>][告诉我][今天|明天][的][天气]"
           - "[<let>][现在][天气][如何]"
+
+  HassGetCurrentTime: # 获取当前时间 - 新增官方意图
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][现在|当前][几点|什么时间]"
+          - "[<let>][现在|当前][时间][是多少]"
+          - "[<let>][查看|看看][时间]"
+          - "[<let>][报时]"
+
+  HassGetCurrentDate: # 获取当前日期 - 新增官方意图
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][今天][几号|什么日期]"
+          - "[<let>][今天][是][几月几号]"
+          - "[<let>][当前][日期][是什么]"
+          - "[<let>][查看|看看][日期]"
 
   # ========== 窗帘控制类意图 ==========
 
@@ -359,8 +549,21 @@ intents:
     data:
       - sentences:
           - "[<let>][算了|取消|不用了]"
-          - "[<let>]nevermind"
-          - "[<let>]cancel"
+
+  HassNevermind: # 取消请求 - 官方版本
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][算了|不用了|没关系]"
+          - "[<let>][忘记吧]"
+
+  HassRespond: # 回应消息 - 官方版本
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][好的|收到|明白|知道了]"
+          - "[<let>][没问题|可以|行]"
+          - "[<let>][我明白了]"
 
   # ========== 定时器意图 ==========
 
@@ -368,9 +571,12 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "[<let>][设置|设定]定时器[<timer_duration>]"
-          - "[<let>][定时][<timer_duration>]"
-          - "[<let>][提醒][我][<timer_duration>][后]"
+          - "[<let>][设置|设定]定时器[{timer_duration}][{timer_unit}]"
+          - "[<let>][定时][{timer_duration}][{timer_unit}]"
+          - "[<let>][提醒][我][{timer_duration}][{timer_unit}][后]"
+          - "[<let>][{timer_duration}][{timer_unit}][后][提醒我]"
+          - "[<let>][{timer_duration}][{timer_unit}][定时器]"
+          - "[<let>][设置][{timer_duration}][{timer_unit}]"
 
   TimerCancel: # 取消定时
     use_home_assistant: true
@@ -379,6 +585,48 @@ intents:
           - "[<let>][取消][定时器]"
           - "[<let>][停止][定时器]"
           - "[<let>][关掉][定时器]"
+          - "[<let>][定时器][取消]"
+
+  HassTimerStatus: # 查询定时器状态 - 新增官方意图
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][定时器][还有][多长时间|多久]"
+          - "[<let>][查看|看看][定时器][状态]"
+          - "[<let>][定时器][还剩][多长时间|多久]"
+          - "[<let>][定时器][怎么样了|还好吗]"
+
+  HassIncreaseTimer: # 增加定时时间 - 新增官方意图
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][给][定时器][增加|加][{timer_duration}][{timer_unit}]"
+          - "[<let>][定时器][延长][{timer_duration}][{timer_unit}]"
+          - "[<let>][把][定时器][延长][{timer_duration}][{timer_unit}]"
+
+  HassDecreaseTimer: # 减少定时时间 - 新增官方意图
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][给][定时器][减少|减][{timer_duration}][{timer_unit}]"
+          - "[<let>][定时器][缩短][{timer_duration}][{timer_unit}]"
+          - "[<let>][把][定时器][缩短][{timer_duration}][{timer_unit}]"
+
+  HassPauseTimer: # 暂停定时器 - 新增官方意图
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][暂停][定时器]"
+          - "[<let>][定时器][暂停一下]"
+          - "[<let>][把][定时器][暂停]"
+
+  HassUnpauseTimer: # 继续定时器 - 新增官方意图
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][继续|恢复][定时器]"
+          - "[<let>][定时器][继续|恢复]"
+          - "[<let>][把][定时器][继续|恢复]"
 
   HassShoppingListAddItem: # 购物清单添加
     use_home_assistant: true
@@ -387,6 +635,18 @@ intents:
           - "[<let>][添加]{item}[到][购物清单]"
           - "[<let>][把]{item}[加入][购物清单]"
           - "[<let>][购物清单][添加]{item}"
+          - "[<let>][买]{item}"
+          - "[<let>][我要买]{item}"
+
+  HassShoppingListCompleteItem: # 购物清单完成 - 新增官方意图
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>][标记|把]{item}[标记为][已购买|已完成]"
+          - "[<let>][把]{item}[从][购物清单][划掉|删除|去掉]"
+          - "[<let>][完成]{item}[的购买]"
+          - "[<let>]{item}[已经买了|已购买]"
+          - "[<let>][勾掉]{item}"
 
   # ========== 摄像头意图 ==========
 

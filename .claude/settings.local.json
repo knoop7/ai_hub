@@ -11,7 +11,8 @@
       "Bash(find:*)",
       "Bash(python:*)",
       "WebFetch(domain:open.bigmodel.cn)",
-      "Read(//c/Users/**)"
+      "Read(//c/Users/**)",
+      "Bash(cd \"C:\\Users\\djhui\\OneDrive\\Github\\ai_hub\\custom_components\\ai_hub\" and grep \"\\[<let>\\]\" intents.yaml)"
     ],
     "deny": [],
     "ask": []
