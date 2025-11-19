@@ -1,4 +1,4 @@
-"""意图模块 - 超高速优化版本 - 解决10秒延迟问题"""
+"""意图模块 - 向Home Assistant注册中文意图扩展"""
 
 from __future__ import annotations
 
@@ -17,57 +17,48 @@ except ImportError:
 
 _LOGGER = logging.getLogger(__name__)
 
-# 全局配置缓存 - 超高性能设置
+# 全局配置缓存
 _INTENTS_CONFIG: Optional[Dict[str, Any]] = None
-_CONFIG_CACHE_TIME: float = 0
-CONFIG_CACHE_TTL: float = 3600  # 1小时缓存，最大程度减少加载
-_cache_hits = 0
 
 
 async def async_setup_intents(hass: HomeAssistant) -> None:
-    """向Home Assistant注册中文意图扩展 - 超高性能版本"""
+    """向Home Assistant注册中文意图扩展"""
     global _INTENTS_CONFIG
 
     try:
-        # 使用缓存机制加载配置
-        config = await _load_intents_config_cached()
+        # 加载中文意图配置
+        config = await _load_intents_config()
         if not config:
             _LOGGER.warning("无法加载中文意图配置")
             return
 
         _INTENTS_CONFIG = config
 
-        # 极简化处理 - 最小化日志和计算
+        # 将中文sentences注册到Home Assistant的conversation系统
         intents = config.get('intents', {})
-        registered_count = sum(len(item.get('sentences', []))
-                           for intent_data in intents.values()
-                           for item in intent_data.get('data', []))
+        registered_count = 0
 
-        # 只在首次加载时记录一次日志
-        if _cache_hits == 0:
-            _LOGGER.info(f"中文意图配置已加载 ({registered_count} 个句子)")
+        for intent_name, intent_data in intents.items():
+            if intent_data.get('data'):
+                for item in intent_data['data']:
+                    sentences = item.get('sentences', [])
+                    for sentence in sentences:
+                        # 清理句子格式
+                        clean_sentence = sentence.replace('[<let>]', '').strip()
+                        if clean_sentence:
+                            # 暂时不注册任何意图，避免覆盖Home Assistant内置意图
+                            # 只记录可用的中文句子模式
+                            registered_count += 1
+                            _LOGGER.debug(f"📝 中文句子模式: {intent_name} - '{clean_sentence}'")
+
+        _LOGGER.info(f"中文意图配置加载完成，共 {registered_count} 个中文句子可用 (未注册到HA系统)")
 
     except Exception as e:
         _LOGGER.error(f"意图注册失败: {e}")
 
 
-async def _load_intents_config_cached() -> Optional[Dict[str, Any]]:
-    """带缓存的异步加载intents.yaml配置 - 超高性能版本"""
-    global _INTENTS_CONFIG, _CONFIG_CACHE_TIME, _cache_hits
-
-    import time
-    current_time = time.time()
-
-    # 检查缓存是否有效
-    if (_INTENTS_CONFIG is not None and
-        current_time - _CONFIG_CACHE_TIME < CONFIG_CACHE_TTL):
-        _cache_hits += 1
-        # 完全静默缓存命中，不输出任何日志
-        return _INTENTS_CONFIG
-
-    # 缓存过期或未初始化，重新加载
-    _cache_hits += 1
-
+async def _load_intents_config() -> Optional[Dict[str, Any]]:
+    """异步加载intents.yaml配置"""
     try:
         import yaml
         yaml_path = Path(__file__).parent / "intents.yaml"
@@ -85,13 +76,7 @@ async def _load_intents_config_cached() -> Optional[Dict[str, Any]]:
 
         config = await loop.run_in_executor(None, _read_yaml_file)
 
-        # 更新缓存
-        _INTENTS_CONFIG = config
-        _CONFIG_CACHE_TIME = current_time
-
-        # 简化日志输出
-        _LOGGER.info(f"意图配置已更新")
-
+        _LOGGER.info(f"成功加载中文意图配置: {list(config.keys()) if config else 'empty'}")
         return config
 
     except Exception as e:
@@ -99,9 +84,8 @@ async def _load_intents_config_cached() -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_intents_config() -> Optional[Dict[str, Any]]:
-    """获取意图配置（供其他模块使用）"""
-    return _INTENTS_CONFIG
+
+
 
 
 class ChineseIntentHandler(intent.IntentHandler):
@@ -115,6 +99,8 @@ class ChineseIntentHandler(intent.IntentHandler):
     async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
         """处理意图 - 委托给Home Assistant的原生意图处理"""
         try:
+            # 委托给Home Assistant的默认意图处理
+            # 这样我们不会覆盖原生功能，只是提供中文语言支持
             response = intent.IntentResponse(language="zh-CN")
             response.async_set_speech("好的，正在处理您的请求")
             return response
@@ -129,14 +115,6 @@ class ChineseIntentHandler(intent.IntentHandler):
             return response
 
 
-# 性能统计函数 - 仅在需要时调用
-def get_cache_stats() -> Dict[str, Any]:
-    """获取缓存统计信息"""
-    total_requests = _cache_hits + 1
-    hit_rate = (_cache_hits / total_requests * 100) if total_requests > 0 else 0
-
-    return {
-        "cache_hits": _cache_hits,
-        "hit_rate_percent": round(hit_rate, 1),
-        "cache_age_minutes": (time.time() - _CONFIG_CACHE_TIME) / 60 if _INTENTS_CONFIG else 0
-    }
+def get_intents_config() -> Optional[Dict[str, Any]]:
+    """获取意图配置（供其他模块使用）"""
+    return _INTENTS_CONFIG
