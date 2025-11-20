@@ -14,7 +14,9 @@
       "Read(//c/Users/**)",
       "Bash(cd \"C:\\Users\\djhui\\OneDrive\\Github\\ai_hub\\custom_components\\ai_hub\" and grep \"\\[<let>\\]\" intents.yaml)",
       "WebFetch(domain:developers.home-assistant.io)",
-      "WebFetch(domain:www.home-assistant.io)"
+      "WebFetch(domain:www.home-assistant.io)",
+      "Bash(cp:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

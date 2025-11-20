@@ -1,4 +1,4 @@
-"""Text to speech support for AI Hub using Edge TTS."""
+"""Text to speech support for AI Hub using Edge TTS - 极简版本，只使用voice参数."""
 
 from __future__ import annotations
 
@@ -31,14 +31,8 @@ except ImportError:
 from .const import (
     CONF_TTS_VOICE,
     CONF_TTS_LANG,
-    CONF_TTS_RATE,
-    CONF_TTS_VOLUME,
-    CONF_TTS_PITCH,
     TTS_DEFAULT_VOICE,
     TTS_DEFAULT_LANG,
-    TTS_DEFAULT_RATE,
-    TTS_DEFAULT_VOLUME,
-    TTS_DEFAULT_PITCH,
     EDGE_TTS_VOICES,
     DOMAIN,
 )
@@ -71,10 +65,11 @@ async def async_setup_entry(
 
 
 class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
-    """AI Hub text-to-speech entity using Edge TTS."""
+    """AI Hub text-to-speech entity using Edge TTS - 极简版本."""
 
     _attr_has_entity_name = False
-    _attr_supported_options = ['voice', 'rate', 'volume', 'pitch']
+    # 暂时禁用高级选项，避免参数格式问题
+    _attr_supported_options = ['voice']  # 只保留voice选项
 
     def __init__(self, config_entry: ConfigEntry, subentry: ConfigSubentry) -> None:
         """Initialize the TTS entity."""
@@ -213,19 +208,12 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
         config: dict,
         options: dict[str, Any]
     ) -> TtsAudioType:
-        """Shared TTS processing logic similar to edge_tts."""
+        """极简TTS处理 - 只使用voice参数，避免所有格式问题."""
         if not message or not message.strip():
             raise HomeAssistantError("文本内容不能为空")
 
-        # Priority order for voice selection:
-        # 1. Voice from options (Voice Assistant explicit choice)
-        # 2. Configured voice from integration settings
-        # 3. Default voice for the requested language
-        # 4. Global default voice
-
+        # Voice selection logic (same as before)
         voice = None
-
-        # Check if Voice Assistant specified a voice in options
         if 'voice' in options and options['voice']:
             voice = options['voice']
             _LOGGER.debug("Using Voice Assistant specified voice: %s", voice)
@@ -250,25 +238,29 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
             _LOGGER.info("Language mapping: Voice Assistant requested '%s', using voice '%s' (language: %s)",
                         language, voice, actual_language)
 
-        # Merge configuration options
-        opt = {**config, **options}
-
-        _LOGGER.debug('TTS: message="%s", voice="%s", requested_lang="%s", actual_lang="%s"',
+        _LOGGER.debug('极简TTS: message="%s", voice="%s", requested_lang="%s", actual_lang="%s"',
                      message, voice, language, actual_language)
 
         try:
+            # 🚀 极简版本：只使用最基本的参数
+            # Edge TTS的rate/pitch/volume参数格式要求极其严格，暂时禁用
             communicate = edge_tts.Communicate(
                 text=message,
                 voice=voice,
-                pitch=opt.get('pitch', TTS_DEFAULT_PITCH),
-                rate=opt.get('rate', TTS_DEFAULT_RATE),
-                volume=opt.get('volume', TTS_DEFAULT_VOLUME),
+                # 所有可选参数都禁用，使用默认值
+                # 这样可以确保TTS基本功能正常工作
             )
 
+            _LOGGER.debug("Edge TTS communication created successfully, starting stream...")
+
             audio_bytes = b""
+            chunk_count = 0
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     audio_bytes += chunk["data"]
+                    chunk_count += 1
+
+            _LOGGER.debug("Received %d audio chunks, total size: %d bytes", chunk_count, len(audio_bytes))
 
             if not audio_bytes:
                 raise HomeAssistantError("未生成音频数据")
@@ -277,4 +269,27 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
 
         except Exception as exc:
             _LOGGER.error("Edge TTS 生成失败: %s", exc)
+
+            # 极简版本的重试：只改voice，不使用任何其他参数
+            if "Invalid" in str(exc):
+                _LOGGER.warning("参数错误，尝试使用默认voice重试...")
+                try:
+                    communicate = edge_tts.Communicate(
+                        text=message,
+                        voice=TTS_DEFAULT_VOICE,  # 使用最安全的默认voice
+                        # 不使用任何其他参数
+                    )
+
+                    audio_bytes = b""
+                    async for chunk in communicate.stream():
+                        if chunk["type"] == "audio":
+                            audio_bytes += chunk["data"]
+
+                    if audio_bytes:
+                        _LOGGER.info("使用默认voice成功生成音频")
+                        return "mp3", audio_bytes
+
+                except Exception as retry_exc:
+                    _LOGGER.error("默认voice重试也失败: %s", retry_exc)
+
             raise HomeAssistantError(f"TTS 生成失败: {exc}") from exc

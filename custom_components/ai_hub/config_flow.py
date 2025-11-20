@@ -541,21 +541,6 @@ async def ai_hub_config_option_schema(
                 default=options.get(CONF_TTS_VOICE, TTS_DEFAULT_VOICE),
                 description={"suggested_value": options.get(CONF_TTS_VOICE)},
             ): str,
-            vol.Optional(
-                CONF_TTS_RATE,
-                default=options.get(CONF_TTS_RATE, TTS_DEFAULT_RATE),
-                description={"suggested_value": options.get(CONF_TTS_RATE)},
-            ): str,
-            vol.Optional(
-                CONF_TTS_VOLUME,
-                default=options.get(CONF_TTS_VOLUME, TTS_DEFAULT_VOLUME),
-                description={"suggested_value": options.get(CONF_TTS_VOLUME)},
-            ): str,
-            vol.Optional(
-                CONF_TTS_PITCH,
-                default=options.get(CONF_TTS_PITCH, TTS_DEFAULT_PITCH),
-                description={"suggested_value": options.get(CONF_TTS_PITCH)},
-            ): str,
         })
 
     elif subentry_type == "stt":
