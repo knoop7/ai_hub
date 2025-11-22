@@ -1,5 +1,6 @@
-# 🚀 极致优化数值参数版本 - 智能范围 + 常用值
+# 🚀 优化版本 - 与官方中文sentences互补，避免重复
 language: "zh-CN"
+
 
 # ========== 响应配置优化 ==========
 responses:
@@ -13,6 +14,94 @@ responses:
   automation:
     creation_success: "我已经为您创建了自动化: {automation_name}"
     creation_error: "创建自动化失败: {error}"
+  device_operation:
+    verification_success: "操作已成功执行"
+    verification_timeout: "命令已发送，设备可能需要几秒钟响应"
+    partial_success: "部分设备操作成功，有些设备可能需要更长时间响应"
+
+# ========== 设备操作配置 ==========
+device_operations:
+  # 3秒验证重试配置
+  verification:
+    total_timeout: 3  # 总时间限制（秒）
+    max_retries: 3    # 最大重试次数
+    wait_times: [0.5, 0.8, 1.1]  # 每次重试的等待时间
+
+  # 设备控制操作类型
+  control_operations:
+    # 照明设备
+    light:
+      - "light.turn_on"
+      - "light.turn_off"
+      - "light.toggle"
+      - "light.set_brightness"
+      - "light.set_color"
+
+    # 开关设备
+    switch:
+      - "switch.turn_on"
+      - "switch.turn_off"
+      - "switch.toggle"
+
+    # 气候控制
+    climate:
+      - "climate.turn_on"
+      - "climate.turn_off"
+      - "climate.set_temperature"
+      - "climate.set_hvac_mode"
+      - "climate.set_fan_mode"
+
+    fan:
+      - "fan.turn_on"
+      - "fan.turn_off"
+      - "fan.set_speed"
+      - "fan.set_direction"
+
+    # 遮阳设备
+    cover:
+      - "cover.open"
+      - "cover.close"
+      - "cover.set_position"
+      - "cover.stop"
+      - "cover.toggle"
+
+    # 媒体播放器
+    media_player:
+      - "media_player.turn_on"
+      - "media_player.turn_off"
+      - "media_player.play_pause"
+      - "media_player.play"
+      - "media_player.pause"
+      - "media_player.set_volume"
+      - "media_player.volume_up"
+      - "media_player.volume_down"
+      - "media_player.media_play_pause"
+
+    # 安防设备
+    lock:
+      - "lock.unlock"
+      - "lock.lock"
+
+    vacuum:
+      - "vacuum.start"
+      - "vacuum.pause"
+      - "vacuum.stop"
+      - "vacuum.return_to_base"
+
+    # 脚本和场景
+    script:
+      - "script.turn_on"
+      - "script.turn_off"
+      - "script.toggle"
+
+    scene:
+      - "scene.turn_on"
+
+    # 阀门设备
+    valve:
+      - "valve.open"
+      - "valve.close"
+      - "valve.set_position"
 
 # ========== 自动化配置 ==========
 automation_keywords:
@@ -28,7 +117,7 @@ automation_keywords:
 
 # ========== 1. 分层设备类型定义 (核心优化) ==========
 lists:
-  # 💡 照明设备
+  # 💡 照明设备 - 保留用于本地意图
   light_names:
     values:
       # 基础照明
@@ -216,7 +305,7 @@ lists:
       - "汽车"
       - "电动车"
 
-  # 🏠 区域名称
+  # 🏠 区域名称 - 用于本地意图
   area_names:
     values:
       # 主要房间
@@ -263,9 +352,13 @@ lists:
 expansion_rules:
   # 前缀后缀
   let: "请|帮我|麻烦|给|能否|可以吗|麻烦您|劳驾|拜托|请问"
-  turn: "打开|开启|开|启动"
-  close: "关闭|关上|关|停止"
+  turn: "打开|开启|开|启动|点亮|放亮"
+  close: "关闭|关上|关|停止|熄灭|灭灯|关掉"
   set: "设置|设定|调节|调|设"
+
+  # 全屋控制命令 - 保留用于本地意图
+  all_on: "全屋打开|全家打开|整屋打开|所有区域打开"
+  all_off: "全屋关闭|全家关闭|整屋关闭|所有区域关闭"
 
   # 动词扩展
   open_cover: "拉开|升起|打开"
@@ -275,12 +368,9 @@ expansion_rules:
   brightness: "亮度|明亮度|光亮度"
   volume: "音量|声音|声量"
   temperature: "温度|气温|室温"
-  all: "所有|全部|整个"
+  all: "所有|全部|整个|全屋|全家|一屋|满屋|到处|处处|整栋|整屋|所有区域|每个房间|每个地方|所有地方"
 
   # 🚀 超级优化数值参数 - 智能分层设计
-  # 原版本：1400+ 字符的数字字符串
-  # 优化版本：200 字符的智能参数
-
   # 亮度：分层设计 - 常用值 + 关键节点 + 范围
   brightness_level: "1|5|10|20|30|40|50|60|70|80|90|100|<1-100>"
 
@@ -299,135 +389,11 @@ expansion_rules:
   # 颜色
   color: "红色|绿色|蓝色|黄色|白色|黑色|橙色|紫色|粉色|棕色|灰色|青色|金色|银色|彩色"
 
-# ========== 3. 超级优化意图定义 ==========
+# ========== 3. 保留的核心意图（官方缺失或优化版本） ==========
 intents:
   # ------------------------------------------------
-  # 场景A: 区域 + 设备类型控制 (最高效)
+  # A: 气候控制（官方有基础版本，我们保留增强版本）
   # ------------------------------------------------
-  HassTurnOn:
-    use_home_assistant: true
-    data:
-      # 照明控制
-      - sentences:
-          - "<let> <turn> {area_names}[的] {light_names}"
-          - "<let> <turn> {area_names}[的][所有|全部] {light_names}"
-        slots:
-          domain: "light"
-
-      # 气候控制
-      - sentences:
-          - "<let> <turn> {area_names}[的] {climate_names}"
-        slots:
-          domain: "climate"
-
-      # 风扇控制
-      - sentences:
-          - "<let> <turn> {area_names}[的] {fan_names}"
-        slots:
-          domain: "fan"
-
-      # 媒体控制
-      - sentences:
-          - "<let> <turn> {area_names}[的] {media_names}"
-        slots:
-          domain: "media_player"
-
-      # 窗帘控制
-      - sentences:
-          - "<let> <open_cover> {area_names}[的] {cover_names}"
-        slots:
-          domain: "cover"
-
-      # 开关控制
-      - sentences:
-          - "<let> <turn> {area_names}[的] {switch_names}"
-        slots:
-          domain: "switch"
-
-      # 清洁控制
-      - sentences:
-          - "<let> <turn> {area_names}[的] {vacuum_names}"
-        slots:
-          domain: "vacuum"
-
-      # 精确名称匹配 (兜底)
-      - sentences:
-          - "<let> <turn> {name}"
-          - "{name} <turn>"
-
-  HassTurnOff:
-    use_home_assistant: true
-    data:
-      # 照明控制
-      - sentences:
-          - "<let> <close> {area_names}[的] {light_names}"
-          - "<let> <close> {area_names}[的][所有|全部] {light_names}"
-        slots:
-          domain: "light"
-
-      # 气候控制
-      - sentences:
-          - "<let> <close> {area_names}[的] {climate_names}"
-        slots:
-          domain: "climate"
-
-      # 风扇控制
-      - sentences:
-          - "<let> <close> {area_names}[的] {fan_names}"
-        slots:
-          domain: "fan"
-
-      # 媒体控制
-      - sentences:
-          - "<let> <close> {area_names}[的] {media_names}"
-        slots:
-          domain: "media_player"
-
-      # 窗帘控制
-      - sentences:
-          - "<let> <close_cover> {area_names}[的] {cover_names}"
-        slots:
-          domain: "cover"
-
-      # 开关控制
-      - sentences:
-          - "<let> <close> {area_names}[的] {switch_names}"
-        slots:
-          domain: "switch"
-
-      # 清洁控制
-      - sentences:
-          - "<let> <close> {area_names}[的] {vacuum_names}"
-        slots:
-          domain: "vacuum"
-
-      # 精确名称匹配 (兜底)
-      - sentences:
-          - "<let> <close> {name}"
-          - "{name} <close>"
-
-  # ------------------------------------------------
-  # 场景B: 优化数值参数控制
-  # ------------------------------------------------
-  HassLightSet:
-    use_home_assistant: true
-    data:
-      # 亮度控制 - 移除%符号，更自然的表达
-      - sentences:
-          - "<let> <set> {area_names}[的] {light_names}[亮度][<brightness_level>]"
-          - "<let> <set> {name}[亮度][<brightness_level>]"
-          - "<let> {area_names}[的] {light_names}[亮度]调[到][<brightness_level>]"
-          - "<let> {name}[亮度][调到][<brightness_level>]"
-        slots:
-          domain: "light"
-
-      # 颜色控制
-      - sentences:
-          - "<let> <set> {area_names}[的] {light_names}[为]{color}色"
-          - "<let> <set> {name}[为]{color}色"
-        slots:
-          domain: "light"
-
   HassClimateSetTemperature:
     use_home_assistant: true
     data:
@@ -439,6 +405,9 @@ intents:
         slots:
           domain: "climate"
 
+  # ------------------------------------------------
+  # B: 风扇速度控制（官方缺失，重要功能）
+  # ------------------------------------------------
   HassFanSetSpeed:
     use_home_assistant: true
     data:
@@ -450,132 +419,22 @@ intents:
         slots:
           domain: "fan"
 
-  HassSetVolume:
+  # ------------------------------------------------
+  # C: 场景控制（官方有基础版本，我们保留优化版本）
+  # ------------------------------------------------
+  HassActivateScene:
     use_home_assistant: true
     data:
-      # 音量控制 - 移除%符号
+      # 基础场景控制 - 与HA原生场景功能协作
       - sentences:
-          - "<let> <set> {area_names}[的] {media_names}[音量][<volume_level>]"
-          - "<let> <set> {name}[音量][<volume_level>]"
-          - "<let> {area_names}[的] {media_names}[音量]调[到][<volume_level>]"
-        slots:
-          domain: "media_player"
+          - "<let> [激活]{name}[场景]"
+          - "<let> [执行]{name}[场景]"
+          - "<let> [启动]{name}[场景]"
+        requires_context:
+          domain: "scene"
 
   # ------------------------------------------------
-  # 场景C: 媒体控制
-  # ------------------------------------------------
-  HassMediaNext:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> [播放|切换到][下一首|下一个]"
-          - "<let> [切歌|换一首]"
-        requires_context:
-          domain: "media_player"
-
-  HassMediaPrevious:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> [播放|切换到][上一首|上一个]"
-          - "<let> [回到][上一首|上一个]"
-        requires_context:
-          domain: "media_player"
-
-  HassMediaPause:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> [暂停][播放]"
-          - "<let> [停一下]"
-          - "<let> [暂停]"
-        requires_context:
-          domain: "media_player"
-
-  HassMediaUnpause:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> [继续][播放]"
-          - "<let> [开始][播放]"
-          - "<let> [播放]"
-        requires_context:
-          domain: "media_player"
-
-  # ------------------------------------------------
-  # 场景D: 清洁设备控制
-  # ------------------------------------------------
-  HassStart:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> <turn> {area_names}[的] {vacuum_names}[工作]"
-          - "<let> {name}[开始][清洁]"
-        slots:
-          domain: "vacuum"
-
-  HassPause:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> [暂停]{name}[工作]"
-          - "<let> {name}[暂停]"
-        requires_context:
-          domain: "vacuum"
-
-  HassReturnToBase:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> {name}[回去充电]"
-          - "<let> {name}[返回][充电座]"
-        requires_context:
-          domain: "vacuum"
-
-  # ------------------------------------------------
-  # 场景E: 通用控制和查询
-  # ------------------------------------------------
-  HassToggle:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> [切换]{name}[状态]"
-          - "<let> {name}[切换][一下]"
-        requires_context:
-          domain: any
-
-  HassGetState:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> [查看]{name}[状态]"
-          - "<let> {name}[怎么样了]"
-        requires_context:
-          domain: any
-
-  HassGetWeather:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> [今天|明天][天气][怎么样]"
-          - "<let> [查看][天气]"
-
-  HassGetCurrentTime:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> [现在][几点]"
-          - "<let> [查看][时间]"
-
-  HassGetCurrentDate:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "<let> [今天][几号]"
-          - "<let> [查看][日期]"
-
-  # ------------------------------------------------
-  # 场景F: 优化定时器和购物
+  # D: 定时器控制（官方有复杂版本，我们保留简洁版本）
   # ------------------------------------------------
   TimerStart:
     use_home_assistant: true
@@ -593,33 +452,129 @@ intents:
           - "<let> [取消][定时器]"
           - "<let> [停止][定时器]"
 
+  # 取消所有定时器（官方缺失的重要功能）
+  HassCancelAllTimers:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "<let> [取消|关闭][所有][定时器]"
+          - "<let> [清除|删除][全部][定时器]"
+
+  # ------------------------------------------------
+  # E: 媒体控制增强（官方缺失的部分功能）
+  # ------------------------------------------------
+  # 静音控制（官方缺失）
+  HassMediaMute:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "<let> [静音]{name}"
+          - "<let> [关闭][声音]{name}"
+          - "<let> {name}[静音]"
+        requires_context:
+          domain: "media_player"
+
+  # 取消静音控制（官方缺失）
+  HassMediaUnmute:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "<let> [取消静音]{name}"
+          - "<let> [打开][声音]{name}"
+          - "<let> {name}[取消静音]"
+        requires_context:
+          domain: "media_player"
+
+  # 相对音量调节（官方缺失的重要功能）
+  HassMediaSetVolumeRelative:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "<let> [音量][<volume_level>]"
+          - "<let> [把][音量][调高][<volume_level>]"
+          - "<let> [把][音量][调低][<volume_level>]"
+          - "<let> [增加][音量][<volume_level>]"
+          - "<let> [减少][音量][<volume_level>]"
+        slots:
+          domain: "media_player"
+
+  # ------------------------------------------------
+  # F: 照明增强控制（官方缺失的高级功能）
+  # ------------------------------------------------
+  # 色温调节（官方缺失）
+  HassLightSetTemperature:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "<let> <set> {area_names}[的] {light_names}[色温][<percentage>]"
+          - "<let> <set> {name}[色温][<percentage>]"
+          - "<let> {area_names}[的] {light_names}[调到][<percentage>][色温]"
+        slots:
+          domain: "light"
+
+  # ------------------------------------------------
+  # G: 购物清单和待办事项（官方缺失）
+  # ------------------------------------------------
   HassShoppingListAddItem:
     use_home_assistant: true
     data:
       - sentences:
           - "<let> [添加]{item}[到][购物清单]"
           - "<let> [买]{item}"
+          - "<let> {item}[加入][购物清单]"
 
-  # ------------------------------------------------
-  # 场景G: 场景控制
-  # ------------------------------------------------
-  HassActivateScene:
+  # 完成购物清单项目
+  HassShoppingListCompleteItem:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> [激活]{name}[场景]"
-          - "<let> [执行]{name}[场景]"
-        requires_context:
-          domain: "scene"
+          - "<let> [完成]{item}"
+          - "<let> {item}[已买]"
+          - "<let> [标记]{item}[完成]"
 
   # ------------------------------------------------
-  # 场景H: 自定义意图
+  # H: 清洁设备增强控制（官方缺失）
   # ------------------------------------------------
-  HassCancel:
+  # 清扫模式选择（官方缺失）
+  HassVacuumSetMode:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "<let> <set> {name}[清扫模式]"
+          - "<let> {name}[切换到][清扫模式]"
+          - "<let> <set> {name}[为][清扫模式]"
+        requires_context:
+          domain: "vacuum"
+
+  # ------------------------------------------------
+  # I: 阀门控制（官方部分缺失）
+  # ------------------------------------------------
+  HassValveOpen:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "<let> [打开]{name}"
+          - "<let> {name}[打开]"
+        requires_context:
+          domain: "valve"
+
+  HassValveClose:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "<let> [关闭]{name}"
+          - "<let> {name}[关闭]"
+        requires_context:
+          domain: "valve"
+
+  # ------------------------------------------------
+  # F: 自定义意图
+  # ------------------------------------------------
+  HassNevermind:
     bypass_home_assistant: true
     data:
       - sentences:
-          - "<let> [算了|取消|不用了]"
+          - "<let> [算了|取消|不用了|没事了]"
 
   AIAssistantIntent:
     bypass_home_assistant: true
@@ -629,13 +584,682 @@ intents:
           - "<let> [你好|感谢]"
           - "<let> 聊天吧"
 
-# ========== 极致优化元数据 ==========
-metadata:
-  version: "4.0-numeric-optimized"
-  optimization_type: "numeric-super-optimized"
-  performance_improvement: "80%+"
-  file_size_reduction: "50%"
-  numeric_optimization: "85% reduction in number strings"
-  breaking_changes: false
-  chinese_expansion: "150+ device names, 40+ areas"
-  notes: "极致优化的数值参数，智能范围表达式，大幅提升解析性能"
+# ========== 本地意图控制配置（保留完整优势） ==========
+local_intents:
+  # 全局设备控制意图
+  GlobalDeviceControl:
+    # 全局控制关键词
+    global_keywords:
+      # 基础全局关键词
+      - "所有"
+      - "全部"
+      - "全屋"
+      - "全家"
+      - "整屋"
+      - "到处"
+      - "处处"
+      - "整个"
+      - "每个"
+      - "各个"
+
+      # 复合关键词（向后兼容）
+      - "所有设备"
+      - "全部设备"
+      - "全屋设备"
+      - "全家设备"
+      - "整屋设备"
+      - "所有区域"
+      - "全部区域"
+      - "每个区域"
+      - "各个区域"
+      - "所有屋"
+      - "全部屋"
+      - "全屋灯光"
+      - "全屋空调"
+      - "全屋音响"
+      - "全屋窗帘"
+      - "所有灯光"
+      - "全部灯光"
+      - "所有空调"
+      - "全部空调"
+      - "所有音响"
+      - "全部音响"
+      - "所有窗帘"
+      - "全部窗帘"
+
+    # 开启关键词
+    on_keywords:
+      - "打开"
+      - "开启"
+      - "开"
+      - "启动"
+      - "点亮"
+      - "放亮"
+      - "亮起"
+
+    # 关闭关键词
+    off_keywords:
+      - "关闭"
+      - "关上"
+      - "关"
+      - "停止"
+      - "熄灭"
+      - "灭灯"
+      - "关掉"
+
+    
+    # 参数控制关键词
+    param_keywords:
+      - "设置"
+      - "调节"
+      - "调到"
+      - "设为"
+      - "调成"
+      - "调整"
+      - "设"
+      - "调"
+      - "改为"
+      - "变成"
+      - "变为"
+      - "到"
+      - "为"
+
+    # 温度控制关键词
+    temperature_keywords:
+      - "温度"
+      - "气温"
+      - "室温"
+      - "度"
+      - "摄氏度"
+      - "太热"
+      - "太冷"
+      - "热"
+      - "冷"
+      - "凉"
+      - "暖和"
+      - "舒适"
+
+    # 亮度控制关键词
+    brightness_keywords:
+      - "亮度"
+      - "明亮度"
+      - "光亮度"
+      - "明暗"
+
+    # 亮度抱怨关键词
+    brightness_complaint:
+      hot_keywords: ["太亮", "太刺眼", "太亮了", "太刺眼了", "太白", "太白了"]  # 太亮了需要调暗
+      cold_keywords: ["太暗", "太黑", "太暗了", "太黑了", "太暗淡", "太暗淡了"]  # 太暗了需要调亮
+
+      # 亮度调节的默认值
+      default_brightness:
+        hot_recommendation: 30  # 太亮时推荐30%
+        cold_recommendation: 70  # 太暗时推荐70%
+
+    # 颜色控制关键词
+    color_keywords:
+      - "颜色"
+      - "颜色色"
+      - "色彩"
+
+    # 音量控制关键词
+    volume_keywords:
+      - "音量"
+      - "声音"
+      - "声量"
+      - "音量大小"
+
+    # 窗帘位置关键词
+    cover_position_keywords:
+      - "位置"
+      - "开度"
+      - "高度"
+      - "百分比"
+      - "开到"
+      - "关到"
+      - "调到"
+      - "降到"
+      - "升到"
+
+    # 风扇速度关键词
+    fan_speed_keywords:
+      - "风速"
+      - "速度"
+      - "转速"
+      - "档位"
+
+    # 参数控制范围和转换规则
+    parameter_ranges:
+      # 温度控制
+      temperature:
+        min: 16
+        max: 30
+        unit: "度"
+        pattern: "(\\d{1,2})\\s*度"
+        ha_service: "set_temperature"
+
+      # 色温控制 (灯光)
+      color_temperature:
+        min: 2700  # 暖白
+        max: 6500  # 冷白
+        unit: "K"
+        pattern: "(\\d{3,4})\\s*K?"
+        ha_service: "turn_on"
+
+      # 亮度控制 (灯光)
+      brightness:
+        min: 0
+        max: 100
+        unit: "%"
+        pattern: "(\\d{1,3})\\s*%?"
+        conversion_factor: 2.54  # HA使用0-255范围
+        conversion_target: "0-255"
+        ha_service: "turn_on"
+
+      # 音量控制 (媒体设备)
+      volume:
+        min: 0
+        max: 100
+        unit: "%"
+        pattern: "(\\d{1,3})\\s*%?"
+        conversion_factor: 0.01  # HA使用0-1范围
+        conversion_target: "0-1"
+        ha_service: "volume_set"
+
+      # 位置控制 (窗帘、阀门)
+      position:
+        min: 0
+        max: 100
+        unit: "%"
+        pattern: "(\\d{1,3})\\s*%?"
+        conversion_target: "direct"  # 直接使用
+        ha_service: "set_cover_position"
+
+      # 速度控制 (风扇)
+      speed:
+        min: 0
+        max: 100
+        unit: "%"
+        pattern: "(\\d{1,3})\\s*%?"
+        conversion_target: "speed_levels"  # 转换为速度等级
+        ha_service: "set_speed"
+
+      # 频道控制 (媒体设备)
+      channel:
+        min: 1
+        max: 999
+        unit: "频道"
+        pattern: "(频道|台)\\s*(\\d{1,3})"
+        extraction_group: 2  # 提取数字部分
+        ha_service: "media_play_media"
+
+      # 颜色控制 (灯光)
+      color:
+        min: 0
+        max: 360
+        unit: "度"  # 色相角度
+        pattern: "(\\d{1,3})\\s*度"
+        conversion_target: "hue"  # 色相角度
+        ha_service: "turn_on"
+
+    # 颜色值映射
+    color_values:
+      红色: "red"
+      绿色: "green"
+      蓝色: "blue"
+      黄色: "yellow"
+      白色: "white"
+      暖白: "warm_white"
+      冷白: "cool_white"
+      橙色: "orange"
+      紫色: "purple"
+      粉色: "pink"
+      棕色: "brown"
+      灰色: "gray"
+      青色: "cyan"
+      金色: "gold"
+      银色: "silver"
+      彩色: "rainbow"
+
+    # 颜色RGB值映射
+    color_rgb_values:
+      red: [255, 0, 0]
+      green: [0, 255, 0]
+      blue: [0, 0, 255]
+      yellow: [255, 255, 0]
+      white: [255, 255, 255]
+      warm_white: [255, 220, 180]
+      cool_white: [255, 248, 220]
+      orange: [255, 165, 0]
+      purple: [128, 0, 128]
+      pink: [255, 192, 203]
+      brown: [165, 42, 42]
+      gray: [128, 128, 128]
+      cyan: [0, 255, 255]
+      gold: [255, 215, 0]
+      silver: [192, 192, 192]
+      rainbow: [255, 0, 255]
+
+    # 风扇速度等级映射
+    speed_levels:
+      off: 0
+      low: 33
+      medium: 66
+      high: 100
+
+    # 设备类型到服务名称的映射
+    domain_services:
+      light:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_brightness: "turn_on"
+        set_color: "turn_on"
+        set_temperature: "turn_on"  # 色温控制
+        toggle: "toggle"            # 切换开关
+      climate:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_temperature: "set_temperature"
+        set_temperature_range: "set_temperature_range"  # 温度范围
+        set_hvac_mode: "set_hvac_mode"  # 空调模式
+        set_preset_mode: "set_preset_mode"  # 预设模式
+      media_player:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_volume: "volume_set"
+        volume_up: "volume_up"      # 音量+
+        volume_down: "volume_down"  # 音量-
+        mute: "volume_mute"         # 静音
+        unmute: "volume_unmute"     # 取消静音
+      cover:
+        turn_on: "open_cover"
+        turn_off: "close_cover"
+        set_position: "set_cover_position"
+        set_tilt_position: "set_cover_tilt_position"  # 倾斜位置
+        stop: "stop_cover"         # 停止
+        toggle: "toggle_cover"     # 切换
+      fan:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_speed: "set_speed"
+        set_percentage: "set_percentage"  # 百分比速度
+        set_direction: "set_direction"   # 风向
+        oscillate: "oscillate"            # 摆动
+        increase_speed: "increase_speed"  # 提速
+        decrease_speed: "decrease_speed"  # 减速
+      switch:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        toggle: "toggle"            # 切换开关
+      vacuum:
+        turn_on: "start"
+        turn_off: "return_to_base"
+        pause: "pause"             # 暂停
+        stop: "stop"               # 停止
+        clean_spot: "clean_spot"   # 局部清洁
+        locate: "locate"           # 定位
+        set_fan_speed: "set_fan_speed"  # 吸力调节
+      lock:
+        turn_on: "unlock"
+        turn_off: "lock"
+        open: "open"               # 开锁
+      camera:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        enable_motion_detection: "enable_motion_detection"
+        disable_motion_detection: "disable_motion_detection"
+        snapshot: "snapshot"       # 拍照
+        record: "record"           # 录像
+        enable_recording: "enable_recording"
+        disable_recording: "disable_recording"
+      scene:
+        turn_on: "turn_on"
+        reload: "reload"           # 重新加载场景
+      script:
+        turn_on: "turn_on"
+        reload: "reload"           # 重新加载脚本
+      automation:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        toggle: "toggle"           # 切换自动化
+        trigger: "trigger"         # 手动触发
+        reload: "reload"           # 重新加载自动化
+      valve:
+        turn_on: "open_valve"
+        turn_off: "close_valve"
+        set_position: "set_valve_position"  # 阀门位置
+      input_boolean:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        toggle: "toggle"           # 切换状态
+      input_select:
+        select_option: "select_option"    # 选择选项
+      input_number:
+        set_value: "set_number"            # 设置数值
+
+    # 控制的设备域（按优先级排序）
+    control_domains:
+      - "light"        # 灯光
+      - "switch"       # 开关
+      - "fan"          # 风扇
+      - "media_player" # 媒体播放器
+      - "climate"      # 空调/气候
+      - "cover"        # 窗帘
+      - "vacuum"       # 吸尘器
+      - "lock"         # 门锁
+      - "camera"       # 摄像头
+      - "scene"        # 场景
+      - "script"       # 脚本
+      - "automation"   # 自动化
+      - "valve"        # 水阀/阀门
+      - "input_boolean" # 虚拟开关
+      - "input_select" # 输入选择
+      - "input_number" # 输入数字
+
+    # ========== 错误消息和响应模板 ==========
+    error_messages:
+      no_devices: "没有找到可控制的设备"
+      no_param_devices: "没有找到支持参数控制的设备"
+      device_control_failed: "设备控制失败：{error}"
+      no_climate_devices: "这个区域没有找到空调设备，无法调节温度"
+      device_name_failed: "获取设备友好名称失败"
+
+    # ========== 设备类型到友好名称的映射 ==========
+    # 用于将设备ID转换为用户友好的名称
+    device_name_mappings:
+      # 常见设备ID模式
+      patterns:
+        "light_{area}_{type}": "{area}{type}"  # light_living_room_main -> 客厅主灯
+        "switch_{area}_{type}": "{area}{type}"  # switch_bedroom_fan -> 卧室风扇开关
+        "climate_{area}_{type}": "{area}{type}"  # climate_living_room_ac -> 客厅空调
+        "cover_{area}_{type}": "{area}{type}"  # cover_bedroom_curtain -> 卧室窗帘
+        "media_player_{area}_{type}": "{area}{type}"  # media_player_living_room_tv -> 客厅电视
+        "vacuum_{area}_{type}": "{area}{type}"  # vacuum_living_room_robot -> 卧室扫地机
+
+      # 特殊设备映射
+      special_mappings:
+        "climate.living_room_ac": "客厅空调"
+        "climate.bedroom_ac": "卧室空调"
+        "climate.kitchen_ac": "厨房空调"
+        "climate.office_ac": "办公室空调"
+        "light.living_room_main": "客厅主灯"
+        "light.bedroom_main": "卧室主灯"
+        "cover.bedroom_curtain": "卧室窗帘"
+        "cover.living_room_curtain": "客厅窗帘"
+        "media_player.living_room_tv": "客厅电视"
+        "media_player.bedroom_speaker": "卧室音响"
+
+    # ========== 温度处理逻辑配置 ==========
+    temperature:
+      # 温度判断关键词
+      hot_keywords: ["太热", "热", "热死了"]
+      cold_keywords: ["太冷", "冷", "冷死了"]
+
+      # 温度推荐的默认值
+      default_temperatures:
+        hot_recommendation: 24  # 太热时推荐24度
+        cold_recommendation: 22  # 太冷时推荐22度
+
+      # 温度调节范围
+      min_temperature: 16
+      max_temperature: 30
+
+    # ========== 空调模式配置 ==========
+    hvac_modes:
+      cooling:
+        name: "制冷"
+        service_parameter: "cool"
+        keywords: ["制冷", "冷气", "降温"]
+
+      heating:
+        name: "制热"
+        service_parameter: "heat"
+        keywords: ["制热", "暖气", "升温"]
+
+      dry:
+        name: "除湿"
+        service_parameter: "dry"
+        keywords: ["除湿", "抽湿"]
+
+      fan_only:
+        name: "送风"
+        service_parameter: "fan_only"
+        keywords: ["送风", "通风", "循环"]
+
+    # ========== 设备类型关键词配置 ==========
+    device_type_keywords:
+      light:
+        - "灯"
+        - "灯光"
+        - "照明"
+        - "电灯"
+        - "灯具"
+
+      climate:
+        - "空调"
+        - "冷气"
+        - "暖气"
+        - "地暖"
+        - "新风"
+        - "空气净化"
+        - "加湿器"
+        - "除湿器"
+
+      cover:
+        - "窗帘"
+        - "窗纱"
+        - "百叶窗"
+        - "卷帘"
+        - "罗马帘"
+        - "遮阳帘"
+        - "遮阳棚"
+        - "天窗"
+        - "车库门"
+
+      switch:
+        - "开关"
+        - "插座"
+        - "插排"
+        - "电源"
+        - "总开关"
+
+      media_player:
+        - "电视"
+        - "电视机"
+        - "音响"
+        - "音箱"
+        - "扬声器"
+        - "播放器"
+
+      vacuum:
+        - "扫地机"
+        - "吸尘器"
+        - "清洁机器人"
+        - "拖地机"
+        - "洗地机"
+
+      fan:
+        - "风扇"
+        - "电扇"
+        - "吊扇"
+        - "循环扇"
+        - "无叶扇"
+        - "排气扇"
+
+      valve:  # 水阀/阀门设备
+        - "水阀"
+        - "阀门"
+        - "水龙头"
+        - "截止阀"
+        - "球阀"
+        - "蝶阀"
+        - "电磁阀"
+
+      lock:  # 门锁设备
+        - "门锁"
+        - "智能锁"
+        - "电子锁"
+        - "密码锁"
+        - "指纹锁"
+        - "门禁"
+
+      camera:  # 摄像头设备
+        - "摄像头"
+        - "监控"
+        - "摄像机"
+        - "监控器"
+        - "录像机"
+
+      scene:  # 场景
+        - "场景"
+        - "模式"
+        - "情景"
+
+      script:  # 脚本
+        - "脚本"
+        - "程序"
+        - "自动化"
+
+    # ========== 设备选择提示模板 ==========
+    device_selection_templates:
+      single_device: "已将{area}{device_name}调至{mode}模式"
+      multiple_devices_few: "{area}找到{count}个空调设备：{device_list}。请问您想控制哪一个？"
+      multiple_devices_many: "{area}找到{count}个空调设备，包括：{device_list}等。请告诉我具体设备名称。"
+      no_devices_in_area: "{area}没有找到空调设备"
+      temperature_preference_single: "我注意到您提到温度问题。{area}有空调设备：{device_list}。请问您是觉得太热了还是太冷了？"
+      temperature_preference_general: "我注意到您提到温度问题。请问您是觉得太热了还是太冷了？"
+      mode_preference_single: "{area}有空调设备：{device_list}。请问您需要制冷、制热、除湿还是送风模式？"
+      mode_preference_general: "请问您需要空调的哪种模式：制冷、制热、除湿还是送风？"
+
+    # ========== 默认消息模板（防止硬编码） ==========
+    default_message_templates:
+      device_single_device: "已将{area}{device_name}调至{mode}模式"
+      success_brightness: "已将{area}{device}亮度调至{brightness}%"
+      success_volume: "已将{area}{device}音量调至{volume}%"
+      success_cover_position: "已将{area}{device}位置调至{position}%"
+      success_fan_speed: "已将{area}{device}风速调至{speed}%"
+      no_param_devices: "没有找到支持参数控制的设备"
+      device_control_error: "设备控制失败：{error}"
+      # 错误类型模板
+      error_types:
+        no_param_devices: "没有找到支持参数控制的设备"
+        error: "设备控制失败：{error}"
+        climate_no_devices: "没有找到空调设备"
+        temperature_out_of_range: "温度超出允许范围"
+        device_not_found: "找不到指定的设备"
+
+    # ========== 日志级别配置 ==========
+    log_levels:
+      device_operation_failed: "warning"  # 设备操作失败日志级别
+      device_matching_failed: "debug"    # 设备匹配失败日志级别
+      temperature_intent_debug: "debug"    # 温度意图解析调试日志
+      general_info: "info"                   # 一般信息日志
+      general_debug: "debug"                 # 调试日志
+      general_warning: "warning"               # 警告日志
+
+    # ========== 响应消息模板 ==========
+    responses:
+      success_on: "已打开{count}个设备{fail_msg}"
+      success_off: "已关闭{count}个设备{fail_msg}"
+      success_temperature: "已将{area}温度设置为{temperature}度"
+      success_brightness: "已将{area}{device}亮度调至{brightness}%"
+      success_color: "已将{area}{device}颜色设置为{color}"
+      success_volume: "已将{area}{device}音量调至{volume}%"
+      success_cover_position: "已将{area}{device}位置调至{position}%"
+      success_fan_speed: "已将{area}{device}风速调至{speed}%"
+      success_scene: "已激活场景：{scene_name}"
+      success_script: "已执行脚本：{script_name}"
+      no_devices: "没有找到可控制的设备"
+      no_param_devices: "没有找到支持参数控制的设备"
+      error: "设备控制失败：{error}"
+
+    # ========== 额外硬编码配置 ==========
+    # 默认区域名称
+    default_area_name: "全屋"
+
+    # 默认设备类型名称
+    default_device_names:
+      light: "灯光"
+      media_player: "媒体设备"
+      cover: "窗帘"
+      fan: "风扇"
+      climate: "空调"
+      switch: "开关"
+      vacuum: "清洁设备"
+      valve: "水阀"
+      lock: "门锁"
+      camera: "摄像头"
+      scene: "场景"
+      script: "脚本"
+
+    # 窗帘位置解析关键词
+    cover_position_keywords_detailed:
+      open_keywords: ["开到", "升到", "打开"]
+      close_keywords: ["关到", "降到", "关闭"]
+      adjust_keywords: ["调到", "设置", "调整为"]
+
+    # 设备域名验证关键词
+    domain_validation:
+      light_indicators: ["light", "灯", "lamp", "bulb"]
+      cover_indicators: ["cover", "curtain", "blind", "shade", "窗帘", "百叶"]
+
+    # 失败消息格式化配置
+    failure_message:
+      few_devices: "，但以下{error_count}个设备失败：{failed_list}"
+      many_devices: "，但{error_count}个设备失败，包括：{failed_list}等"
+      max_devices_list: 3  # 最多列出多少个失败设备名称
+
+    
+    # 设备重复处理配置
+    device_deduplication:
+      enabled: true  # 启用设备去重
+      log_duplicates: true  # 记录重复设备的详细信息
+      fail_on_duplicates: false  # 发现重复设备是否视为错误
+
+    # 默认控制域名（如果配置中没有指定）
+    default_control_domains:
+      - "light"
+      - "switch"
+      - "cover"
+      - "media_player"
+      - "climate"
+
+    
+    # 默认服务名称映射
+    default_domain_services:
+      light:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_brightness: "turn_on"
+        set_color: "turn_on"
+      climate:
+        set_temperature: "set_temperature"
+      media_player:
+        set_volume: "volume_set"
+      cover:
+        turn_on: "open_cover"
+        turn_off: "close_cover"
+        set_position: "set_cover_position"
+        open: "open_cover"
+        close: "close_cover"
+      fan:
+        set_speed: "set_speed"
+      switch:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+      vacuum:
+        turn_on: "start"
+        turn_off: "return_to_base"
+      valve:
+        turn_on: "open_valve"
+        turn_off: "close_valve"
+      lock:
+        turn_on: "unlock"
+        turn_off: "lock"
+      camera:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+      scene:
+        turn_on: "turn_on"  # 激活场景 - 使用scene.turn_on服务
+      script:
+        turn_on: "turn_on"  # 执行脚本 - 使用script.turn_on服务

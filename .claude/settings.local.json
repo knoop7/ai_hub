@@ -16,7 +16,16 @@
       "WebFetch(domain:developers.home-assistant.io)",
       "WebFetch(domain:www.home-assistant.io)",
       "Bash(cp:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(for:*)",
+      "Bash(do echo:*)",
+      "Bash(done:*)",
+      "Read(//c/**)",
+      "WebFetch(domain:github.com)",
+      "Bash(del:*)",
+      "Bash(nul:*)",
+      "WebFetch(domain:developers.home-assistant.dev)",
+      "Bash(chcp:*)"
     ],
     "deny": [],
     "ask": []
