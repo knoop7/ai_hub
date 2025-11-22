@@ -59,22 +59,20 @@ device_operations:
 
     # 遮阳设备
     cover:
-      - "cover.open"
-      - "cover.close"
-      - "cover.set_position"
-      - "cover.stop"
-      - "cover.toggle"
+      - "cover.open_cover"
+      - "cover.close_cover"
+      - "cover.set_cover_position"
+      - "cover.stop_cover"
+      - "cover.toggle_cover"
 
     # 媒体播放器
     media_player:
-      - "media_player.turn_on"
-      - "media_player.turn_off"
-      - "media_player.play_pause"
-      - "media_player.play"
-      - "media_player.pause"
-      - "media_player.set_volume"
-      - "media_player.volume_up"
-      - "media_player.volume_down"
+      - "media_player.media_play"
+      - "media_player.media_pause"
+      - "media_player.media_stop"
+      - "media_player.volume_set"
+      - "media_player.volume_mute"
+      - "media_player.toggle_mute"
       - "media_player.media_play_pause"
 
     # 安防设备
@@ -615,19 +613,11 @@ local_intents:
       - "所有屋"
       - "全部屋"
       - "全屋灯光"
-      - "全屋空调"
-      - "全屋音响"
-      - "全屋窗帘"
-      - "所有灯光"
-      - "全部灯光"
-      - "所有空调"
-      - "全部空调"
-      - "所有音响"
-      - "全部音响"
-      - "所有窗帘"
-      - "全部窗帘"
 
-    # 开启关键词
+    # 设备类型关键词映射 - 直接引用lists配置
+    device_type_keywords: "{{lists}}"
+
+    # 开关关键词
     on_keywords:
       - "打开"
       - "开启"
@@ -636,8 +626,9 @@ local_intents:
       - "点亮"
       - "放亮"
       - "亮起"
+      - "运行"
+      - "播放"
 
-    # 关闭关键词
     off_keywords:
       - "关闭"
       - "关上"
@@ -646,8 +637,9 @@ local_intents:
       - "熄灭"
       - "灭灯"
       - "关掉"
+      - "暂停"
+      - "退出"
 
-    
     # 参数控制关键词
     param_keywords:
       - "设置"
@@ -1027,100 +1019,6 @@ local_intents:
         keywords: ["送风", "通风", "循环"]
 
     # ========== 设备类型关键词配置 ==========
-    device_type_keywords:
-      light:
-        - "灯"
-        - "灯光"
-        - "照明"
-        - "电灯"
-        - "灯具"
-
-      climate:
-        - "空调"
-        - "冷气"
-        - "暖气"
-        - "地暖"
-        - "新风"
-        - "空气净化"
-        - "加湿器"
-        - "除湿器"
-
-      cover:
-        - "窗帘"
-        - "窗纱"
-        - "百叶窗"
-        - "卷帘"
-        - "罗马帘"
-        - "遮阳帘"
-        - "遮阳棚"
-        - "天窗"
-        - "车库门"
-
-      switch:
-        - "开关"
-        - "插座"
-        - "插排"
-        - "电源"
-        - "总开关"
-
-      media_player:
-        - "电视"
-        - "电视机"
-        - "音响"
-        - "音箱"
-        - "扬声器"
-        - "播放器"
-
-      vacuum:
-        - "扫地机"
-        - "吸尘器"
-        - "清洁机器人"
-        - "拖地机"
-        - "洗地机"
-
-      fan:
-        - "风扇"
-        - "电扇"
-        - "吊扇"
-        - "循环扇"
-        - "无叶扇"
-        - "排气扇"
-
-      valve:  # 水阀/阀门设备
-        - "水阀"
-        - "阀门"
-        - "水龙头"
-        - "截止阀"
-        - "球阀"
-        - "蝶阀"
-        - "电磁阀"
-
-      lock:  # 门锁设备
-        - "门锁"
-        - "智能锁"
-        - "电子锁"
-        - "密码锁"
-        - "指纹锁"
-        - "门禁"
-
-      camera:  # 摄像头设备
-        - "摄像头"
-        - "监控"
-        - "摄像机"
-        - "监控器"
-        - "录像机"
-
-      scene:  # 场景
-        - "场景"
-        - "模式"
-        - "情景"
-
-      script:  # 脚本
-        - "脚本"
-        - "程序"
-        - "自动化"
-
-    # ========== 设备选择提示模板 ==========
     device_selection_templates:
       single_device: "已将{area}{device_name}调至{mode}模式"
       multiple_devices_few: "{area}找到{count}个空调设备：{device_list}。请问您想控制哪一个？"

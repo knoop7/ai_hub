@@ -79,13 +79,13 @@ def get_default_device_operations_config() -> Dict[str, Any]:
             'switch': ['switch.turn_on', 'switch.turn_off', 'switch.toggle'],
             'climate': ['climate.turn_on', 'climate.turn_off', 'climate.set_temperature', 'climate.set_hvac_mode'],
             'fan': ['fan.turn_on', 'fan.turn_off', 'fan.set_speed'],
-            'cover': ['cover.open', 'cover.close', 'cover.set_position', 'cover.stop'],
-            'media_player': ['media_player.turn_on', 'media_player.turn_off', 'media_player.play_pause'],
+            'cover': ['cover.open_cover', 'cover.close_cover', 'cover.set_cover_position', 'cover.stop_cover'],
+            'media_player': ['media_player.media_play', 'media_player.media_pause', 'media_player.media_stop', 'media_player.volume_set'],
             'lock': ['lock.unlock', 'lock.lock'],
             'vacuum': ['vacuum.start', 'vacuum.pause', 'vacuum.stop', 'vacuum.return_to_base'],
             'script': ['script.turn_on', 'script.turn_off', 'script.toggle'],
             'scene': ['scene.turn_on'],
-            'valve': ['valve.open', 'valve.close', 'valve.set_position']
+            'valve': ['valve.open_valve', 'valve.close_valve', 'valve.set_valve_position']
         }
     }
 
@@ -295,14 +295,37 @@ class LocalIntentHandler:
                     area_names.append(area)
                     _LOGGER.debug(f"识别到区域: {area}")
 
-        # 识别文本中的设备类型
-        for domain, keywords in device_type_keywords.items():
-            if keywords:  # 确保关键词列表不为空
-                for keyword in keywords:
-                    if keyword in text_lower:
-                        device_types.append(domain)
-                        _LOGGER.debug(f"识别到设备类型: {domain} (关键词: {keyword})")
-                        break  # 找到一个关键词就够了，避免重复添加同一个域
+        # 识别文本中的设备类型 - 直接引用lists配置
+        # 如果device_type_keywords是字符串，尝试从lists中获取
+        if isinstance(device_type_keywords, str) and device_type_keywords.startswith("{{lists}}"):
+            # 从主配置获取lists配置
+            lists_config = _INTENTS_CONFIG.get('lists', {}) if _INTENTS_CONFIG else {}
+            _LOGGER.debug(f"使用lists配置: {lists_config}")
+
+            # 检查各种设备类型的关键词
+            for domain, list_name in {
+                'light': 'light_names',
+                'switch': 'switch_names',
+                'climate': 'climate_names',
+                'fan': 'fan_names',
+                'cover': 'cover_names',
+                'media_player': 'media_player_names',
+                'lock': 'lock_names',
+                'vacuum': 'vacuum_names'
+            }.items():
+                keywords_list = lists_config.get(list_name, {}).get('values', [])
+                if keywords_list:
+                    for keyword in keywords_list:
+                        if keyword in text_lower:
+                            device_types.append(domain)
+                            _LOGGER.debug(f"识别到设备类型: {domain} (关键词: {keyword})")
+                            break
+        else:
+            # 处理传统的字典格式
+            for keyword, domain in device_type_keywords.items():
+                if keyword in text_lower:
+                    device_types.append(domain)
+                    _LOGGER.debug(f"识别到设备类型: {domain} (关键词: {keyword})")
 
         # 去重设备类型
         device_types = list(set(device_types))
@@ -1224,6 +1247,14 @@ class LocalIntentHandler:
 
         for device_id in devices:
             try:
+                # 检查设备是否支持该服务
+                if not self._device_supports_service(device_id, domain, service_name):
+                    _LOGGER.debug(f"设备 {device_id} 不支持服务 {domain}.{service_name}，跳过")
+                    device_name = self._get_device_friendly_name(device_id)
+                    failed_devices.append(f"{device_name} (不支持该操作)")
+                    error_count += 1
+                    continue
+
                 service_data['entity_id'] = device_id
                 await self.hass.services.async_call(domain, service_name, service_data)
                 success_count += 1
@@ -1241,6 +1272,81 @@ class LocalIntentHandler:
                 failed_devices.append(device_name)
 
         return success_count, error_count, failed_devices
+
+    def _device_supports_service(self, device_id: str, domain: str, service_name: str) -> bool:
+        """检查设备是否支持指定的服务"""
+        try:
+            # 获取设备状态对象
+            from homeassistant.core import State
+            state = self.hass.states.get(device_id)
+            if not state:
+                return False
+
+            # 获取设备的实体注册信息
+            from homeassistant.helpers import entity_registry as er
+            registry = er.async_get(self.hass)
+            entity_entry = registry.async_get(device_id)
+
+            # 如果有实体注册信息，检查supported_features
+            if entity_entry and hasattr(entity_entry, 'supported_features'):
+                supported_features = entity_entry.supported_features or 0
+
+                # 根据域和服务类型检查支持性
+                if domain == 'climate':
+                    # climate域的特定服务支持检查
+                    if service_name in ['turn_on', 'turn_off']:
+                        # 检查是否支持开关功能 (climate ClimateEntityFeature.TURN_ON_OFF = 1)
+                        return bool(supported_features & 1)  # ClimateEntityFeature.TURN_ON_OFF
+                    elif service_name in ['set_temperature', 'set_hvac_mode', 'set_fan_mode']:
+                        return True  # 大部分climate设备都支持基本功能
+
+                elif domain == 'media_player':
+                    # media_player域的服务支持检查
+                    if service_name in ['volume_set', 'volume_mute', 'media_play', 'media_pause', 'media_stop']:
+                        return True  # 大部分media_player都支持基本功能
+
+                elif domain == 'light':
+                    # light域服务支持检查
+                    if service_name in ['turn_on', 'turn_off', 'toggle']:
+                        return True  # 所有lights都支持开关
+                    elif service_name in ['set_brightness', 'set_color']:
+                        # 检查是否支持亮度和颜色功能
+                        return bool(supported_features & 0b11)  # LightEntityFeature.BRIGHTNESS | COLOR
+
+            # 如果无法从supported_features判断，使用Home Assistant的服务支持检查
+            # 这是一个备用方案，通过检查服务是否存在该域的支持函数
+            try:
+                service_handler = self.hass.services.get(domain, service_name)
+                if service_handler:
+                    # 服务存在，进一步检查是否有支持检查函数
+                    if hasattr(service_handler, 'schema') and service_handler.schema:
+                        # 检查schema是否需要entity_id参数（大部分设备服务都需要）
+                        schema_fields = getattr(service_handler.schema, 'schema', {})
+                        if isinstance(schema_fields, dict) and 'entity_id' in schema_fields:
+                            return True
+                    return True  # 服务存在就假设支持
+            except Exception:
+                pass
+
+            # 最后的备用方案：基于域和服务的常见支持情况
+            common_supported_services = {
+                'light': ['turn_on', 'turn_off', 'toggle'],
+                'switch': ['turn_on', 'turn_off', 'toggle'],
+                'fan': ['turn_on', 'turn_off', 'toggle', 'set_speed'],
+                'cover': ['open_cover', 'close_cover', 'stop_cover', 'set_cover_position'],
+                'lock': ['lock', 'unlock'],
+                'vacuum': ['start', 'pause', 'stop', 'return_to_base'],
+                'climate': ['set_temperature', 'set_hvac_mode', 'set_fan_mode'],  # 不包括turn_on/turn_off
+                'media_player': ['media_play', 'media_pause', 'media_stop', 'volume_set'],
+                'valve': ['open_valve', 'close_valve', 'set_valve_position'],
+            }
+
+            return service_name in common_supported_services.get(domain, [])
+
+        except Exception as e:
+            _LOGGER.debug(f"检查设备服务支持时出错 {device_id}: {e}")
+            # 出错时保守处理，返回True让服务调用时自然报错
+            return True
 
     def _format_failure_message(self, error_count, failed_devices):
         """格式化失败消息"""

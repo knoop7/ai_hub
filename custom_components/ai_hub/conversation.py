@@ -134,27 +134,33 @@ class AIHubConversationEntity(
         # 步骤4: LLM处理 (如果所有意图处理都失败)
 
         try:
-            # 检查LLM配置
+            # 🚀 高性能LLM API配置获取
             llm_apis = options.get(CONF_LLM_HASS_API, [])
-            _LOGGER.info(f"🤖 LLM配置: {llm_apis}")
-            _LOGGER.info(f"🤖 可用选项: {list(options.keys())}")
 
             if not llm_apis:
-                _LOGGER.warning("⚠️ LLM没有配置Hass API权限，无法控制设备!")
-            else:
-                _LOGGER.info(f"✅ LLM已配置 {len(llm_apis)} 个Hass API")
+                _LOGGER.warning("⚠️ 未找到LLM API配置，检查LLM_API_ASSIST")
+                # 尝试使用默认的LLM API ASSIST
+                try:
+                    default_llm_api = llm.LLM_API_ASSIST
+                    llm_apis = [default_llm_api]
+                    _LOGGER.info(f"🚀 使用默认LLM API: {type(default_llm_api)}")
+                except Exception as e:
+                    _LOGGER.error(f"❌ LLM_API_ASSIST获取失败: {e}")
+                    empty_response = intent.IntentResponse(language=user_input.language)
+                    empty_response.async_set_speech("LLM配置出现问题，请检查集成设置。")
+                    return conversation.ConversationResult(
+                        response=empty_response,
+                        conversation_id=user_input.conversation_id
+                    )
 
             # Provide LLM data (tools, home info, etc.)
-            _LOGGER.info("🔧 提供LLM数据（工具、家庭信息等）")
             user_prompt = options.get(CONF_PROMPT, "")
-            _LOGGER.info(f"📝 用户配置的prompt: {user_prompt}")
             await chat_log.async_provide_llm_data(
                 user_input.as_llm_context(DOMAIN),
                 llm_apis,
                 user_prompt,
                 user_input.extra_system_prompt,
             )
-            _LOGGER.info("✅ LLM数据提供完成")
         except conversation.ConverseError as err:
             _LOGGER.error(f"❌ LLM对话错误: {err}")
             return err.as_conversation_result()
@@ -471,15 +477,16 @@ class AIHubConversationEntity(
         # 从配置中读取"所有"相关的关键词，避免硬编码
         try:
             config = get_intents_config()
-            all_keywords = config.get('global_keywords', []) if config else []
-            if not all_keywords:
+            global_config = config.get('GlobalDeviceControl', {}) if config else {}
+            global_keywords = global_config.get('global_keywords', []) if global_config else []
+            if not global_keywords:
                 # 如果配置中没有，使用默认值
-                all_keywords = ["所有", "全部", "一切"]
+                global_keywords = ["所有", "全部", "一切"]
         except Exception as e:
             _LOGGER.debug(f"读取global_keywords失败，使用默认值: {e}")
-            all_keywords = ["所有", "全部", "一切"]
+            global_keywords = ["所有", "全部", "一切"]
 
-        return any(keyword in text for keyword in all_keywords)
+        return any(keyword in text for keyword in global_keywords)
 
     def _has_local_intent_config(self, intent_type: str, intent_info: Dict[str, Any]) -> bool:
         """检查意图是否在本地配置中定义为需要特殊处理"""
@@ -531,15 +538,11 @@ class AIHubConversationEntity(
             off_keywords = global_config.get('off_keywords', [])
             has_action = any(keyword in text_lower for keyword in on_keywords + off_keywords)
 
-            # 检查设备类型关键词
-            device_type_keywords = global_config.get('device_type_keywords', {})
-            has_device = any(keyword in text_lower for keywords in device_type_keywords.values() for keyword in keywords)
-
-            # 只有同时具备：全局关键词 + 明确动作 + 设备类型，才跳过HA处理
-            should_skip = has_global and has_action and has_device
+            # 只有同时包含全局关键词和动作关键词时才跳过HA处理
+            should_skip = has_global and has_action
 
             if should_skip:
-                _LOGGER.debug(f"跳过HA标准处理: 全局={has_global}, 动作={has_action}, 设备={has_device}")
+                _LOGGER.debug(f"跳过HA标准处理: '{text}' (全局关键词: {has_global}, 动作关键词: {has_action})")
 
             return should_skip
 
