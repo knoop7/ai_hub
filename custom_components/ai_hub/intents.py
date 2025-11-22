@@ -300,10 +300,10 @@ class LocalIntentHandler:
         if isinstance(device_type_keywords, str) and device_type_keywords.startswith("{{lists}}"):
             # 从主配置获取lists配置
             lists_config = _INTENTS_CONFIG.get('lists', {}) if _INTENTS_CONFIG else {}
-            _LOGGER.debug(f"使用lists配置: {lists_config}")
+            _LOGGER.debug(f"使用lists配置进行设备类型识别，文本: '{text_lower}'")
 
             # 检查各种设备类型的关键词
-            for domain, list_name in {
+            domain_mapping = {
                 'light': 'light_names',
                 'switch': 'switch_names',
                 'climate': 'climate_names',
@@ -311,17 +311,24 @@ class LocalIntentHandler:
                 'cover': 'cover_names',
                 'media_player': 'media_player_names',
                 'lock': 'lock_names',
-                'vacuum': 'vacuum_names'
-            }.items():
+                'vacuum': 'vacuum_names',
+                'valve': 'valve_names'
+            }
+
+            for domain, list_name in domain_mapping.items():
                 keywords_list = lists_config.get(list_name, {}).get('values', [])
                 if keywords_list:
+                    _LOGGER.debug(f"检查 {domain} 域，关键词列表: {keywords_list}")
                     for keyword in keywords_list:
                         if keyword in text_lower:
                             device_types.append(domain)
-                            _LOGGER.debug(f"识别到设备类型: {domain} (关键词: {keyword})")
+                            _LOGGER.info(f"✅ 识别到设备类型: {domain} (关键词: '{keyword}')")
                             break
+                else:
+                    _LOGGER.debug(f"⚠️ {domain} 域没有找到关键词配置: {list_name}")
         else:
             # 处理传统的字典格式
+            _LOGGER.debug(f"使用传统设备类型关键词配置: {device_type_keywords}")
             for keyword, domain in device_type_keywords.items():
                 if keyword in text_lower:
                     device_types.append(domain)
@@ -333,15 +340,19 @@ class LocalIntentHandler:
         # 确定控制范围和域
         is_global_control = not area_names  # 没有识别到特定区域就是全局控制
 
-        # 确定要控制的域
+        # 确定要控制的域 - 严格匹配模式，只操作识别到的设备类型
         if device_types:
-            # 如果识别到具体设备类型，只控制这些域
             control_domains = device_types
-            _LOGGER.info(f"设备类型识别结果，控制域: {control_domains}")
+            _LOGGER.info(f"✅ 设备类型识别成功，控制域: {control_domains}")
         else:
-            # 如果没有识别到设备类型，使用默认的控制域（全局控制）
-            control_domains = global_config.get('control_domains', global_config.get('default_control_domains', ['light', 'switch']))
-            _LOGGER.info(f"未识别到具体设备类型，使用默认控制域: {control_domains}")
+            # 严格模式：没有识别到设备类型就不操作任何设备
+            control_domains = []
+            _LOGGER.warning(f"❌ 未识别到具体设备类型，为确保安全不执行任何操作。文本: '{text}'")
+
+        # 安全检查：如果没有识别到设备类型，返回None让LLM处理
+        if not control_domains:
+            _LOGGER.info(f"未识别到设备类型，交由LLM处理。文本: '{text}'")
+            return None  # 让LLM处理不明确的意图
 
         # 执行设备控制
         try:
@@ -369,8 +380,9 @@ class LocalIntentHandler:
                                     entity_entry = registry.async_get(device_id)
                                     if entity_entry and entity_entry.area_id:
                                         area_entry = registry.async_get_area(entity_entry.area_id)
-                                        if area_entry and area_entry.name in area_names:
+                                        if area_entry and self._match_area_name(area_entry.name, area_entry.name, area_names):
                                             all_devices.append(device_id)
+                                            _LOGGER.debug(f"找到匹配设备: {device_id} 在区域 {area_entry.name} (匹配关键词: {area_names})")
                                 except:
                                     # 如果无法获取区域信息，跳过
                                     continue
@@ -851,7 +863,8 @@ class LocalIntentHandler:
 
             devices = await self._get_devices_by_domain(['climate'], area_names, is_global_control)
             if not devices:
-                return self._create_error_response("no_param_devices")
+                _LOGGER.info(f"未找到climate设备，交由LLM处理。区域: {area_names}, 全局: {is_global_control}")
+                return None
 
             success_count = 0
             error_count = 0
@@ -891,7 +904,8 @@ class LocalIntentHandler:
 
             devices = await self._get_devices_by_domain(['light'], area_names, is_global_control)
             if not devices:
-                return self._create_error_response("no_param_devices")
+                _LOGGER.info(f"未找到light设备进行亮度控制，交由LLM处理。区域: {area_names}, 全局: {is_global_control}")
+                return None
 
             success_count = 0
             error_count = 0
@@ -948,7 +962,8 @@ class LocalIntentHandler:
 
             devices = await self._get_devices_by_domain(['light'], area_names, is_global_control)
             if not devices:
-                return self._create_error_response("no_param_devices")
+                _LOGGER.info(f"未找到light设备进行颜色控制，交由LLM处理。区域: {area_names}, 全局: {is_global_control}")
+                return None
 
             success_count = 0
             error_count = 0
@@ -990,7 +1005,8 @@ class LocalIntentHandler:
 
             devices = await self._get_devices_by_domain(['media_player'], area_names, is_global_control)
             if not devices:
-                return self._create_error_response("no_param_devices")
+                _LOGGER.info(f"未找到media_player设备进行音量控制，交由LLM处理。区域: {area_names}, 全局: {is_global_control}")
+                return None
 
             success_count = 0
             error_count = 0
@@ -1044,7 +1060,8 @@ class LocalIntentHandler:
 
             devices = await self._get_devices_by_domain(['cover'], area_names, is_global_control)
             if not devices:
-                return self._create_error_response("no_param_devices")
+                _LOGGER.info(f"未找到cover设备进行位置控制，交由LLM处理。区域: {area_names}, 全局: {is_global_control}")
+                return None
 
             success_count, error_count, failed_devices = await self._execute_device_operations(
                 devices, 'cover', service_name, {'position': position}
@@ -1079,7 +1096,8 @@ class LocalIntentHandler:
 
             devices = await self._get_devices_by_domain(['fan'], area_names, is_global_control)
             if not devices:
-                return self._create_error_response("no_param_devices")
+                _LOGGER.info(f"未找到fan设备进行风速控制，交由LLM处理。区域: {area_names}, 全局: {is_global_control}")
+                return None
 
             success_count = 0
             error_count = 0
@@ -1156,9 +1174,9 @@ class LocalIntentHandler:
                                 entity_entry = registry.async_get(device_id)
                                 if entity_entry and entity_entry.area_id:
                                     area_entry = registry.async_get_area(entity_entry.area_id)
-                                    if area_entry and area_entry.name in area_names:
+                                    if area_entry and self._match_area_name(area_entry.name, area_entry.name, area_names):
                                         all_devices.append(device_id)
-                                        _LOGGER.debug(f"找到匹配设备: {device_id} 在区域 {area_entry.name}")
+                                        _LOGGER.debug(f"找到匹配设备: {device_id} 在区域 {area_entry.name} (匹配关键词: {area_names})")
                             except Exception as e:
                                 _LOGGER.debug(f"处理设备 {device_id} 失败: {e}")
                                 continue
@@ -1272,6 +1290,61 @@ class LocalIntentHandler:
                 failed_devices.append(device_name)
 
         return success_count, error_count, failed_devices
+
+    def _match_area_name(self, area_name: str, area_id: str, target_areas: list) -> bool:
+        """智能匹配区域名称，支持多种匹配策略"""
+        try:
+            # 策略1：精确匹配
+            if area_name in target_areas:
+                _LOGGER.debug(f"✅ 区域精确匹配: {area_name}")
+                return True
+
+            # 策略2：大小写不敏感匹配
+            area_name_lower = area_name.lower()
+            target_areas_lower = [area.lower() for area in target_areas]
+            if area_name_lower in target_areas_lower:
+                _LOGGER.debug(f"✅ 区域大小写不敏感匹配: {area_name}")
+                return True
+
+            # 策略3：包含关系匹配（双向）
+            for target_area in target_areas:
+                if target_area in area_name or area_name in target_area:
+                    _LOGGER.debug(f"✅ 区域包含关系匹配: '{area_name}' ↔ '{target_area}'")
+                    return True
+
+            # 策略4：使用区域映射（支持中英文对照）
+            area_mappings = {
+                # 中文 ↔ 英文
+                'living_room': ['客厅', '起居室'],
+                'bedroom': ['卧室', '睡房'],
+                'master_bedroom': ['主卧', '主卧室', '大卧室'],
+                'kitchen': ['厨房', '膳房'],
+                'bathroom': ['卫生间', '浴室', '洗手间', '厕所'],
+                'study': ['书房', '办公室'],
+                'balcony': ['阳台', '露台'],
+                'dining_room': ['餐厅', '饭厅'],
+            }
+
+            # 检查英文区域名到中文的映射
+            if area_name_lower in area_mappings:
+                chinese_names = area_mappings[area_name_lower]
+                if any(cn in target_areas for cn in chinese_names):
+                    _LOGGER.debug(f"✅ 区域映射匹配: {area_name} → {chinese_names}")
+                    return True
+
+            # 检查中文区域名到英文的映射
+            for target_area in target_areas:
+                for english_name, chinese_names in area_mappings.items():
+                    if target_area in chinese_names and english_name == area_name_lower:
+                        _LOGGER.debug(f"✅ 区域反向映射匹配: {target_area} → {area_name}")
+                        return True
+
+            _LOGGER.debug(f"❌ 区域未匹配: {area_name} (目标: {target_areas})")
+            return False
+
+        except Exception as e:
+            _LOGGER.debug(f"区域名称匹配出错: {e}")
+            return False
 
     def _device_supports_service(self, device_id: str, domain: str, service_name: str) -> bool:
         """检查设备是否支持指定的服务"""
@@ -1468,9 +1541,7 @@ class LocalIntentHandler:
         global_config = self.local_config.get('GlobalDeviceControl', {})
         responses = global_config.get('responses', {})
 
-        if error_key == "no_param_devices":
-            message = responses.get('no_param_devices', '没有找到支持参数控制的设备')
-        elif error_key == "error":
+        if error_key == "error":
             error_template = responses.get('error', '设备控制失败：{error}')
             message = error_template.format(error=error_detail)
         else:

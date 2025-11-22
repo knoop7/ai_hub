@@ -275,6 +275,20 @@ lists:
       - "自动门"
       - "防盗门"
 
+  # 🚰 阀门设备 - 用于本地意图
+  valve_names:
+    values:
+      - "水阀"
+      - "阀门"
+      - "水龙头"
+      - "球阀"
+      - "闸阀"
+      - "截止阀"
+      - "止回阀"
+      - "电磁阀"
+      - "智能阀"
+      - "控制阀"
+
   # 🌡️ 传感器设备
   sensor_names:
     values:
@@ -1068,7 +1082,6 @@ local_intents:
       success_scene: "已激活场景：{scene_name}"
       success_script: "已执行脚本：{script_name}"
       no_devices: "没有找到可控制的设备"
-      no_param_devices: "没有找到支持参数控制的设备"
       error: "设备控制失败：{error}"
 
     # ========== 额外硬编码配置 ==========
@@ -1114,13 +1127,8 @@ local_intents:
       log_duplicates: true  # 记录重复设备的详细信息
       fail_on_duplicates: false  # 发现重复设备是否视为错误
 
-    # 默认控制域名（如果配置中没有指定）
-    default_control_domains:
-      - "light"
-      - "switch"
-      - "cover"
-      - "media_player"
-      - "climate"
+    # 注意：已移除默认控制域，采用严格匹配模式
+    # 只操作明确识别到的设备类型，确保操作安全
 
     
     # 默认服务名称映射

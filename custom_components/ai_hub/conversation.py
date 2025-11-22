@@ -538,11 +538,24 @@ class AIHubConversationEntity(
             off_keywords = global_config.get('off_keywords', [])
             has_action = any(keyword in text_lower for keyword in on_keywords + off_keywords)
 
-            # 只有同时包含全局关键词和动作关键词时才跳过HA处理
-            should_skip = has_global and has_action
+            # 检查是否包含参数控制关键词（亮度、音量等）
+            param_keywords = global_config.get('param_keywords', [])
+            brightness_keywords = global_config.get('brightness_keywords', [])
+            volume_keywords = global_config.get('volume_keywords', [])
+            color_keywords = global_config.get('color_keywords', [])
+            temperature_keywords = global_config.get('temperature_keywords', [])
+
+            has_param_control = any(keyword in text_lower for keyword in
+                param_keywords + brightness_keywords + volume_keywords +
+                color_keywords + temperature_keywords)
+
+            # 跳过HA处理的情况：
+            # 1. 全局关键词 + 动作关键词（开关控制）
+            # 2. 全局关键词 + 参数控制（亮度、音量等设置）
+            should_skip = has_global and (has_action or has_param_control)
 
             if should_skip:
-                _LOGGER.debug(f"跳过HA标准处理: '{text}' (全局关键词: {has_global}, 动作关键词: {has_action})")
+                _LOGGER.debug(f"跳过HA标准处理: '{text}' (全局关键词: {has_global}, 动作关键词: {has_action}, 参数控制: {has_param_control})")
 
             return should_skip
 
