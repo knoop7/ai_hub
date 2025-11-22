@@ -293,7 +293,6 @@ class LocalIntentHandler:
             for area in areas_config:
                 if area in text_lower:
                     area_names.append(area)
-                    _LOGGER.debug(f"识别到区域: {area}")
 
         # 识别文本中的设备类型 - 直接引用lists配置
         # 如果device_type_keywords是字符串，尝试从lists中获取
@@ -382,7 +381,6 @@ class LocalIntentHandler:
                                         area_entry = registry.async_get_area(entity_entry.area_id)
                                         if area_entry and self._match_area_name(area_entry.name, area_entry.name, area_names):
                                             all_devices.append(device_id)
-                                            _LOGGER.debug(f"找到匹配设备: {device_id} 在区域 {area_entry.name} (匹配关键词: {area_names})")
                                 except:
                                     # 如果无法获取区域信息，跳过
                                     continue
@@ -399,11 +397,7 @@ class LocalIntentHandler:
                             _LOGGER.debug(f"获取 {domain} 设备失败: {e}")
 
             if not all_devices:
-                return self._create_response(
-                    language,
-                    global_config.get('responses', {}).get('no_devices', '没有找到可控制的设备'),
-                    is_error=True
-                )
+                return None  # 让LLM处理，而不是直接响应用户
 
             # 批量控制设备
             domain_services = global_config.get('domain_services', global_config.get('default_domain_services', {}))
@@ -1292,58 +1286,26 @@ class LocalIntentHandler:
         return success_count, error_count, failed_devices
 
     def _match_area_name(self, area_name: str, area_id: str, target_areas: list) -> bool:
-        """智能匹配区域名称，支持多种匹配策略"""
+        """简化版区域匹配，只使用有效的策略"""
         try:
             # 策略1：精确匹配
             if area_name in target_areas:
-                _LOGGER.debug(f"✅ 区域精确匹配: {area_name}")
                 return True
 
             # 策略2：大小写不敏感匹配
             area_name_lower = area_name.lower()
             target_areas_lower = [area.lower() for area in target_areas]
             if area_name_lower in target_areas_lower:
-                _LOGGER.debug(f"✅ 区域大小写不敏感匹配: {area_name}")
                 return True
 
-            # 策略3：包含关系匹配（双向）
+            # 策略3：包含关系匹配
             for target_area in target_areas:
                 if target_area in area_name or area_name in target_area:
-                    _LOGGER.debug(f"✅ 区域包含关系匹配: '{area_name}' ↔ '{target_area}'")
                     return True
 
-            # 策略4：使用区域映射（支持中英文对照）
-            area_mappings = {
-                # 中文 ↔ 英文
-                'living_room': ['客厅', '起居室'],
-                'bedroom': ['卧室', '睡房'],
-                'master_bedroom': ['主卧', '主卧室', '大卧室'],
-                'kitchen': ['厨房', '膳房'],
-                'bathroom': ['卫生间', '浴室', '洗手间', '厕所'],
-                'study': ['书房', '办公室'],
-                'balcony': ['阳台', '露台'],
-                'dining_room': ['餐厅', '饭厅'],
-            }
-
-            # 检查英文区域名到中文的映射
-            if area_name_lower in area_mappings:
-                chinese_names = area_mappings[area_name_lower]
-                if any(cn in target_areas for cn in chinese_names):
-                    _LOGGER.debug(f"✅ 区域映射匹配: {area_name} → {chinese_names}")
-                    return True
-
-            # 检查中文区域名到英文的映射
-            for target_area in target_areas:
-                for english_name, chinese_names in area_mappings.items():
-                    if target_area in chinese_names and english_name == area_name_lower:
-                        _LOGGER.debug(f"✅ 区域反向映射匹配: {target_area} → {area_name}")
-                        return True
-
-            _LOGGER.debug(f"❌ 区域未匹配: {area_name} (目标: {target_areas})")
             return False
 
-        except Exception as e:
-            _LOGGER.debug(f"区域名称匹配出错: {e}")
+        except Exception:
             return False
 
     def _device_supports_service(self, device_id: str, domain: str, service_name: str) -> bool:
