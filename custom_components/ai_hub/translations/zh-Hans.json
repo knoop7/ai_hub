@@ -2,32 +2,32 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to AI Hub",
-        "description": "Enter your ZhipuAI API key (required) and Silicon Flow API key (optional, for speech recognition functionality). Get ZhipuAI key [here]({api_key_url}) and Silicon Flow key from their official website.",
+        "title": "连接到AI Hub",
+        "description": "请输入您的智谱AI API密钥（必需）和硅基流动 API密钥（可选，用于语音识别功能）。点击[这里]({api_key_url})获取智谱AI密钥，从其官网获取硅基流动密钥。",
         "data": {
-          "api_key": "ZhipuAI API Key",
-          "siliconflow_api_key": "Silicon Flow API Key (optional, for speech recognition)"
+          "api_key": "智谱AI API密钥",
+          "siliconflow_api_key": "硅基流动 API密钥（可选，用于语音识别）"
         }
       }
     },
     "error": {
-      "cannot_connect": "Cannot connect to AI Hub service",
-      "invalid_auth": "Invalid API key",
-      "unknown": "Unknown error"
+      "cannot_connect": "无法连接到AI Hub服务",
+      "invalid_auth": "API密钥无效",
+      "unknown": "未知错误"
     },
     "abort": {
-      "already_configured": "This API key is already configured"
+      "already_configured": "此API密钥已经配置"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Configuration Options",
-        "description": "Please find the corresponding subentries (Conversation Agent or AI Task) in the integration details page, and click the configuration button on the right side of each subentry to modify settings.\n\nClick 'AI Hub' on the integrations page to enter the details page, where you will see the list of configured subentries, each of which can be configured individually."
+        "title": "配置选项",
+        "description": "请在集成详情页面找到对应的子项目（对话助手或AI任务），点击每个子项目右侧的配置按钮修改设置。\n\n点击集成页面上的AI Hub进入详情页面，您会看到已配置的子项目列表，每个子项目都可以单独配置。"
       }
     },
     "abort": {
-      "configure_via_subentries": "Please configure conversation and AI task through subentries. Find the corresponding subentries in the devices page."
+      "configure_via_subentries": "请通过子项目配置对话和AI任务。在设备页面找到对应的子项目。"
     }
   },
   "config_subentries": {
@@ -71,22 +71,22 @@
       "entry_type": "AI Hub AI任务",
       "step": {
         "init": {
-          "title": "Configure AI Task",
-          "description": "Customize AI task behavior and parameters. Enable recommended mode for best settings, or disable to customize all parameters. After submitting, the configuration information will be switched.",
+          "title": "配置AI任务",
+          "description": "自定义AI任务的行为和参数。开启推荐模式使用最佳设置，或关闭以自定义所有参数。提交后将切换配置信息。",
           "data": {
-            "name": "Name",
-            "recommended": "Recommended Mode",
-            "chat_model": "Chat Model",
-            "image_model": "Image Model",
-            "temperature": "Temperature",
+            "name": "名称",
+            "recommended": "推荐模式",
+            "chat_model": "聊天模型",
+            "image_model": "图像模型",
+            "temperature": "温度",
             "top_p": "Top P",
-            "max_tokens": "Max Tokens"
+            "max_tokens": "最大令牌数"
           },
           "data_description": {
-            "recommended": "Use recommended settings",
-            "temperature": "Control creativity (0-2)",
-            "top_p": "Sampling parameter (0-1)",
-            "max_tokens": "Maximum response length"
+            "recommended": "使用推荐设置",
+            "temperature": "控制创造性（0-2）",
+            "top_p": "采样参数（0-1）",
+            "max_tokens": "最大响应长度"
           }
         }
       }
@@ -99,46 +99,46 @@
       "entry_type": "AI Hub Edge TTS语音",
       "step": {
         "init": {
-          "title": "Configure Edge TTS Voice",
-          "description": "Customize Edge TTS text-to-speech parameters. Edge TTS is a free TTS service provided by Microsoft, supporting multiple voices and languages.",
+          "title": "配置Edge TTS语音",
+          "description": "自定义Edge TTS文本转语音参数。Edge TTS是微软提供的免费TTS服务，支持多种语音和语言。",
           "data": {
-            "name": "Name",
-            "recommended": "Recommended Mode",
-            "voice": "Voice",
-            "lang": "Language",
-            "rate": "Rate",
-            "volume": "Volume",
-            "pitch": "Pitch"
+            "name": "名称",
+            "recommended": "推荐模式",
+            "voice": "语音",
+            "lang": "语言",
+            "rate": "语速",
+            "volume": "音量",
+            "pitch": "音调"
           },
           "data_description": {
-            "recommended": "Use recommended settings",
-            "voice": "Select Edge TTS voice, like Xiaoxiao, Yunxi, etc.",
-            "lang": "Select voice language, like zh-CN for Chinese",
-            "rate": "Speech rate, like +10% faster, -10% slower",
-            "volume": "Speech volume, like +10% louder, -10% quieter",
-            "pitch": "Speech pitch, like +10Hz higher, -10Hz lower"
+            "recommended": "使用推荐设置",
+            "voice": "选择Edge TTS语音，如晓晓、云熙等",
+            "lang": "选择语音语言，如zh-CN代表中文",
+            "rate": "语音速度，如+10%更快，-10%更慢",
+            "volume": "语音音量，如+10%更响，-10%更轻",
+            "pitch": "语音音调，如+10Hz更高，-10Hz更低"
           }
         }
       }
     },
     "stt": {
       "initiate_flow": {
-        "user": "添加Silicon Flow ASR",
-        "reconfigure": "重新配置Silicon Flow ASR"
+        "user": "添加硅基流动 ASR",
+        "reconfigure": "重新配置硅基流动 ASR"
       },
-      "entry_type": "AI Hub Silicon Flow ASR",
+      "entry_type": "AI Hub 硅基流动 ASR",
       "step": {
         "init": {
-          "title": "Configure Silicon Flow ASR",
-          "description": "Customize Silicon Flow ASR speech-to-text parameters. Silicon Flow provides high-quality ASR service supporting multiple models and languages.",
+          "title": "配置硅基流动 ASR",
+          "description": "自定义硅基流动 ASR语音转文本参数。硅基流动提供高质量的ASR服务，支持多种模型和语言。",
           "data": {
-            "name": "Name",
-            "recommended": "Recommended Mode",
-            "model": "ASR Model"
+            "name": "名称",
+            "recommended": "推荐模式",
+            "model": "ASR模型"
           },
           "data_description": {
-            "recommended": "Use recommended settings",
-            "model": "Select ASR model: FunAudioLLM/SenseVoiceSmall (recommended) or TeleAI/TeleSpeechASR"
+            "recommended": "使用推荐设置",
+            "model": "选择ASR模型：FunAudioLLM/SenseVoiceSmall（推荐）或TeleAI/TeleSpeechASR"
           }
         }
       }
@@ -152,15 +152,15 @@
       "step": {
         "init": {
           "title": "配置微信通知",
-          "description": "配置贝米FA云端微信通知功能。开启推荐模式使用最佳设置。",
+          "description": "配置巴法云云端微信通知功能。开启推荐模式使用最佳设置。",
           "data": {
             "name": "名称",
             "recommended": "推荐模式",
-            "bemfa_uid": "贝米FA UID"
+            "bemfa_uid": "巴法云 UID"
           },
           "data_description": {
-            "recommended": "使用推荐配置",
-            "bemfa_uid": "贝米FA提供的用户ID，用于发送微信消息"
+            "recommended": "使用推荐设置",
+            "bemfa_uid": "巴法云提供的用户ID，用于发送微信消息"
           }
         }
       },
@@ -174,20 +174,8 @@
         "reconfigure": "重新配置集成翻译"
       },
       "entry_type": "AI Hub 集成翻译",
-      "step": {
-        "init": {
-          "title": "Configure Integration Translation",
-          "description": "Configure integration translation function. Use Zhipu AI to automatically translate English translation files to Chinese.",
-          "data": {
-            "name": "Name",
-            "recommended": "Recommended Mode",
-            "custom_components_path": "Custom Components Path"
-          },
-          "data_description": {
-            "recommended": "Use recommended settings",
-            "custom_components_path": "Custom integration directory path, default is custom_components"
-          }
-        }
+      "abort": {
+        "translation_no_reconfigure": "集成翻译不支持重新配置。如需修改设置，请删除并重新添加。"
       }
     },
     "blueprint_translation": {
@@ -198,134 +186,164 @@
       "entry_type": "AI Hub 蓝图翻译",
       "step": {
         "init": {
-          "title": "Configure Blueprint Translation",
-          "description": "Configure blueprint translation function. Use Zhipu AI to automatically translate English blueprint files to Chinese.",
+          "title": "配置蓝图翻译",
+          "description": "配置蓝图翻译功能。使用智谱AI自动将英文蓝图文件翻译为中文。",
           "data": {
-            "name": "Name",
-            "recommended": "Recommended Mode"
+            "name": "名称",
+            "recommended": "推荐模式",
+            "custom_components_path": "自定义组件路径"
           },
           "data_description": {
-            "recommended": "Use recommended settings"
+            "recommended": "使用推荐设置",
+            "custom_components_path": "自定义集成目录路径，默认为custom_components"
           }
         }
       },
       "abort": {
-        "blueprint_translation_no_reconfigure": "Blueprint translation does not support reconfiguration. To modify settings, please delete and re-add."
+        "blueprint_translation_no_reconfigure": "蓝图翻译不支持重新配置。如需修改设置，请删除并重新添加。"
       }
     }
   },
   "services": {
     "generate_image": {
-      "name": "Generate Image",
-      "description": "Generate image using AI Hub CogView model",
+      "name": "生成图像",
+      "description": "使用AI Hub CogView模型生成图像",
       "fields": {
         "prompt": {
-          "name": "Prompt",
-          "description": "Describe the image content to generate"
+          "name": "提示词",
+          "description": "描述要生成的图像内容"
         },
         "size": {
-          "name": "Image Size",
-          "description": "Size of the generated image"
+          "name": "图像尺寸",
+          "description": "生成图像的尺寸"
         },
         "model": {
-          "name": "Model",
-          "description": "Image generation model to use"
+          "name": "模型",
+          "description": "使用的图像生成模型"
         }
       }
     },
     "analyze_image": {
-      "name": "Analyze Image",
-      "description": "Analyze image content using AI Hub",
+      "name": "分析图像",
+      "description": "使用AI Hub分析图像内容",
       "fields": {
         "image_file": {
-          "name": "Image File",
-          "description": "Path to the image file to analyze"
+          "name": "图像文件",
+          "description": "要分析的图像文件路径"
         },
         "image_entity": {
-          "name": "Image Entity",
-          "description": "Camera entity ID to analyze"
+          "name": "图像实体",
+          "description": "要分析摄像头实体ID"
         },
         "message": {
-          "name": "Analysis Prompt",
-          "description": "Tell AI how to analyze this image"
+          "name": "分析指令",
+          "description": "告诉AI如何分析这张图像"
         },
         "model": {
-          "name": "Model",
-          "description": "Image analysis model to use"
+          "name": "模型",
+          "description": "使用的图像分析模型"
         },
         "temperature": {
-          "name": "Temperature",
-          "description": "Control output randomness"
+          "name": "温度",
+          "description": "控制输出随机性"
         },
         "max_tokens": {
-          "name": "Max Tokens",
-          "description": "Limit maximum response length"
+          "name": "最大令牌数",
+          "description": "限制最大响应长度"
         },
         "stream": {
-          "name": "Stream Output",
-          "description": "Enable streaming output"
+          "name": "流式输出",
+          "description": "启用流式输出"
         }
       }
     },
     "tts_speech": {
-      "name": "Edge TTS Speech Synthesis",
-      "description": "Convert text to speech using Edge TTS",
+      "name": "Edge TTS语音合成",
+      "description": "使用Edge TTS将文本转换为语音",
       "fields": {
         "text": {
-          "name": "Text",
-          "description": "Text content to convert to speech"
+          "name": "文本",
+          "description": "要转换为语音的文本内容"
         },
         "voice": {
-          "name": "Voice",
-          "description": "Select Edge TTS voice, like zh-CN-XiaoxiaoNeural"
+          "name": "语音",
+          "description": "选择Edge TTS语音，如zh-CN-XiaoxiaoNeural"
         },
         "rate": {
-          "name": "Rate",
-          "description": "Speech rate adjustment, like +10% faster, -10% slower"
+          "name": "语速",
+          "description": "语音速度调整，如+10%更快，-10%更慢"
         },
         "volume": {
-          "name": "Volume",
-          "description": "Speech volume adjustment, like +10% louder, -10% quieter"
+          "name": "音量",
+          "description": "语音音量调整，如+10%更响，-10%更轻"
         },
         "pitch": {
-          "name": "Pitch",
-          "description": "Speech pitch adjustment, like +10Hz higher, -10Hz lower"
+          "name": "音调",
+          "description": "语音音调调整，如+10Hz更高，-10Hz更低"
         },
         "media_player_entity": {
-          "name": "Media Player",
-          "description": "Media player entity to play speech"
+          "name": "媒体播放器",
+          "description": "用于播放语音的媒体播放器实体"
         }
       }
     },
     "stt_transcribe": {
-      "name": "Silicon Flow ASR Transcription",
-      "description": "Convert speech to text using Silicon Flow ASR",
+      "name": "硅基流动 ASR转录",
+      "description": "使用硅基流动 ASR将语音转换为文本",
       "fields": {
         "audio_file": {
-          "name": "Audio File",
-          "description": "Path to audio file to transcribe (supports mp3, wav, flac formats)"
+          "name": "音频文件",
+          "description": "要转录的音频文件路径（支持mp3、wav、flac格式）"
         },
         "model": {
-          "name": "ASR Model",
-          "description": "Speech recognition model to use: FunAudioLLM/SenseVoiceSmall (recommended) or TeleAI/TeleSpeechASR"
+          "name": "ASR模型",
+          "description": "使用的语音识别模型：FunAudioLLM/SenseVoiceSmall（推荐）或TeleAI/TeleSpeechASR"
         }
       }
     },
     "translate_blueprints": {
-      "name": "Blueprint Translation",
-      "description": "Translate Home Assistant Blueprint file interface from English to Chinese",
+      "name": "蓝图翻译",
+      "description": "将Home Assistant蓝图文件界面从英文翻译为中文",
       "fields": {
         "list_blueprints": {
-          "name": "List Blueprints",
-          "description": "Only list imported Blueprint files and their translation status, do not execute translation operation"
+          "name": "列出蓝图",
+          "description": "仅列出已导入的蓝图文件及其翻译状态，不执行翻译操作"
         },
         "target_blueprint": {
-          "name": "Target Blueprint",
-          "description": "Specify the Blueprint file name to translate (without extension), leave empty to translate all Blueprints"
+          "name": "目标蓝图",
+          "description": "指定要翻译的蓝图文件名（不含扩展名），留空则翻译所有蓝图"
         },
         "force_translation": {
-          "name": "Force Translation",
-          "description": "Force re-translation and overwrite existing translations regardless of whether Chinese translation file exists"
+          "name": "强制翻译",
+          "description": "强制重新翻译并覆盖现有翻译，无论中文翻译文件是否存在"
+        }
+      }
+    },
+    "send_wechat_message": {
+      "name": "发送微信消息",
+      "description": "通过巴法云发送微信消息通知，设备状态改变时自动发送，包含设备名称和状态",
+      "fields": {
+        "device_entity": {
+          "name": "设备实体",
+          "description": "要监视状态的实体ID，可包含多个设备名称和状态，将作为设备名称显示"
+        },
+        "message": {
+          "name": "消息内容",
+          "description": "要发送的消息内容，实体名称和状态将自动替换为设备名称显示"
+        },
+        "url": {
+          "name": "访问链接",
+          "description": "可选的访问链接地址"
+        }
+      }
+    },
+    "translate_components": {
+      "name": "集成翻译",
+      "description": "自动将Home Assistant集成的英文翻译为中文",
+      "fields": {
+        "custom_components_path": {
+          "name": "路径",
+          "description": "自定义集成目录路径，默认为配置目录"
         }
       }
     }
