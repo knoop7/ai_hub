@@ -491,7 +491,7 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             if not siliconflow_api_key or not siliconflow_api_key.strip():
                 return {
                     "success": False,
-                    "error": "Silicon Flow API密钥未配置，请先在集成配置中设置"
+                    "error": "硅基流动API密钥未配置，请先在集成配置中设置"
                 }
             audio_file = call.data[CONF_STT_FILE]
             model = call.data.get("model", RECOMMENDED_STT_MODEL)
@@ -626,7 +626,7 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             if not bemfa_uid or not bemfa_uid.strip():
                 return {
                     "success": False,
-                    "error": "Bemfa UID 未配置，请在集成配置中设置或通过服务参数提供"
+                    "error": "巴法云UID未配置，请在集成配置中设置或通过服务参数提供"
                 }
 
             device_entity = call.data["device_entity"]

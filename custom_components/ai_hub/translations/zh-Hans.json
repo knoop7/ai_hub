@@ -3,17 +3,18 @@
     "step": {
       "user": {
         "title": "连接到AI Hub",
-        "description": "请输入您的智谱AI API密钥（必需）和硅基流动 API密钥（可选，用于语音识别功能）。点击[这里]({api_key_url})获取智谱AI密钥，从其官网获取硅基流动密钥。",
+        "description": "请输入您的智谱AI API密钥（必需）和硅基流动API密钥（可选，用于语音识别功能）。点击[这里]({api_key_url})获取智谱AI密钥，从其官网获取硅基流动密钥。",
         "data": {
           "api_key": "智谱AI API密钥",
-          "siliconflow_api_key": "硅基流动 API密钥（可选，用于语音识别）"
+          "siliconflow_api_key": "硅基流动API密钥（可选，用于语音识别）"
         }
       }
     },
     "error": {
       "cannot_connect": "无法连接到AI Hub服务",
       "invalid_auth": "API密钥无效",
-      "unknown": "未知错误"
+      "unknown": "未知错误",
+      "bemfa_uid_required": "巴法云UID是必填项"
     },
     "abort": {
       "already_configured": "此API密钥已经配置"
@@ -23,7 +24,7 @@
     "step": {
       "init": {
         "title": "配置选项",
-        "description": "请在集成详情页面找到对应的子项目（对话助手或AI任务），点击每个子项目右侧的配置按钮修改设置。\n\n点击集成页面上的AI Hub进入详情页面，您会看到已配置的子项目列表，每个子项目都可以单独配置。"
+        "description": "请在集成详情页面找到对应的子项目（对话助手或AI任务），点击每个子项目右侧的配置按钮修改设置。点击集成页面上的AI Hub进入详情页面，您会看到已配置的子项目列表，每个子项目都可以单独配置。"
       }
     },
     "abort": {
@@ -123,14 +124,14 @@
     },
     "stt": {
       "initiate_flow": {
-        "user": "添加硅基流动 ASR",
-        "reconfigure": "重新配置硅基流动 ASR"
+        "user": "添加硅基流动ASR",
+        "reconfigure": "重新配置硅基流动ASR"
       },
-      "entry_type": "AI Hub 硅基流动 ASR",
+      "entry_type": "AI Hub 硅基流动ASR",
       "step": {
         "init": {
-          "title": "配置硅基流动 ASR",
-          "description": "自定义硅基流动 ASR语音转文本参数。硅基流动提供高质量的ASR服务，支持多种模型和语言。",
+          "title": "配置硅基流动ASR",
+          "description": "自定义硅基流动ASR语音转文本参数。硅基流动提供高质量的ASR服务，支持多种模型和语言。",
           "data": {
             "name": "名称",
             "recommended": "推荐模式",
@@ -156,12 +157,15 @@
           "data": {
             "name": "名称",
             "recommended": "推荐模式",
-            "bemfa_uid": "巴法云 UID"
+            "bemfa_uid": "巴法云私钥"
           },
           "data_description": {
             "recommended": "使用推荐设置",
-            "bemfa_uid": "巴法云提供的用户ID，用于发送微信消息"
+            "bemfa_uid": "巴法云提供的用户私钥，用于发送微信消息"
           }
+        },
+        "error": {
+          "bemfa_uid_required": "巴法云私钥是必填项"
         }
       },
       "abort": {
@@ -195,7 +199,7 @@
           },
           "data_description": {
             "recommended": "使用推荐设置",
-            "custom_components_path": "自定义集成目录路径，默认为custom_components"
+            "custom_components_path": "自定义集成目录路径，默认为配置目录"
           }
         }
       },
@@ -288,8 +292,8 @@
       }
     },
     "stt_transcribe": {
-      "name": "硅基流动 ASR转录",
-      "description": "使用硅基流动 ASR将语音转换为文本",
+      "name": "硅基流动ASR转录",
+      "description": "使用硅基流动ASR将语音转换为文本",
       "fields": {
         "audio_file": {
           "name": "音频文件",

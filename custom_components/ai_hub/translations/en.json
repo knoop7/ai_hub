@@ -13,7 +13,8 @@
     "error": {
       "cannot_connect": "Cannot connect to AI Hub service",
       "invalid_auth": "Invalid API key",
-      "unknown": "Unknown error"
+      "unknown": "Unknown error",
+      "bemfa_uid_required": "Bemfa UID is required"
     },
     "abort": {
       "already_configured": "This API key is already configured"
@@ -163,6 +164,9 @@
             "bemfa_uid": "Bemfa provided user ID for sending WeChat messages"
           }
         }
+      },
+      "error": {
+        "bemfa_uid_required": "Bemfa UID is required"
       }
     },
     "translation": {
