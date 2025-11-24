@@ -549,9 +549,8 @@ class AIHubConversationEntity(
                 param_keywords + brightness_keywords + volume_keywords +
                 color_keywords + temperature_keywords)
 
-            # 跳过HA处理的情况：
-            # 1. 全局关键词 + 动作关键词（开关控制）
-            # 2. 全局关键词 + 参数控制（亮度、音量等设置）
+            # 跳过HA处理的情况：只有明确的全局指令才进行本地处理
+            # 要求必须同时包含全局关键词和明确的动作或参数控制
             should_skip = has_global and (has_action or has_param_control)
 
             if should_skip:
