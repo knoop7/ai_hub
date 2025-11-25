@@ -176,6 +176,14 @@
         "reconfigure": "Reconfigure Integration Translation"
       },
       "entry_type": "AI Hub Integration Translation",
+      "step": {
+        "init": {
+          "title": "Add Integration Translation",
+          "description": "Enable component translation function, translate English custom integrations to Chinese.",
+          "data": {},
+          "data_description": {}
+        }
+      },
       "abort": {
         "translation_no_reconfigure": "Integration translation does not support reconfiguration. To modify settings, please delete and re-add."
       }
