@@ -3,10 +3,11 @@
     "step": {
       "user": {
         "title": "连接到AI Hub",
-        "description": "请输入您的智谱AI API密钥（必需）和硅基流动API密钥（可选，用于语音识别功能）。点击[这里]({api_key_url})获取智谱AI密钥，从其官网获取硅基流动密钥。",
+        "description": "请输入你需要对应服务的API-KEY，如果需要全服务，请输入所有的API-KEY，如果有任何问题，可以点击问号图标查看帮助文档。",
         "data": {
-          "api_key": "智谱AI API密钥",
-          "siliconflow_api_key": "硅基流动API密钥（可选，用于语音识别）"
+          "api_key": "智谱AI API密钥（建议，用户对话，AI 任务，汉化等）",
+          "siliconflow_api_key": "硅基流动API密钥（可选，用于语音识别）",
+          "bemfa_uid": "巴法云私钥（可选，用于微信通知）"
         }
       }
     },
@@ -14,7 +15,7 @@
       "cannot_connect": "无法连接到AI Hub服务",
       "invalid_auth": "API密钥无效",
       "unknown": "未知错误",
-      "bemfa_uid_required": "巴法云UID是必填项"
+      "bemfa_uid_required": "巴法云私钥是必填项"
     },
     "abort": {
       "already_configured": "此API密钥已经配置"

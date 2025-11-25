@@ -3,10 +3,11 @@
     "step": {
       "user": {
         "title": "Connect to AI Hub",
-        "description": "Enter your ZhipuAI API key (required) and Silicon Flow API key (optional, for speech recognition functionality). Get ZhipuAI key [here]({api_key_url}) and Silicon Flow key from their official website.",
+        "description": "Please enter the API key(s) required for the corresponding service. For all services, please enter all API keys. If you have any questions, you can click the question mark icon to view the help documentation.",
         "data": {
-          "api_key": "ZhipuAI API Key",
-          "siliconflow_api_key": "Silicon Flow API Key (optional, for speech recognition)"
+          "api_key": "ZhipuAI API Key (recommended, for conversation agent, AI tasks, translation, etc.)",
+          "siliconflow_api_key": "Silicon Flow API Key (optional, for speech recognition)",
+          "bemfa_uid": "Bemfa UID (optional, for WeChat notification)"
         }
       }
     },
