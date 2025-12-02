@@ -26,7 +26,9 @@
       "Bash(nul:*)",
       "WebFetch(domain:developers.home-assistant.dev)",
       "Bash(chcp:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "mcp__serena__list_dir",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

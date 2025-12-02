@@ -25,6 +25,7 @@ from .const import (
     DOMAIN,
 )
 from .entity import AIHubEntityBase
+from .markdown_filter import filter_markdown_content
 from homeassistant.helpers import device_registry as dr
 
 _LOGGER = logging.getLogger(__name__)
@@ -350,11 +351,16 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
                         raise HomeAssistantError("API 响应格式错误，无法找到转录文本")
 
                     _LOGGER.info("=== STT识别成功: '%s' ===", transcribed_text)
+
+                    # 应用 markdown_filter 清理可能的 markdown 格式内容
+                    cleaned_text = filter_markdown_content(transcribed_text)
+                    _LOGGER.info("应用 markdown_filter 后: '%s' → '%s'", transcribed_text, cleaned_text)
+
                     _LOGGER.info("返回SpeechResult对象，格式检查...")
 
                     # Create SpeechResult object using the correct format like zhipuai
                     result = stt.SpeechResult(
-                        transcribed_text.strip(),
+                        cleaned_text.strip(),
                         stt.SpeechResultState.SUCCESS
                     )
                     _LOGGER.info("SpeechResult创建成功，text='%s'", result.text)

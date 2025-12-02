@@ -1,5 +1,32 @@
 import re
 
+def _remove_emojis(text: str) -> str:
+    """Remove all emojis from text"""
+    if not text:
+        return ""
+
+    result = []
+    for char in text:
+        code = ord(char)
+        # Skip characters in emoji ranges (remove emojis), keep non-emoji characters
+        if (
+            (0x1F300 <= code <= 0x1F5FF) or  # Supplemental Symbols and Pictographs
+            (0x1F600 <= code <= 0x1F64F) or  # Emoticons
+            (0x1F680 <= code <= 0x1F6FF) or  # Transport & Map Symbols
+            (0x1F900 <= code <= 0x1F9FF) or  # Miscellaneous Symbols
+            (0x1FA70 <= code <= 0x1FAFF) or  # Symbols and Pictographs Extended-A
+            (0x2600 <= code <= 0x26FF) or    # Miscellaneous Symbols
+            (0x2700 <= code <= 0x27BF)       # Dingbats
+        ):
+            # This is an emoji, skip it (don't add to result)
+            continue
+        else:
+            # This is not an emoji, keep it
+            result.append(char)
+
+    return ''.join(result)
+
+
 _MARKDOWN_FILTER_PATTERNS = [
     re.compile(r'^#{1,6}\s+.*$', re.MULTILINE),
     re.compile(r'^\s*[-*+]\s+', re.MULTILINE),
@@ -11,8 +38,6 @@ _MARKDOWN_FILTER_PATTERNS = [
     re.compile(r'\*([^*\n]*)\*'),          # 修复斜体：保留内容
     re.compile(r'__([^_\n]*)__'),          # 修复粗体：保留内容
     re.compile(r'_([^_\n]*)_'),            # 修复斜体：保留内容
-    re.compile(r'^\|[^\n]*\|$', re.MULTILINE),
-    re.compile(r'^\|[\s-]*\|[\s-]*\|$', re.MULTILINE),
     re.compile(r'~~([^~\n]*)~~'),          # 修复删除线：保留内容
     re.compile(r'`([^`\n]*)`'),            # 修复行内代码：保留内容
     re.compile(r'^-{3,}$|^_{3,}$|^\*{3,}$', re.MULTILINE),
@@ -23,12 +48,15 @@ _MARKDOWN_FILTER_PATTERNS = [
     re.compile(r'^`[a-zA-Z0-9_-]*$', re.MULTILINE)
 ]
 
-_BASE_FILTER_PATTERNS = [re.compile(r'')]
+_BASE_FILTER_PATTERNS = []
 
 def filter_markdown_content(content: str) -> str:
     """无条件过滤markdown格式内容，保留英文单词间的空格"""
     if not content:
         return ""
+
+    # 首先清除 emoji
+    content = _remove_emojis(content)
 
     # 定义需要保留内容的模式（这些模式有捕获组，用于移除markdown语法但保留内容）
     patterns_with_capture = [
@@ -77,6 +105,9 @@ def filter_markdown_streaming(content: str) -> str:
     """专门用于streaming处理的markdown过滤器，保留所有空格"""
     if not content:
         return ""
+
+    # 首先清除 emoji
+    content = _remove_emojis(content)
 
     # 定义需要保留内容的模式（这些模式有捕获组，用于移除markdown语法但保留内容）
     patterns_with_capture = [
@@ -131,4 +162,4 @@ def filter_markdown_content_legacy(content: str, filter_enabled: bool = False) -
     if filter_enabled:
         return filter_markdown_content(content)
 
-    return content.strip() 
+    return content.strip()
