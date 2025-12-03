@@ -28,7 +28,10 @@
       "Bash(chcp:*)",
       "Bash(python3:*)",
       "mcp__serena__list_dir",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "mcp__open-websearch__search",
+      "Bash(powershell:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
