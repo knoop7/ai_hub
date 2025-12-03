@@ -410,47 +410,47 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "在<area><play>(歌手|艺术家){artist}的(歌|音乐)"
-          - "在<area><play><album>{album}"
-          - "在<area><play><track>{track}"
-          - "在<area><play><playlist>{playlist}"
-          - "在<area><play><radio_station>{radio}"
+          - "[<let>] 在<area><play>(歌手|艺术家){artist}的(歌|音乐)"
+          - "[<let>] 在<area><play><album>{album}"
+          - "[<let>] 在<area><play><track>{track}"
+          - "[<let>] 在<area><play><playlist>{playlist}"
+          - "[<let>] 在<area><play><radio_station>{radio}"
         expansion_rules:
-          play: "(play|播放|收听)"
-          track: "(track|歌曲|音乐)"
-          album: "(album|专辑|唱片|合集|单曲)"
-          playlist: "(playlist|播放列表)"
-          radio_station: "(radio_station|广播电台|电台|频道)"
+          play: "(播放|收听)"
+          track: "(歌曲|音乐)"
+          album: "(专辑|唱片|合集|单曲)"
+          playlist: "(播放列表)"
+          radio_station: "(广播电台|电台|频道)"
         requires_context:
           domain: "media_player"
 
       - sentences:
-          - "用{name}<play>(歌手|艺术家){artist}的(歌|音乐)"
-          - "用{name}<play><album>{album}"
-          - "用{name}<play><track>{track}"
-          - "用{name}<play><playlist>{playlist}"
-          - "用{name}<play><radio_station>{radio}"
+          - "[<let>] 用{name}<play>(歌手|艺术家){artist}的(歌|音乐)"
+          - "[<let>] 用{name}<play><album>{album}"
+          - "[<let>] 用{name}<play><track>{track}"
+          - "[<let>] 用{name}<play><playlist>{playlist}"
+          - "[<let>] 用{name}<play><radio_station>{radio}"
         expansion_rules:
-          play: "(play|播放|收听)"
-          track: "(track|歌曲|音乐)"
-          album: "(album|专辑|唱片|合集|单曲)"
-          playlist: "(playlist|播放列表)"
-          radio_station: "(radio_station|广播电台|电台|频道)"
+          play: "(播放|收听)"
+          track: "(歌曲|音乐)"
+          album: "(专辑|唱片|合集|单曲)"
+          playlist: "(播放列表)"
+          radio_station: "(广播电台|电台|频道)"
         requires_context:
           domain: "media_player"
 
       - sentences:
-          - "<play>(歌手|艺术家){artist}的(歌|音乐)"
-          - "<play><album>{album}"
-          - "<play><track>{track}"
-          - "<play><playlist>{playlist}"
-          - "<play><radio_station>{radio}"
+          - "[<let>] <play>(歌手|艺术家){artist}的(歌|音乐)"
+          - "[<let>] <play><album>{album}"
+          - "[<let>] <play><track>{track}"
+          - "[<let>] <play><playlist>{playlist}"
+          - "[<let>] <play><radio_station>{radio}"
         expansion_rules:
-          play: "(play|播放|收听)"
-          track: "(track|歌曲|音乐)"
-          album: "(album|专辑|唱片|合集|单曲)"
-          playlist: "(playlist|播放列表)"
-          radio_station: "(radio_station|广播电台|电台|频道)"
+          play: "(播放|收听)"
+          track: "(歌曲|音乐)"
+          album: "(专辑|唱片|合集|单曲)"
+          playlist: "(播放列表)"
+          radio_station: "(广播电台|电台|频道)"
         requires_context:
           area:
             slot: true
@@ -462,35 +462,12 @@ intents:
     bypass_home_assistant: true
     data:
       - sentences:
-          - "查看{camera_name}的{question}"
-          - "看看{camera_name}的{question}"
-          - "告诉我{camera_name}的{question}"
-          - "{camera_name}现在{question}"
-          - "分析{camera_name}的{question}"
-          - "查看{camera_name}的{question}"
-          - "检查{camera_name}的{question}"
-          - "观察{camera_name}的{question}"
-          - "识别{camera_name}的{question}"
-          - "告诉我{camera_name}的{question}"
-          - "帮我看看{camera_name}的{question}"
-          - "帮我分析{camera_name}的{question}"
-          - "帮我检查{camera_name}的{question}"
-          - "帮我识别{camera_name}的{question}"
-          - "{camera_name}那里的{question}"
-          - "{camera_name}现在的{question}"
-          - "{camera_name}目前的{question}"
-          - "看一下{camera_name}的{question}"
-          - "分析一下{camera_name}的{question}"
-          - "检查一下{camera_name}的{question}"
-          - "观察一下{camera_name}的{question}"
-          - "识别一下{camera_name}的{question}"
-          - "分析下{camera_name}{question}"
-          - "查看下{camera_name}{question}"
-          - "看看{camera_name}{question}"
-          - "analyze {camera_name} {question}"
-          - "check {camera_name} {question}"
-          - "look at {camera_name} {question}"
-          - "identify {camera_name} {question}"
+          - "[<let>] [查看|看看|分析|检查|观察|识别]{camera_name}的{question}"
+          - "[<let>] 告诉我{camera_name}的{question}"
+          - "[<let>] {camera_name}[现在|那里|目前]的{question}"
+          - "[<let>] [帮我][查看|看看|分析|检查|观察|识别]{camera_name}的{question}"
+          - "[<let>] [看一下|分析一下|检查一下|观察一下|识别一下]{camera_name}的{question}"
+          - "[<let>] [分析下|查看下]{camera_name}{question}"
         slots:
           camera_name:
             type: text
@@ -506,10 +483,10 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "[查询|查看][<area>](窗帘|百叶|遮阳帘){name}[的]状态"
-          - "[<area>](窗帘|百叶|遮阳帘){name}[现在|当前]是什么状态"
-          - "[<area>](窗帘|百叶|遮阳帘){name}[是|不是](打开|开启|拉开|升起)[吗|不]"
-          - "[<area>](窗帘|百叶|遮阳帘){name}[是|不是](关闭|合上|拉下|降下)[吗|不]"
+          - "[<let>] [查询|查看][<area>](窗帘|百叶|遮阳帘){name}[的]状态"
+          - "[<let>] [<area>](窗帘|百叶|遮阳帘){name}[现在|当前]是什么状态"
+          - "[<let>] [<area>](窗帘|百叶|遮阳帘){name}[是|不是](打开|开启|拉开|升起)[吗|不]"
+          - "[<let>] [<area>](窗帘|百叶|遮阳帘){name}[是|不是](关闭|合上|拉下|降下)[吗|不]"
         response: one_yesno
         requires_context:
           domain: cover
@@ -517,28 +494,28 @@ intents:
           domain: cover
 
       - sentences:
-          - "[{area}][有|有没有]{cover_classes:device_class}[是|不是]{cover_states:state}[吗|不]"
+          - "[<let>] [{area}][有|有没有]{cover_classes:device_class}[是|不是]{cover_states:state}[吗|不]"
         response: any
         slots:
           domain: cover
 
       - sentences:
-          - "[<area>][<all>]{cover_classes:device_class}[是|是不是]都[是]{cover_states:state}[吗|不]"
-          - "<all><area>{cover_classes:device_class}[是|是不是]都[是]{cover_states:state}[吗|不]"
+          - "[<let>] [<area>][<all>]{cover_classes:device_class}[是|是不是]都[是]{cover_states:state}[吗|不]"
+          - "[<let>] <all><area>{cover_classes:device_class}[是|是不是]都[是]{cover_states:state}[吗|不]"
         response: all
         slots:
           domain: cover
 
       - sentences:
-          - "[<area>]<which>{cover_classes:device_class}[是]{cover_states:state}"
-          - "<which>[<area>]{cover_classes:device_class}[是]{cover_states:state}"
+          - "[<let>] [<area>]<which>{cover_classes:device_class}[是]{cover_states:state}"
+          - "[<let>] <which>[<area>]{cover_classes:device_class}[是]{cover_states:state}"
         response: which
         slots:
           domain: cover
 
       - sentences:
-          - "[{area}]<how_many_is>{cover_classes:device_class}[是]{cover_states:state}"
-          - "<how_many_is>[<area>]{cover_classes:device_class}[是]{cover_states:state}"
+          - "[<let>] [{area}]<how_many_is>{cover_classes:device_class}[是]{cover_states:state}"
+          - "[<let>] <how_many_is>[<area>]{cover_classes:device_class}[是]{cover_states:state}"
         response: how_many
         slots:
           domain: cover
@@ -547,10 +524,10 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "[把|将][<area>](窗帘|百叶|遮阳帘){name}[调|设|拉][到|成|为]{position}"
-          - "设置[<area>](窗帘|百叶|遮阳帘){name}[位置][为|到]{position}"
-          - "[<area>](窗帘|百叶|遮阳帘){name}[调|拉][到|成|为]{position}"
-          - "[调|拉][<area>](窗帘|百叶|遮阳帘){name}[到|成|为]{position}"
+          - "[<let>] [把|将][<area>](窗帘|百叶|遮阳帘){name}[调|设|拉][到|成|为]{position}"
+          - "[<let>] 设置[<area>](窗帘|百叶|遮阳帘){name}[位置][为|到]{position}"
+          - "[<let>] [<area>](窗帘|百叶|遮阳帘){name}[调|拉][到|成|为]{position}"
+          - "[<let>] [调|拉][<area>](窗帘|百叶|遮阳帘){name}[到|成|为]{position}"
         requires_context:
           domain: cover
         slots:
@@ -582,13 +559,13 @@ intents:
       timer_name:
         type: text
     templates:
-      - "[设置|创建|添加|开始|启动]一个{duration}的[计时器|定时器]{timer_name}"
-      - "[设置|创建|添加|开始|启动]{duration}的[计时器|定时器]{timer_name}"
-      - "在{duration}[后|以后|之后][提醒我|叫我|通知我]{timer_name}"
-      - "{duration}[后|以后|之后][提醒我|叫我|通知我]{timer_name}"
-      - "[设置|创建|添加|开始|启动]{duration}[倒计时|计时]{timer_name}"
-      - "[取消|停止|关闭|结束|删除][计时器|定时器]{timer_name}"
-      - "{duration}[后|以后|之后][叫我|提示我]{timer_name}"
+      - "[<let>] [设置|创建|添加|开始|启动]一个{duration}的[计时器|定时器]{timer_name}"
+      - "[<let>] [设置|创建|添加|开始|启动]{duration}的[计时器|定时器]{timer_name}"
+      - "[<let>] 在{duration}[后|以后|之后][提醒我|叫我|通知我]{timer_name}"
+      - "[<let>] {duration}[后|以后|之后][提醒我|叫我|通知我]{timer_name}"
+      - "[<let>] [设置|创建|添加|开始|启动]{duration}[倒计时|计时]{timer_name}"
+      - "[<let>] [取消|停止|关闭|结束|删除][计时器|定时器]{timer_name}"
+      - "[<let>] {duration}[后|以后|之后][叫我|提示我]{timer_name}"
 
   # ------------------------------------------------
   # E. 通知意图（来自根目录文件）
@@ -602,16 +579,16 @@ intents:
       message:
         type: text
     templates:
-      - "[记住|记录|记一下|备忘]{message}"
-      - "帮我[记住|记录|记一下|备忘]{message}"
-      - "[创建|发送|做个]通知{message}"
-      - "[记住|记录|记一下|备忘][这个|这件事]{message}"
-      - "帮我[记住|记录|记一下|备忘][这个|这件事]{message}"
-      - "[帮我|请|麻烦|给我][记住|记录|记一下|备忘][这个|这件事]{message}"
-      - "[帮我|请|麻烦|给我][创建|发送]一个通知{message}"
-      - "[提醒我|提醒|提醒一下]{message}"
-      - "帮我[提醒|提醒一下]{message}"
-      - "帮我[提醒|提醒一下][这个|这件事]{message}"
+      - "[<let>] [记住|记录|记一下|备忘]{message}"
+      - "[<let>] 帮我[记住|记录|记一下|备忘]{message}"
+      - "[<let>] [创建|发送|做个]通知{message}"
+      - "[<let>] [记住|记录|记一下|备忘][这个|这件事]{message}"
+      - "[<let>] 帮我[记住|记录|记一下|备忘][这个|这件事]{message}"
+      - "[<let>] [帮我|请|麻烦|给我][记住|记录|记一下|备忘][这个|这件事]{message}"
+      - "[<let>] [帮我|请|麻烦|给我][创建|发送]一个通知{message}"
+      - "[<let>] [提醒我|提醒|提醒一下]{message}"
+      - "[<let>] 帮我[提醒|提醒一下]{message}"
+      - "[<let>] 帮我[提醒|提醒一下][这个|这件事]{message}"
 
   # ------------------------------------------------
   # F. 基础状态查询意图（来自根目录文件）
@@ -620,15 +597,15 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "[查询|查看][<area>]{name}[的]状态"
-          - "[<area>]{name}[现在|当前]是什么状态"
-          - "[<area>]{name}[怎么样|如何]"
+          - "[<let>] [查询|查看][<area>]{name}[的]状态"
+          - "[<let>] [<area>]{name}[现在|当前]是什么状态"
+          - "[<let>] [<area>]{name}[怎么样|如何]"
         slots:
           domain: all
 
       - sentences:
-          - "[<area>]{name}[的锁](是不是|有没有){lock_states:state}"
-          - "[<area>]{name}[的锁][是|有]{lock_states:state}[吗|不]"
+          - "[<let>] [<area>]{name}[的锁](是不是|有没有){lock_states:state}"
+          - "[<let>] [<area>]{name}[的锁][是|有]{lock_states:state}[吗|不]"
         response: one_yesno
         requires_context:
           domain: lock
@@ -643,13 +620,13 @@ intents:
     data:
       # 根目录文件的意图
       - sentences:
-          - "[把|将]{name}[温度|]调[到|成|为]{temperature}[度|]"
-          - "[把|将]{name}调[到|成|为]{temperature}[度|]"
-          - "设置{name}[温度|]为{temperature}[度|]"
-          - "{name}[温度|]调[到|成|为]{temperature}[度|]"
-          - "调{name}[温度|]到{temperature}[度|]"
-          - "把{name}的温度调[到|成|为]{temperature}[度|]"
-          - "给{name}[调|设置]温度[到|为]{temperature}[度|]"
+          - "[<let>] [把|将]{name}[温度|]调[到|成|为]{temperature}[度|]"
+          - "[<let>] [把|将]{name}调[到|成|为]{temperature}[度|]"
+          - "[<let>] 设置{name}[温度|]为{temperature}[度|]"
+          - "[<let>] {name}[温度|]调[到|成|为]{temperature}[度|]"
+          - "[<let>] 调{name}[温度|]到{temperature}[度|]"
+          - "[<let>] 把{name}的温度调[到|成|为]{temperature}[度|]"
+          - "[<let>] 给{name}[调|设置]温度[到|为]{temperature}[度|]"
         slots:
           name:
             type: text
@@ -658,9 +635,9 @@ intents:
 
       # 项目文件的增强意图
       - sentences:
-          - "<let> <set> {area_names}[的] {climate_names}[温度][<temperature_level>][度]"
-          - "<let> <set> {name}[温度][<temperature_level>度]"
-          - "<let> {area_names}[的] {climate_names}[温度]设[为][<temperature_level>][度]"
+          - "[<let>] <set> {area_names}[的] {climate_names}[温度][<temperature_level>][度]"
+          - "[<let>] <set> {name}[温度][<temperature_level>度]"
+          - "[<let>] {area_names}[的] {climate_names}[温度]设[为][<temperature_level>][度]"
         slots:
           domain: "climate"
 
@@ -668,11 +645,11 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "[把|将]{name}设[为|成]{mode}[模式|]"
-          - "设置{name}为{mode}[模式|]"
-          - "{name}[切换到|改成|改为]{mode}[模式|]"
-          - "[打开|启动]{name}[的|]{mode}[模式|]"
-          - "{name}{mode}[模式|]"
+          - "[<let>] [把|将]{name}设[为|成]{mode}[模式|]"
+          - "[<let>] 设置{name}为{mode}[模式|]"
+          - "[<let>] {name}[切换到|改成|改为]{mode}[模式|]"
+          - "[<let>] [打开|启动]{name}[的|]{mode}[模式|]"
+          - "[<let>] {name}{mode}[模式|]"
         slots:
           name:
             type: text
@@ -691,11 +668,11 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "[把|将]{name}[的|]风速调[到|成|为]{fan_mode}"
-          - "设置{name}[的|]风速[为|到]{fan_mode}"
-          - "{name}风速调[成|为]{fan_mode}"
-          - "调[整|]{name}[的|]风速[为|到]{fan_mode}"
-          - "{name}调[成|为]{fan_mode}风速"
+          - "[<let>] [把|将]{name}[的|]风速调[到|成|为]{fan_mode}"
+          - "[<let>] 设置{name}[的|]风速[为|到]{fan_mode}"
+          - "[<let>] {name}风速调[成|为]{fan_mode}"
+          - "[<let>] 调[整|]{name}[的|]风速[为|到]{fan_mode}"
+          - "[<let>] {name}调[成|为]{fan_mode}风速"
         slots:
           name:
             type: text
@@ -715,10 +692,10 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "[把|将]{name}[的|]摆风[设置|调|调到|调成|改成|改到]{swing_mode}"
-          - "[把|将]{name}[的|]摆动[设置|调|调到|调成|改成|改到]{swing_mode}"
-          - "设置{name}[的|]摆风[为|到]{swing_mode}"
-          - "设置{name}[的|]摆动[为|到]{swing_mode}"
+          - "[<let>] [把|将]{name}[的|]摆风[设置|调|调到|调成|改成|改到]{swing_mode}"
+          - "[<let>] [把|将]{name}[的|]摆动[设置|调|调到|调成|改成|改到]{swing_mode}"
+          - "[<let>] 设置{name}[的|]摆风[为|到]{swing_mode}"
+          - "[<let>] 设置{name}[的|]摆动[为|到]{swing_mode}"
         slots:
           name:
             type: text
@@ -735,10 +712,10 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "[把|将]{name}[的|]湿度[设置|调][到|成|为]{humidity}[%|度]"
-          - "设置{name}[的|]湿度[为|到]{humidity}[%|度]"
-          - "{name}湿度[设置|调][成|为]{humidity}[%|度]"
-          - "调[整|]{name}[的|]湿度[为|到]{humidity}[%|度]"
+          - "[<let>] [把|将]{name}[的|]湿度[设置|调][到|成|为]{humidity}[%|度]"
+          - "[<let>] 设置{name}[的|]湿度[为|到]{humidity}[%|度]"
+          - "[<let>] {name}湿度[设置|调][成|为]{humidity}[%|度]"
+          - "[<let>] 调[整|]{name}[的|]湿度[为|到]{humidity}[%|度]"
         slots:
           name:
             type: text
@@ -760,9 +737,9 @@ intents:
     data:
       # 风扇速度 - 移除%符号
       - sentences:
-          - "<let> <set> {area_names}[的] {fan_names}[风速][<percentage>]"
-          - "<let> <set> {name}[风速][<percentage>]"
-          - "<let> {area_names}[的] {fan_names}[风速]调[为][<percentage>]"
+          - "[<let>] <set> {area_names}[的] {fan_names}[风速][<percentage>]"
+          - "[<let>] <set> {name}[风速][<percentage>]"
+          - "[<let>] {area_names}[的] {fan_names}[风速]调[为][<percentage>]"
         slots:
           domain: "fan"
 
@@ -775,9 +752,9 @@ intents:
     data:
       # 基础场景控制 - 与HA原生场景功能协作
       - sentences:
-          - "<let> [激活]{name}[场景]"
-          - "<let> [执行]{name}[场景]"
-          - "<let> [启动]{name}[场景]"
+          - "[<let>] [激活]{name}[场景]"
+          - "[<let>] [执行]{name}[场景]"
+          - "[<let>] [启动]{name}[场景]"
         requires_context:
           domain: "scene"
 
@@ -787,33 +764,33 @@ intents:
     data:
       # 使用优化的定时器参数
       - sentences:
-          - "<let> <set>定时器[<timer_duration>][分钟]"
-          - "<let> [<timer_duration>][分钟][后][提醒我]"
-          - "<let> 提醒我[<timer_duration>][分钟]"
+          - "[<let>] <set>定时器[<timer_duration>][分钟]"
+          - "[<let>] [<timer_duration>][分钟][后][提醒我]"
+          - "[<let>] 提醒我[<timer_duration>][分钟]"
 
   TimerCancel:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> [取消][定时器]"
-          - "<let> [停止][定时器]"
+          - "[<let>] [取消][定时器]"
+          - "[<let>] [停止][定时器]"
 
   # 取消所有定时器
   HassCancelAllTimers:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> [取消|关闭][所有][定时器]"
-          - "<let> [清除|删除][全部][定时器]"
+          - "[<let>] [取消|关闭][所有][定时器]"
+          - "[<let>] [清除|删除][全部][定时器]"
 
   # 媒体增强控制
   HassMediaMute:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> [静音]{name}"
-          - "<let> [关闭][声音]{name}"
-          - "<let> {name}[静音]"
+          - "[<let>] [静音]{name}"
+          - "[<let>] [关闭][声音]{name}"
+          - "[<let>] {name}[静音]"
         requires_context:
           domain: "media_player"
 
@@ -821,9 +798,9 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> [取消静音]{name}"
-          - "<let> [打开][声音]{name}"
-          - "<let> {name}[取消静音]"
+          - "[<let>] [取消静音]{name}"
+          - "[<let>] [打开][声音]{name}"
+          - "[<let>] {name}[取消静音]"
         requires_context:
           domain: "media_player"
 
@@ -831,11 +808,11 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> [音量][<volume_level>]"
-          - "<let> [把][音量][调高][<volume_level>]"
-          - "<let> [把][音量][调低][<volume_level>]"
-          - "<let> [增加][音量][<volume_level>]"
-          - "<let> [减少][音量][<volume_level>]"
+          - "[<let>] [音量][<volume_level>]"
+          - "[<let>] [把][音量][调高][<volume_level>]"
+          - "[<let>] [把][音量][调低][<volume_level>]"
+          - "[<let>] [增加][音量][<volume_level>]"
+          - "[<let>] [减少][音量][<volume_level>]"
         slots:
           domain: "media_player"
 
@@ -844,9 +821,9 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> <set> {area_names}[的] {light_names}[色温][<percentage>]"
-          - "<let> <set> {name}[色温][<percentage>]"
-          - "<let> {area_names}[的] {light_names}[调到][<percentage>][色温]"
+          - "[<let>] <set> {area_names}[的] {light_names}[色温][<percentage>]"
+          - "[<let>] <set> {name}[色温][<percentage>]"
+          - "[<let>] {area_names}[的] {light_names}[调到][<percentage>][色温]"
         slots:
           domain: "light"
 
@@ -855,26 +832,26 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> [添加]{item}[到][购物清单]"
-          - "<let> [买]{item}"
-          - "<let> {item}[加入][购物清单]"
+          - "[<let>] [添加]{item}[到][购物清单]"
+          - "[<let>] [买]{item}"
+          - "[<let>] {item}[加入][购物清单]"
 
   HassShoppingListCompleteItem:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> [完成]{item}"
-          - "<let> {item}[已买]"
-          - "<let> [标记]{item}[完成]"
+          - "[<let>] [完成]{item}"
+          - "[<let>] {item}[已买]"
+          - "[<let>] [标记]{item}[完成]"
 
   # 清洁设备增强控制
   HassVacuumSetMode:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> <set> {name}[清扫模式]"
-          - "<let> {name}[切换到][清扫模式]"
-          - "<let> <set> {name}[为][清扫模式]"
+          - "[<let>] <set> {name}[清扫模式]"
+          - "[<let>] {name}[切换到][清扫模式]"
+          - "[<let>] <set> {name}[为][清扫模式]"
         requires_context:
           domain: "vacuum"
 
@@ -883,8 +860,8 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> [打开]{name}"
-          - "<let> {name}[打开]"
+          - "[<let>] [打开]{name}"
+          - "[<let>] {name}[打开]"
         requires_context:
           domain: "valve"
 
@@ -892,8 +869,8 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "<let> [关闭]{name}"
-          - "<let> {name}[关闭]"
+          - "[<let>] [关闭]{name}"
+          - "[<let>] {name}[关闭]"
         requires_context:
           domain: "valve"
 
@@ -904,15 +881,15 @@ intents:
     bypass_home_assistant: true
     data:
       - sentences:
-          - "<let> [算了|取消|不用了|没事了]"
+          - "[<let>] [算了|取消|不用了|没事了]"
 
   AIAssistantIntent:
     bypass_home_assistant: true
     data:
       - sentences:
-          - "<let> ai助手[帮我|请]{message}"
-          - "<let> [你好|感谢]"
-          - "<let> 聊天吧"
+          - "[<let>] ai助手[帮我|请]{message}"
+          - "[<let>] [你好|感谢]"
+          - "[<let>] 聊天吧"
 
 # ========== 本地意图控制配置（保留完整优势） ==========
 local_intents:
