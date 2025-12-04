@@ -15,7 +15,7 @@ from homeassistant.helpers import intent
 
 from .const import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN
 from .entity import AIHubBaseLLMEntity
-from .intents import get_intents_config
+from .intents import get_config_cache
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,6 +64,9 @@ class AIHubConversationEntity(
         from .const import RECOMMENDED_CHAT_MODEL
 
         super().__init__(entry, subentry, RECOMMENDED_CHAT_MODEL)
+
+        # 初始化配置缓存
+        self._config_cache = get_config_cache()
 
         # Enable control feature if LLM Hass API is configured
         if self.subentry.data.get(CONF_LLM_HASS_API):
@@ -147,7 +150,8 @@ class AIHubConversationEntity(
                 except Exception as e:
                     _LOGGER.error(f"❌ LLM_API_ASSIST获取失败: {e}")
                     empty_response = intent.IntentResponse(language=user_input.language)
-                    empty_response.async_set_speech("LLM配置出现问题，请检查集成设置。")
+                    error_msg = self._config_cache.get_error_message("llm_config_error")
+                    empty_response.async_set_speech(error_msg)
                     return conversation.ConversationResult(
                         response=empty_response,
                         conversation_id=user_input.conversation_id
@@ -225,11 +229,10 @@ class AIHubConversationEntity(
     async def _verify_device_operations_with_retry(self, device_operations):
         """验证设备操作并重试，使用配置的时间限制"""
         try:
-            from .intents import get_device_verification_config
-            config = get_device_verification_config()
+            config = self._config_cache.get_verification_config()
         except Exception as e:
             _LOGGER.debug(f"获取验证配置失败: {e}")
-            # 使用默认配置
+            # 使用硬编码的备用配置
             config = {
                 'total_timeout': 3,
                 'max_retries': 3,
@@ -291,16 +294,8 @@ class AIHubConversationEntity(
     async def _get_live_context(self):
         """获取当前设备状态 (模拟GetLiveContext工具)"""
         # 这里应该调用实际的GetLiveContext工具
-        # 暂时返回模拟数据
-        return {
-            "lights": {"living_room_main": "off", "living_room_ambient": "on"},
-            "switches": {},
-            "climate": {},
-            "covers": {},
-            "media_players": {},
-            "locks": {},
-            "vacuums": {}
-        }
+        # 从配置中读取模拟数据
+        return self._config_cache.get_device_state_simulation()
 
     def _is_operation_successful(self, operation, context):
         """检查单个操作是否成功"""
@@ -347,15 +342,10 @@ class AIHubConversationEntity(
         """Handle automation creation requests."""
         user_text = user_input.text.lower()
 
-        # 加载配置获取自动化关键词
+        # 使用配置缓存获取自动化关键词
         try:
-            from .intents import get_intents_config
-            config = get_intents_config()
-            if not config:
-                _LOGGER.debug("No config available for automation keywords")
-                return None
+            automation_keywords = self._config_cache.get_automation_config('automation_keywords', [])
 
-            automation_keywords = config.get('automation_keywords', [])
             if not automation_keywords:
                 _LOGGER.debug("No automation_keywords found in config")
                 return None
@@ -387,8 +377,7 @@ class AIHubConversationEntity(
                 automation_name = config_data.get("alias", "新自动化")
 
                 # 使用配置化的成功消息
-                intents_config = get_intents_config()
-                responses = intents_config.get('responses', {}) if intents_config else {}
+                responses = self._config_cache.get_responses_config()
                 success_template = responses.get('automation', {}).get('creation_success')
                 if success_template:
                     try:
@@ -396,18 +385,19 @@ class AIHubConversationEntity(
                     except KeyError:
                         message = success_template
                 else:
+                    default_template = self._config_cache.get_error_message("automation_default_name")
                     message = f"我已经为您创建了自动化: {automation_name}"
 
                 # 可以添加更多配置详情
                 if config_data.get("trigger"):
-                    triggers = [t.get("platform", "unknown") for t in config_data["trigger"]]
+                    unknown_platform = self._config_cache.get_error_message("automation_trigger_unknown")
+                    triggers = [t.get("platform", unknown_platform) for t in config_data["trigger"]]
                     message += f"\\n触发条件: {', '.join(triggers)}"
 
                 intent_response.async_set_speech(message)
             else:
                 # 使用配置化的错误消息
-                intents_config = get_intents_config()
-                responses = intents_config.get('responses', {}) if intents_config else {}
+                responses = self._config_cache.get_responses_config()
                 error_template = responses.get('automation', {}).get('creation_error')
                 if error_template:
                     try:
@@ -433,15 +423,9 @@ class AIHubConversationEntity(
 
     def _extract_automation_description(self, user_text: str) -> Optional[str]:
         """Extract automation description from user input."""
-        # 加载配置获取自动化前缀
+        # 使用配置缓存获取自动化前缀
         try:
-            from .intents import get_intents_config
-
-            config = get_intents_config()
-            if not config:
-                prefixes = []
-            else:
-                prefixes = config.get('automation_prefixes', [])
+            prefixes = self._config_cache.get_automation_config('automation_prefixes', [])
 
         except Exception as e:
             _LOGGER.debug("Failed to load automation prefixes: %s", e)
@@ -474,14 +458,9 @@ class AIHubConversationEntity(
         """判断是否是"所有设备"操作"""
         text = intent_info.get("text", "").lower()
 
-        # 从配置中读取"所有"相关的关键词，避免硬编码
+        # 使用配置缓存获取全局关键词，避免硬编码
         try:
-            config = get_intents_config()
-            global_config = config.get('GlobalDeviceControl', {}) if config else {}
-            global_keywords = global_config.get('global_keywords', []) if global_config else []
-            if not global_keywords:
-                # 如果配置中没有，使用默认值
-                global_keywords = ["所有", "全部", "一切"]
+            global_keywords = self._config_cache.get_global_keywords()
         except Exception as e:
             _LOGGER.debug(f"读取global_keywords失败，使用默认值: {e}")
             global_keywords = ["所有", "全部", "一切"]
@@ -492,20 +471,12 @@ class AIHubConversationEntity(
         """检查意图是否在本地配置中定义为需要特殊处理"""
         text = intent_info.get("text", "").lower()
 
-        # 从intents.yaml中读取本地特征配置，避免硬编码
-        local_features = []
+        # 使用配置缓存获取本地特征关键词，避免硬编码
         try:
-            intents_config = get_intents_config()
-            if intents_config and 'expansion_rules' in intents_config:
-                # 获取所有本地特征关键词
-                for key, value in intents_config['expansion_rules'].items():
-                    if isinstance(value, str) and '|' in value:
-                        # 拆分管道符分隔的关键词
-                        local_features.extend(value.split('|'))
-                _LOGGER.debug(f"从intents.yaml加载本地特征关键词: {len(local_features)}个")
+            local_features = self._config_cache.get_local_features()
+            _LOGGER.debug(f"从配置缓存加载本地特征关键词: {len(local_features)}个")
         except Exception as e:
             _LOGGER.debug(f"读取本地配置失败，使用默认值: {e}")
-            # 如果配置读取失败，使用默认的关键词（从配置中读取）
             local_features = ["所有设备", "全部设备", "所有灯", "全部灯"]
 
         return any(feature in text for feature in local_features)
@@ -518,8 +489,7 @@ class AIHubConversationEntity(
         - "关闭所有灯"
         """
         try:
-            from .intents import get_intents_config
-            config = get_intents_config()
+            config = self._config_cache.get_config()
             if not config:
                 return False
 

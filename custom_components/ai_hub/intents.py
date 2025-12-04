@@ -59,35 +59,175 @@ def get_intents_config() -> Optional[Dict[str, Any]]:
 
 
 def get_device_operations_config() -> Dict[str, Any]:
-    """获取设备操作配置"""
-    if not _CONFIG_LOADED or not _INTENTS_CONFIG:
-        return get_default_device_operations_config()
-
-    return _INTENTS_CONFIG.get('device_operations', get_default_device_operations_config())
+    """从intents.yaml动态加载设备操作配置"""
+    return _load_intents_config().get('control_operations', _get_fallback_config())
 
 
-def get_default_device_operations_config() -> Dict[str, Any]:
-    """获取默认设备操作配置"""
+def _get_fallback_config() -> Dict[str, Any]:
+    """获取备用配置（仅当intents.yaml读取失败时使用）"""
     return {
-        'verification': {
+        'light': ['light.turn_on', 'light.turn_off', 'light.toggle'],
+        'switch': ['switch.turn_on', 'switch.turn_off', 'switch.toggle'],
+        'climate': ['climate.turn_on', 'climate.turn_off'],
+        'fan': ['fan.turn_on', 'fan.turn_off'],
+        'cover': ['cover.open_cover', 'cover.close_cover'],
+        'media_player': ['media_player.media_play', 'media_player.media_pause'],
+        'lock': ['lock.lock', 'lock.unlock'],
+        'vacuum': ['vacuum.start', 'vacuum.stop'],
+        'script': ['script.turn_on', 'script.turn_off']
+    }
+
+
+# 默认配置已移至intents.yaml中的defaults节点
+
+
+class ConfigCache:
+    """配置缓存管理器，避免重复加载配置文件"""
+
+    def __init__(self):
+        self._cache = {}
+        self._cache_time = 0
+        self._cache_ttl = 30  # 缓存30秒
+
+    def get_config(self, force_reload: bool = False) -> Optional[Dict[str, Any]]:
+        """获取配置，支持缓存"""
+        current_time = time.time()
+
+        # 检查缓存是否过期或强制重新加载
+        if (force_reload or
+            current_time - self._cache_time > self._cache_ttl or
+            not self._cache):
+
+            try:
+                self._cache = _load_intents_config()
+                self._cache_time = current_time
+                _LOGGER.debug("配置已刷新缓存")
+            except Exception as e:
+                _LOGGER.warning(f"配置加载失败，返回缓存: {e}")
+                # 返回过期缓存而不是None
+
+        return self._cache
+
+    def _get_defaults(self) -> Dict[str, Any]:
+        """获取默认配置"""
+        config = self.get_config()
+        if config and 'intents' in config and 'ai_hub' in config['intents']:
+            return config['intents']['ai_hub'].get('defaults', {})
+        return {}
+
+    def get_global_keywords(self) -> List[str]:
+        """获取全局关键词"""
+        # 首先尝试从GlobalDeviceControl获取
+        config = self.get_config()
+        if config and 'intents' in config:
+            global_config = config['intents'].get('ai_hub', {}).get('GlobalDeviceControl', {})
+            if global_config and 'global_keywords' in global_config:
+                return global_config['global_keywords']
+
+        # 如果没有，从默认配置获取
+        defaults = self._get_defaults()
+        return defaults.get('global_keywords', ["所有", "全部", "一切"])
+
+    def get_local_features(self) -> List[str]:
+        """获取本地特征关键词"""
+        # 首先尝试从expansion_rules中提取
+        config = self.get_config()
+        if config and 'intents' in config:
+            expansion_rules = config['intents'].get('ai_hub', {}).get('expansion_rules', {})
+            local_features = []
+            for key, value in expansion_rules.items():
+                if isinstance(value, str) and '|' in value:
+                    local_features.extend(value.split('|'))
+            if local_features:
+                return local_features
+
+        # 如果没有，从默认配置获取
+        defaults = self._get_defaults()
+        return defaults.get('local_features', ["所有设备", "全部设备", "所有灯", "全部灯"])
+
+    def get_automation_config(self, key: str, default_value=None) -> Any:
+        """获取自动化配置"""
+        config = self.get_config()
+        if config and 'intents' in config:
+            ai_hub_config = config['intents']['ai_hub']
+            if key in ai_hub_config:
+                return ai_hub_config[key]
+            # 从默认配置获取
+            defaults = ai_hub_config.get('defaults', {})
+            if key in defaults:
+                return defaults[key]
+
+        # 如果都没有，返回传入的默认值
+        return default_value
+
+    def get_responses_config(self) -> Dict[str, Any]:
+        """获取响应配置"""
+        config = self.get_config()
+        if config and 'intents' in config:
+            ai_hub_config = config['intents']['ai_hub']
+            # 首先尝试从responses获取
+            if 'responses' in ai_hub_config:
+                return ai_hub_config['responses']
+            # 从默认配置获取
+            defaults = ai_hub_config.get('defaults', {})
+            if 'responses' in defaults:
+                return defaults['responses']
+
+        return {}
+
+    def get_verification_config(self) -> Dict[str, Any]:
+        """获取验证配置"""
+        config = self.get_config()
+        if config and 'intents' in config:
+            ai_hub_config = config['intents']['ai_hub']
+            # 首先尝试从verification获取
+            if 'verification' in ai_hub_config:
+                return ai_hub_config['verification']
+            # 从默认配置获取
+            defaults = ai_hub_config.get('defaults', {})
+            if 'verification' in defaults:
+                return defaults['verification']
+
+        # 最后的硬编码备用值
+        return {
             'total_timeout': 3,
             'max_retries': 3,
             'wait_times': [0.5, 0.8, 1.1]
-        },
-        'control_operations': {
-            'light': ['light.turn_on', 'light.turn_off', 'light.toggle', 'light.set_brightness', 'light.set_color'],
-            'switch': ['switch.turn_on', 'switch.turn_off', 'switch.toggle'],
-            'climate': ['climate.turn_on', 'climate.turn_off', 'climate.set_temperature', 'climate.set_hvac_mode'],
-            'fan': ['fan.turn_on', 'fan.turn_off', 'fan.set_speed'],
-            'cover': ['cover.open_cover', 'cover.close_cover', 'cover.set_cover_position', 'cover.stop_cover'],
-            'media_player': ['media_player.media_play', 'media_player.media_pause', 'media_player.media_stop', 'media_player.volume_set'],
-            'lock': ['lock.unlock', 'lock.lock'],
-            'vacuum': ['vacuum.start', 'vacuum.pause', 'vacuum.stop', 'vacuum.return_to_base'],
-            'script': ['script.turn_on', 'script.turn_off', 'script.toggle'],
-            'scene': ['scene.turn_on'],
-            'valve': ['valve.open_valve', 'valve.close_valve', 'valve.set_valve_position']
         }
-    }
+
+    def get_device_state_simulation(self) -> Dict[str, Any]:
+        """获取设备状态模拟配置"""
+        defaults = self._get_defaults()
+        return defaults.get('device_state_simulation', {
+            "lights": {"living_room_main": "off", "living_room_ambient": "on"},
+            "switches": {},
+            "climate": {},
+            "covers": {},
+            "media_players": {},
+            "locks": {},
+            "vacuums": {}
+        })
+
+    def get_error_message(self, message_key: str) -> str:
+        """获取错误消息"""
+        defaults = self._get_defaults()
+        error_messages = defaults.get('error_messages', {})
+        return error_messages.get(message_key, f"未知错误: {message_key}")
+
+    def get_timeout_config(self, timeout_key: str, default_value: int = 3) -> int:
+        """获取超时配置"""
+        defaults = self._get_defaults()
+        timeouts = defaults.get('timeouts', {})
+        return timeouts.get(timeout_key, default_value)
+
+
+# 全局配置缓存实例
+_config_cache = ConfigCache()
+
+
+def get_config_cache() -> ConfigCache:
+    """获取配置缓存实例"""
+    return _config_cache
 
 
 def is_device_operation(tool_name: str) -> bool:
@@ -104,8 +244,8 @@ def is_device_operation(tool_name: str) -> bool:
 
 
 def get_device_verification_config() -> Dict[str, Any]:
-    """获取设备验证配置"""
-    config = get_device_operations_config()
+    """从intents.yaml动态加载设备验证配置"""
+    config = _load_intents_config()
     return config.get('verification', {
         'total_timeout': 3,
         'max_retries': 3,
