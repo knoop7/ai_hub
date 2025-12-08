@@ -152,7 +152,7 @@ RECOMMENDED_AI_TASK_TOP_P: Final = 0.7
 RECOMMENDED_AI_TASK_MAX_TOKENS: Final = 2000
 
 # Image Analysis
-RECOMMENDED_IMAGE_ANALYSIS_MODEL: Final = "glm-4.1v-thinking-flash"
+RECOMMENDED_IMAGE_ANALYSIS_MODEL: Final = "glm-4.6v-flash"
 
 # Image Generation
 RECOMMENDED_IMAGE_MODEL: Final = "cogview-3-flash"
@@ -603,7 +603,8 @@ AI_HUB_IMAGE_MODELS: Final = [
 
 # Vision models (支持图像分析) - 智谱AI官方列表
 VISION_MODELS: Final = [
-    "glm-4v-flash",       # GLM-4V-Flash - 免费视觉模型（推荐）
+    "glm-4.6v-flash",       # GLM-4.6V-Flash - 免费视觉新模型（推荐）
+    "glm-4v-flash",       # GLM-4V-Flash - 免费视觉模型
     "glm-4v",            # GLM-4V - 收费视觉模型
     "glm-4v-plus",        # GLM-4V-Plus - 收费视觉模型
 ]

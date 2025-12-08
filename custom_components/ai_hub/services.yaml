@@ -64,10 +64,11 @@ analyze_image:
       name: 模型
       description: 使用的图像分析模型
       required: false
-      default: "glm-4.1v-thinking-flash"
+      default: "glm-4.6v-flash"
       selector:
         select:
           options:
+            - "glm-4.6v-flash"
             - "glm-4.1v-thinking-flash"
             - "glm-4v-flash"
     temperature:
