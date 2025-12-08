@@ -101,7 +101,7 @@ class AIHubTaskEntity(
 
         final_model = configured_model
         if has_attachments:
-            vision_models = ["glm-4.1v-thinking-flash", "glm-4v-flash"]  # Use free vision models
+            vision_models = ["glm-4.6v-flash", "glm-4.1v-thinking-flash", "glm-4v-flash"]  # Use free vision models
             # Check if attachments contain media files
             has_media_attachments = False
             for content in chat_log.content:
