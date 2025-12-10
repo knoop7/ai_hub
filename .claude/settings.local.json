@@ -32,7 +32,8 @@
       "mcp__open-websearch__search",
       "Bash(powershell:*)",
       "Bash(ls:*)",
-      "mcp__serena__think_about_task_adherence"
+      "mcp__serena__think_about_task_adherence",
+      "mcp__serena__search_for_pattern"
     ],
     "deny": [],
     "ask": []

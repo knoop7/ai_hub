@@ -107,18 +107,12 @@
             "name": "Name",
             "recommended": "Recommended Mode",
             "voice": "Voice",
-            "lang": "Language",
-            "rate": "Rate",
-            "volume": "Volume",
-            "pitch": "Pitch"
+            "lang": "Language"
           },
           "data_description": {
             "recommended": "Use recommended settings",
             "voice": "Select Edge TTS voice, like Xiaoxiao, Yunxi, etc.",
-            "lang": "Select voice language, like zh-CN for Chinese",
-            "rate": "Speech rate, like +10% faster, -10% slower",
-            "volume": "Speech volume, like +10% louder, -10% quieter",
-            "pitch": "Speech pitch, like +10Hz higher, -10Hz lower"
+            "lang": "Select voice language, like zh-CN for Chinese"
           }
         }
       }
@@ -280,18 +274,6 @@
         "voice": {
           "name": "Voice",
           "description": "Select Edge TTS voice, like zh-CN-XiaoxiaoNeural"
-        },
-        "rate": {
-          "name": "Rate",
-          "description": "Speech rate adjustment, like +10% faster, -10% slower"
-        },
-        "volume": {
-          "name": "Volume",
-          "description": "Speech volume adjustment, like +10% louder, -10% quieter"
-        },
-        "pitch": {
-          "name": "Pitch",
-          "description": "Speech pitch adjustment, like +10Hz higher, -10Hz lower"
         },
         "media_player_entity": {
           "name": "Media Player",

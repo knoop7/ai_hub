@@ -107,18 +107,12 @@
             "name": "名称",
             "recommended": "推荐模式",
             "voice": "语音",
-            "lang": "语言",
-            "rate": "语速",
-            "volume": "音量",
-            "pitch": "音调"
+            "lang": "语言"
           },
           "data_description": {
             "recommended": "使用推荐设置",
             "voice": "选择Edge TTS语音，如晓晓、云熙等",
-            "lang": "选择语音语言，如zh-CN代表中文",
-            "rate": "语音速度，如+10%更快，-10%更慢",
-            "volume": "语音音量，如+10%更响，-10%更轻",
-            "pitch": "语音音调，如+10Hz更高，-10Hz更低"
+            "lang": "选择语音语言，如zh-CN代表中文"
           }
         }
       }
@@ -273,18 +267,6 @@
         "voice": {
           "name": "语音",
           "description": "选择Edge TTS语音，如zh-CN-XiaoxiaoNeural"
-        },
-        "rate": {
-          "name": "语速",
-          "description": "语音速度调整，如+10%更快，-10%更慢"
-        },
-        "volume": {
-          "name": "音量",
-          "description": "语音音量调整，如+10%更响，-10%更轻"
-        },
-        "pitch": {
-          "name": "音调",
-          "description": "语音音调调整，如+10Hz更高，-10Hz更低"
         },
         "media_player_entity": {
           "name": "媒体播放器",

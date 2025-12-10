@@ -29,6 +29,7 @@ from .const import (
     AI_HUB_IMAGE_GEN_URL,
     AI_HUB_STT_AUDIO_FORMATS,
     AI_HUB_STT_MODELS,
+    AI_HUB_TTS_URL,
     BEMFA_API_URL,
     CONF_API_KEY,
     CONF_BEMFA_UID,
@@ -59,10 +60,7 @@ from .const import (
     SERVICE_TRANSLATE_BLUEPRINTS,
     SILICONFLOW_ASR_URL,
     STT_MAX_FILE_SIZE_MB,
-    TTS_DEFAULT_PITCH,
-    TTS_DEFAULT_RATE,
     TTS_DEFAULT_VOICE,
-    TTS_DEFAULT_VOLUME,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -89,9 +87,6 @@ IMAGE_GENERATOR_SCHEMA = {
 TTS_SCHEMA = {
     vol.Required("text"): cv.string,
     vol.Optional("voice", default=TTS_DEFAULT_VOICE): vol.In(list(EDGE_TTS_VOICES.keys())),
-    vol.Optional("rate", default=TTS_DEFAULT_RATE): cv.string,
-    vol.Optional("volume", default=TTS_DEFAULT_VOLUME): cv.string,
-    vol.Optional("pitch", default=TTS_DEFAULT_PITCH): cv.string,
     vol.Optional("media_player_entity"): cv.entity_id,
 }
 
@@ -316,11 +311,6 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
                 }
             text = call.data["text"]
             voice = call.data.get("voice", TTS_DEFAULT_VOICE)
-            speed = float(call.data.get("speed", TTS_DEFAULT_VOLUME))
-            volume = float(call.data.get("volume", TTS_DEFAULT_VOLUME))
-            response_format = call.data.get("response_format", TTS_DEFAULT_RATE)
-            encode_format = call.data.get("encode_format", TTS_DEFAULT_VOICE)
-            stream = call.data.get("stream", TTS_DEFAULT_PITCH)
             media_player_entity = call.data.get("media_player_entity")
 
             # 验证参数
@@ -329,18 +319,6 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
 
             if voice not in EDGE_TTS_VOICES:
                 raise ServiceValidationError(f"不支持的语音类型: {voice}")
-
-            if response_format not in TTS_DEFAULT_RATE:
-                raise ServiceValidationError(f"不支持的响应格式: {response_format}")
-
-            if encode_format not in TTS_DEFAULT_VOICE:
-                raise ServiceValidationError(f"不支持的编码格式: {encode_format}")
-
-            if not 0.25 <= speed <= 4.0:
-                raise ServiceValidationError("语速必须在 0.25 到 4.0 之间")
-
-            if not 0.1 <= volume <= 2.0:
-                raise ServiceValidationError("音量必须在 0.1 到 2.0 之间")
 
             # 构建 TTS API 请求
             headers = {
@@ -352,18 +330,14 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
                 "model": "cogtts",
                 "input": text,
                 "voice": voice,
-                "response_format": response_format,
-                "encode_format": encode_format,
-                "stream": stream,
-                "speed": speed,
-                "volume": volume,
+                "response_format": "wav",
             }
 
             timeout = aiohttp.ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT / 1000)
 
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(
-                    EDGE_TTS_VOICES,
+                    AI_HUB_TTS_URL,
                     headers=headers,
                     json=payload
                 ) as response:
@@ -379,46 +353,15 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
                             "error": f"TTS API 请求失败: {response.status}"
                         }
 
-                    if stream:
-                        # 处理流式响应
-                        response_text = await response.text()
-                        from .helpers import parse_streaming_response, combine_audio_chunks
+                    # 处理响应
+                    response_data = await response.json()
 
-                        audio_chunks = parse_streaming_response(response_text)
-
-                        if not audio_chunks:
-                            return {"success": False, "error": "未从流式响应中获取到音频数据"}
-
-                        # 合并音频块
-                        combined_audio = audio_chunks[0]  # 对于 TTS，通常第一个块就包含完整数据
-
-                        # 如果有多个块，尝试合并
-                        if len(audio_chunks) > 1:
-                            try:
-                                combined_audio = combine_audio_chunks(audio_chunks)
-                            except Exception as exc:
-                                _LOGGER.warning("音频合并失败，使用第一个音频块: %s", exc)
-
-                        audio_base64 = combined_audio
-                    else:
-                        # 处理非流式响应
-                        response_data = await response.json()
-
-                        if "choices" not in response_data or not response_data["choices"]:
-                            return {"success": False, "error": "API 响应格式错误"}
-
-                        # 从非流式响应中提取音频数据
-                        choice = response_data["choices"][0]
-                        if "audio" in choice:
-                            audio_base64 = choice["audio"]["content"]
-                        elif "message" in choice and "content" in choice["message"]:
-                            audio_base64 = choice["message"]["content"]
-                        else:
-                            return {"success": False, "error": "无法从响应中提取音频数据"}
+                    if not response_data:
+                        return {"success": False, "error": "API 响应为空"}
 
                     # 解码音频为 WAV 格式
                     from .helpers import decode_base64_audio
-                    wav_audio_data = decode_base64_audio(audio_base64)
+                    wav_audio_data = decode_base64_audio(response_data)
 
                     # 如果指定了媒体播放器实体，直接播放
                     if media_player_entity:
@@ -467,8 +410,6 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
                         "audio_data": audio_base64,
                         "audio_format": "wav",
                         "voice": voice,
-                        "speed": speed,
-                        "volume": volume,
                     }
 
         except ServiceValidationError as exc:

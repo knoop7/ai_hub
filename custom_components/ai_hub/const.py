@@ -522,16 +522,10 @@ EDGE_TTS_LANGUAGES: Final = _build_edge_tts_languages()
 # Edge TTS Configuration Keys
 CONF_TTS_VOICE: Final = "voice"
 CONF_TTS_LANG: Final = "lang"
-CONF_TTS_RATE: Final = "rate"
-CONF_TTS_VOLUME: Final = "volume"
-CONF_TTS_PITCH: Final = "pitch"
 
 # Edge TTS Default Parameters
 TTS_DEFAULT_VOICE: Final = "zh-CN-XiaoxiaoNeural"  # 默认使用晓晓女声
 TTS_DEFAULT_LANG: Final = "zh-CN"
-TTS_DEFAULT_RATE: Final = "+0%"
-TTS_DEFAULT_VOLUME: Final = "+0%"
-TTS_DEFAULT_PITCH: Final = "+0%"
 
 # Silicon Flow STT Configuration
 # STT Configuration Keys
@@ -668,9 +662,6 @@ RECOMMENDED_TTS_OPTIONS: Final = {
     CONF_RECOMMENDED: True,
     CONF_TTS_VOICE: TTS_DEFAULT_VOICE,
     CONF_TTS_LANG: TTS_DEFAULT_LANG,
-    CONF_TTS_RATE: TTS_DEFAULT_RATE,
-    CONF_TTS_VOLUME: TTS_DEFAULT_VOLUME,
-    CONF_TTS_PITCH: TTS_DEFAULT_PITCH,
 }
 
 

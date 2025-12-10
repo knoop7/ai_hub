@@ -1,3 +1,4 @@
 backup/
 .spec-workflow
 .claude/
+/*/*/__pycache__/
