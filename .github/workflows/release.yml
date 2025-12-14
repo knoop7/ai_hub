@@ -38,6 +38,28 @@ jobs:
             echo "Tag $version does not exist, will create release"
           fi
 
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          # 获取最新的（前一个）tag，排除当前要生成的（如果已存在则下一个）
+          git fetch --tags
+          prev_tag=$(git tag --sort=-creatordate | grep -v "^${{ steps.extract_version.outputs.version }}$" | head -n 1)
+          echo "prev_tag=$prev_tag" >> $GITHUB_OUTPUT
+
+      - name: Create changelog since previous release
+        id: changelog
+        run: |
+          prev_tag="${{ steps.prev_tag.outputs.prev_tag }}"
+          version="${{ steps.extract_version.outputs.version }}"
+          if [ -n "$prev_tag" ]; then
+            log=$(git log --pretty=format:"* %s (%an)" "$prev_tag"..HEAD)
+          else
+            log=$(git log --pretty=format:"* %s (%an)")
+          fi
+          # 替换 Github Actions 换行需求
+          log="${log//$'\n'/'%0A'}"
+          echo "log=$log" >> $GITHUB_OUTPUT
+
       - name: Create tag and release
         if: github.event_name == 'push' && steps.check_tag.outputs.exists == 'false'
         run: |
@@ -57,6 +79,10 @@ jobs:
             Auto-release for version ${{ steps.extract_version.outputs.version }}
 
             Changes triggered by manifest.json update.
+
+            ## Changes since last release
+
+            ${{ steps.changelog.outputs.log }}
           draft: false
           prerelease: false
 
