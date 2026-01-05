@@ -363,6 +363,9 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
                     from .helpers import decode_base64_audio
                     wav_audio_data = decode_base64_audio(response_data)
 
+                    # 将WAV数据编码为base64供返回使用
+                    audio_base64 = base64.b64encode(wav_audio_data).decode('utf-8')
+
                     # 如果指定了媒体播放器实体，直接播放
                     if media_player_entity:
                         try:
@@ -509,39 +512,19 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
                             "error": f"STT API 请求失败: {response.status}"
                         }
 
-                    if stream:
-                        # 处理流式响应
-                        full_text = ""
-                        async for line in response.content:
-                            if line:
-                                line_text = line.decode('utf-8').strip()
-                                if line_text.startswith('data: '):
-                                    try:
-                                        data_str = line_text[6:]  # Remove 'data: ' prefix
-                                        data_dict = json.loads(data_str)
+                    # 处理非流式响应 (Silicon Flow STT API 不支持流式)
+                    response_data = await response.json()
 
-                                        if "text" in data_dict:
-                                            full_text += data_dict["text"]
-                                    except (json.JSONDecodeError, KeyError) as exc:
-                                        _LOGGER.warning("解析流式响应失败: %s", exc)
-                                        continue
+                    if "text" not in response_data:
+                        _LOGGER.error("STT API 响应格式错误: %s", response_data)
+                        return {"success": False, "error": "API 响应格式错误"}
 
-                        transcribed_text = full_text.strip()
-                    else:
-                        # 处理非流式响应
-                        response_data = await response.json()
-
-                        if "text" not in response_data:
-                            _LOGGER.error("STT API 响应格式错误: %s", response_data)
-                            return {"success": False, "error": "API 响应格式错误"}
-
-                        transcribed_text = response_data["text"]
+                    transcribed_text = response_data["text"]
 
                     return {
                         "success": True,
                         "text": transcribed_text,
                         "model": model,
-                        "language": language,
                         "audio_file": audio_file,
                         "file_size_mb": round(file_size / (1024 * 1024), 2),
                     }
