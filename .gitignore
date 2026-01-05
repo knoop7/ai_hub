@@ -2,3 +2,4 @@ backup/
 .spec-workflow
 .claude/
 /*/*/__pycache__/
+.serena/

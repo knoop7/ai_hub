@@ -444,7 +444,7 @@ class AIHubBaseLLMEntity(Entity):
         return {
             "role": "tool",
             "tool_call_id": content.tool_call_id,
-            "content": json.dumps(content.tool_result, ensure_ascii=False),
+            "content": json.dumps(content.tool_result, ensure_ascii=False, default=str),
         }
 
     def _format_tool(

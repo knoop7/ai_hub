@@ -1,7 +1,7 @@
 <h1 align="center">AI Hub · One-stop Free AI Services</h1>
 <p align="center">
   To allow you to experience various free AI services, this integration does not support any paid models or services. You may need to apply for an account or create an API Key.<br>
-  <strong>Special Thanks:</strong> We stand on the shoulders of giants. Without <a href="https://github.com/knoop7" target="_blank">knoop7</a> and <a href="https://github.com/hasscc/hass-edge-tts" target="_blank">hasscc/hass-edge-tts</a>, this project would not exist!
+  <strong>Special Thanks:</strong> We stand on the shoulders of giants. Without <a href="https://github.com/knoop7" target="_blank">knoop7</a> and <a href="https://github.com/rany2/edge-tts" target="_blank">edge-tts</a>, this project would not exist!
 </p>
 
 <p align="center">
