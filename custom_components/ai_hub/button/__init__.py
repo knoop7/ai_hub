@@ -227,9 +227,13 @@ async def async_setup_entry(
             async_add_entities([button], config_subentry_id=button._subentry.subentry_id)
         _LOGGER.info("Successfully added %d button(s)", len(buttons))
     else:
-        if not wechat_found and not translation_found and "blueprint_translation" not in [s.subentry_type for s in entry.subentries.values()]:
+        if not wechat_found and not translation_found and "blueprint_translation" not in [
+                s.subentry_type for s in entry.subentries.values()]:
             _LOGGER.info("No WeChat, Translation, or Blueprint Translation subentries found, no buttons created")
         else:
-            _LOGGER.warning("WeChat, Translation, or Blueprint Translation subentries found but no buttons were created!")
+            _LOGGER.warning(
+                "WeChat, Translation, or Blueprint Translation subentries found "
+                "but no buttons were created!"
+            )
 
     _LOGGER.info("=== BUTTON SETUP END ===")

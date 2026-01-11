@@ -108,7 +108,6 @@ def _build_edge_tts_languages() -> dict:
     return languages
 
 
-
 # Domain
 DOMAIN: Final = "ai_hub"
 
@@ -568,7 +567,7 @@ AI_HUB_CHAT_MODELS: Final = [
     "GLM-4-AirX",           # GLM-4-AirX - 极速推理，8K/4K，10元/百万tokens
     "GLM-Z1-Air",           # GLM-Z1-Air - 轻量推理，128K/32K，0.5元/百万tokens
     "GLM-Z1-AirX",          # GLM-Z1-AirX - 极速推理，32K/30K，5元/百万tokens
-    "GLM-Z1-FlashX-250414", # GLM-Z1-FlashX-250414 - 低价推理，128K/32K，0.5元/百万tokens
+    "GLM-Z1-FlashX-250414",  # GLM-Z1-FlashX-250414 - 低价推理，128K/32K，0.5元/百万tokens
 
     # GLM-4.5系列（主流收费模型）
     "glm-4.5",              # GLM-4.5 - 通用最强大模型，输入长度[0,32]/输出[0,0.2]：1元
@@ -695,6 +694,7 @@ RECOMMENDED_BLUEPRINT_TRANSLATION_OPTIONS: Final = {
 SERVICE_GENERATE_IMAGE: Final = "generate_image"
 SERVICE_ANALYZE_IMAGE: Final = "analyze_image"
 SERVICE_TTS_SPEECH: Final = "tts_speech"
+SERVICE_TTS_STREAM: Final = "tts_stream"
 SERVICE_STT_TRANSCRIBE: Final = "stt_transcribe"
 SERVICE_SEND_WECHAT_MESSAGE: Final = "send_wechat_message"
 SERVICE_TRANSLATE_COMPONENTS: Final = "translate_components"

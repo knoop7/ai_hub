@@ -31,6 +31,43 @@ from homeassistant.helpers import device_registry as dr
 _LOGGER = logging.getLogger(__name__)
 
 
+def _calculate_dynamic_timeout(audio_size_bytes: int) -> aiohttp.ClientTimeout:
+    """
+    🚀 根据音频大小动态计算超时时间.
+    
+    计算逻辑：
+    - 基础超时：8秒（适合短语音命令）
+    - 每100KB额外增加2秒
+    - 最小8秒，最大30秒
+    
+    这样可以避免长语音被过早超时，同时短语音仍然快速失败。
+    """
+    audio_size_kb = audio_size_bytes / 1024
+    
+    # 基础超时 + 每100KB增加2秒
+    base_timeout = 8
+    timeout_per_100kb = 2
+    calculated_timeout = base_timeout + (audio_size_kb / 100) * timeout_per_100kb
+    
+    # 限制在8-30秒范围内
+    total_timeout = min(max(calculated_timeout, 8), 30)
+    
+    # 连接超时固定3秒，读取超时为总超时的70%
+    connect_timeout = 3
+    sock_read_timeout = max(total_timeout * 0.7, 5)
+    
+    _LOGGER.debug(
+        "动态超时计算: audio_size=%dKB, total=%.1fs, connect=%.1fs, read=%.1fs",
+        int(audio_size_kb), total_timeout, connect_timeout, sock_read_timeout
+    )
+    
+    return aiohttp.ClientTimeout(
+        total=total_timeout,
+        connect=connect_timeout,
+        sock_read=sock_read_timeout
+    )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -227,30 +264,26 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
             filename = 'recording.wav'
 
             data.add_field('file', audio_data,
-                         filename=filename,
-                         content_type=content_type)
+                           filename=filename,
+                           content_type=content_type)
 
-            # Very aggressive timeout for voice assistant - fail fast rather than hang
-            timeout = aiohttp.ClientTimeout(
-                total=8,     # Total timeout for voice assistant (8 seconds max)
-                connect=3,   # Connect timeout (3 seconds)
-                sock_read=5  # Socket read timeout (5 seconds) - very aggressive to avoid hanging
-            )
+            # 🚀 使用动态超时计算，根据音频大小自动调整
+            timeout = _calculate_dynamic_timeout(len(audio_data))
 
             _LOGGER.info("Sending request to Silicon Flow ASR: model=%s, format=%s, size=%d bytes",
-                        model, metadata.format, len(audio_data))
+                         model, metadata.format, len(audio_data))
 
             # Log the actual request details for debugging
             _LOGGER.debug("Request details: URL=%s, headers=%s", SILICONFLOW_ASR_URL, headers)
             _LOGGER.debug("Request form fields: model=%s, file_size=%d bytes, filename=%s, content_type=%s",
-                         model, len(audio_data), filename, content_type)
+                          model, len(audio_data), filename, content_type)
 
             # Debug: Log first few bytes of audio data to understand the actual format
             if len(audio_data) >= 8:
                 header_bytes = audio_data[:8]
                 _LOGGER.info("Audio data header: %s", header_bytes.hex())
                 _LOGGER.info("Audio metadata from HA: format=%s, codec=%s, sample_rate=%d, bit_rate=%d",
-                           metadata.format, metadata.codec, metadata.sample_rate, metadata.bit_rate)
+                             metadata.format, metadata.codec, metadata.sample_rate, metadata.bit_rate)
 
                 # Check if this is raw PCM data or has a container format
                 if header_bytes[:4] == b'RIFF':
@@ -267,7 +300,7 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
                     # Log the actual multipart data before sending
                     _LOGGER.debug("Multipart form data being sent:")
                     _LOGGER.debug("  - field: file, size: %d bytes, filename: audio.%s",
-                                 len(audio_data), metadata.format)
+                                  len(audio_data), metadata.format)
                     _LOGGER.debug("  - field: model, value: %s", model)
 
                     _LOGGER.info("Starting HTTP POST request to %s", SILICONFLOW_ASR_URL)
@@ -297,7 +330,10 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
                             raise HomeAssistantError(f"解析响应失败: {e}") from e
 
                     # Log the full response structure for debugging
-                    _LOGGER.info("响应结构分析: keys=%s", list(response_data.keys()) if isinstance(response_data, dict) else "不是字典")
+                    _LOGGER.info(
+                        "响应结构分析: keys=%s", list(
+                            response_data.keys()) if isinstance(
+                            response_data, dict) else "不是字典")
 
                     # Try to extract transcribed text from various possible response formats
                     transcribed_text = None

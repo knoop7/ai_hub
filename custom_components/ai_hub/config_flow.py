@@ -99,6 +99,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema({
     vol.Optional(CONF_BEMFA_UID): str,
 })
 
+
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
     """Validate the user input allows us to connect."""
     # Only validate API key if it's provided
@@ -220,7 +221,6 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
-
     @classmethod
     def async_get_supported_subentry_types(
         cls, config_entry: ConfigEntry
@@ -235,8 +235,6 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
             "translation": AIHubTranslationFlowHandler,
             "blueprint_translation": AIHubBlueprintTranslationFlowHandler,
         }
-
-
 
 
 class AIHubSubentryFlowHandler(ConfigSubentryFlow):
@@ -323,8 +321,6 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
     async_step_user = async_step_init
 
 
-
-
 async def ai_hub_config_option_schema(
     is_new: bool,
     subentry_type: str,
@@ -405,7 +401,7 @@ async def ai_hub_config_option_schema(
                     default=options.get(CONF_TARGET_COMPONENT, ""),
                     description={"suggested_value": options.get(CONF_TARGET_COMPONENT)},
                 ): str,
-              })
+            })
         # blueprint_translation doesn't show any options in recommended mode - it's a one-click action
         return schema
 
@@ -577,7 +573,7 @@ async def ai_hub_config_option_schema(
                 default=options.get(CONF_TARGET_COMPONENT, ""),
                 description={"suggested_value": options.get(CONF_TARGET_COMPONENT)},
             ): str,
-            })
+        })
     # blueprint_translation doesn't show any configuration options - it's a one-click action
 
     return schema
@@ -714,7 +710,7 @@ class AIHubBlueprintTranslationFlowHandler(ConfigSubentryFlow):
             data={
                 CONF_LIST_BLUEPRINTS: False,
                 CONF_TARGET_BLUEPRINT: "",
-                  CONF_RECOMMENDED: True,
+                CONF_RECOMMENDED: True,
             }
         )
 

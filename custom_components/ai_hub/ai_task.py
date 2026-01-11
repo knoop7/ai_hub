@@ -116,7 +116,10 @@ class AIHubTaskEntity(
 
             if has_media_attachments and configured_model not in vision_models:
                 final_model = RECOMMENDED_IMAGE_ANALYSIS_MODEL  # GLM-4.1V-Thinking
-                _LOGGER.info("Auto-switched AI Task from %s to vision model %s for media attachments", configured_model, final_model)
+                _LOGGER.info(
+                    "Auto-switched AI Task from %s to vision model %s for media attachments",
+                    configured_model,
+                    final_model)
 
         _LOGGER.info("AI Task using final model: %s (configured: %s)", final_model, configured_model)
 
@@ -126,7 +129,8 @@ class AIHubTaskEntity(
         # Ensure the last message is from assistant
         if not isinstance(chat_log.content[-1], conversation.AssistantContent):
             _LOGGER.error(
-                "Last content in chat log is not an AssistantContent: %s. This could be due to the model not returning a valid response",
+                "Last content in chat log is not an AssistantContent: %s. "
+                "This could be due to the model not returning a valid response",
                 chat_log.content[-1],
             )
             raise HomeAssistantError(ERROR_GETTING_RESPONSE)

@@ -1,5 +1,49 @@
+# 备份和工作流
 backup/
-.spec-workflow
+.spec-workflow/
+
+# IDE 和编辑器
 .claude/
-/*/*/__pycache__/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# 虚拟环境
+venv/
+.venv/
+env/
+.env/
+
+# 测试和覆盖率
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# 日志
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 本地配置
 .serena/
+*.local.json
+
+# 参考项目（不提交）
+hass-edge-tts/

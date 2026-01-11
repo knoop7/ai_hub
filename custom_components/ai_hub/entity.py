@@ -109,7 +109,10 @@ class AIHubBaseLLMEntity(Entity):
                 vision_models = ["glm-4.1v-thinking", "glm-4v-flash"]
                 if configured_model not in vision_models:
                     final_model = RECOMMENDED_IMAGE_ANALYSIS_MODEL  # GLM-4.1V-Thinking
-                    _LOGGER.info("Auto-switching to vision model %s for media attachments (original: %s)", final_model, configured_model)
+                    _LOGGER.info(
+                        "Auto-switching to vision model %s for media attachments (original: %s)",
+                        final_model,
+                        configured_model)
 
         # Only use parameters that the working service uses (top_p causes API error!)
         return {
@@ -137,7 +140,13 @@ class AIHubBaseLLMEntity(Entity):
                     # Add JSON format requirement to system message
                     original_content = message.get("content", "")
                     if "JSON" not in original_content:
-                        message["content"] = original_content + "\n\nWhen providing structured data like automation names/descriptions, respond ONLY with valid JSON. Use the exact JSON structure requested in the prompt. Do not include any markdown formatting, explanations, or additional text."
+                        message["content"] = (
+                            original_content +
+                            "\n\nWhen providing structured data like automation names/"
+                            "descriptions, respond ONLY with valid JSON. Use the exact "
+                            "JSON structure requested in the prompt. Do not include any "
+                            "markdown formatting, explanations, or additional text."
+                        )
                     break
 
         # Add tools if available
@@ -148,7 +157,6 @@ class AIHubBaseLLMEntity(Entity):
                 for tool in chat_log.llm_api.tools
             ])
 
-        
         # Build minimal request parameters using only essential parameters
         request_params = {
             "model": model_config.get("model"),
@@ -339,18 +347,23 @@ class AIHubBaseLLMEntity(Entity):
                                     _LOGGER.error("Failed to read file %s: %s", attachment.path, err, exc_info=True)
                             else:
                                 # Try media source resolution as fallback
-                                _LOGGER.info("No file path, trying media source resolution for %s", attachment.media_content_id)
+                                _LOGGER.info(
+                                    "No file path, trying media source resolution for %s",
+                                    attachment.media_content_id)
                                 try:
                                     image_bytes = await self._async_get_media_content(
                                         attachment.media_content_id, mime_type
                                     )
                                     if image_bytes:
                                         image_data = base64.b64encode(image_bytes).decode()
-                                        _LOGGER.info("Successfully resolved media content, base64 length: %d", len(image_data))
+                                        _LOGGER.info(
+                                            "Successfully resolved media content, base64 length: %d", len(image_data))
                                     else:
-                                        _LOGGER.warning("Failed to resolve media content for: %s", attachment.media_content_id)
+                                        _LOGGER.warning(
+                                            "Failed to resolve media content for: %s", attachment.media_content_id)
                                 except Exception as err:
-                                    _LOGGER.error("Error resolving media content %s: %s", attachment.media_content_id, err, exc_info=True)
+                                    _LOGGER.error("Error resolving media content %s: %s",
+                                                  attachment.media_content_id, err, exc_info=True)
                         # Check if attachment has resolved content
                         elif hasattr(attachment, 'content'):
                             _LOGGER.info("Attachment has resolved content")
@@ -383,14 +396,16 @@ class AIHubBaseLLMEntity(Entity):
                                     "url": f"data:image/jpeg;base64,{image_data}"
                                 }
                             })
-                            _LOGGER.info("Successfully added image to message parts using official example format (image/jpeg)")
+                            _LOGGER.info(
+                                "Successfully added image to message parts using official example format (image/jpeg)")
                         else:
                             _LOGGER.warning("Could not get image data from attachment: %s", attachment)
 
                     except Exception as err:
                         _LOGGER.error("Failed to process image attachment %s: %s", attachment, err, exc_info=True)
                 else:
-                    _LOGGER.info("Skipping non-image attachment: %s (mime: %s)", attachment, getattr(attachment, 'mime_type', 'unknown'))
+                    _LOGGER.info("Skipping non-image attachment: %s (mime: %s)",
+                                 attachment, getattr(attachment, 'mime_type', 'unknown'))
 
             # Build content EXACTLY like our working services.py
             if successful_images:
@@ -403,7 +418,10 @@ class AIHubBaseLLMEntity(Entity):
                 })
 
                 message["content"] = parts
-                _LOGGER.info("Final message content has %d parts (%d images + text) - EXACTLY like working services.py", len(parts), len(successful_images))
+                _LOGGER.info(
+                    "Final message content has %d parts (%d images + text) - EXACTLY like working services.py",
+                    len(parts),
+                    len(successful_images))
             else:
                 # No images processed successfully, fall back to text only
                 _LOGGER.warning("No images were processed successfully, falling back to text only")
@@ -756,5 +774,3 @@ class AIHubEntityBase(Entity):
             model=subentry.data.get(CONF_CHAT_MODEL, default_model),
             entry_type=dr.DeviceEntryType.SERVICE,
         )
-
-    

@@ -25,23 +25,24 @@
       "mcp__spec-workflow",
       "mcp__open-websearch",
       "mcp__serena",
-      "all",
+      "All",
       "Bash(git:*)",
       "Read(C:\\Users\\djhui\\OneDrive\\Github\\hassio-addons-raw\\README.md)",
       "Read(C:\\Users\\djhui\\OneDrive\\Github\\My-HA\\respeaker-xvf3800.yaml)",
       "Bash(cd:*)",
-      "Read(C:\\Users\\djhui\\OneDrive\\Github\\ai_hub\\custom_components\\ai_hub\\entity.py)"
+      "Read(C:\\Users\\djhui\\OneDrive\\Github\\ai_hub\\custom_components\\ai_hub\\entity.py)",
+      "mcp__zread__read_file"
     ],
     "deny": [],
     "ask": []
   },
+  "model": "opus",
   "hooks": {},
-  "alwaysThinkingEnabled": true,
-  "outputStyle": "default",
   "statusLine": {
     "type": "command",
     "command": "%USERPROFILE%\\.claude\\ccline\\ccline.exe",
     "padding": 0
   },
-  "model": "opus"
+  "outputStyle": "default",
+  "alwaysThinkingEnabled": true
 }

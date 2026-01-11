@@ -1,5 +1,6 @@
 import re
 
+
 def _remove_emojis(text: str) -> str:
     """Remove all emojis from text"""
     if not text:
@@ -49,6 +50,7 @@ _MARKDOWN_FILTER_PATTERNS = [
 ]
 
 _BASE_FILTER_PATTERNS = []
+
 
 def filter_markdown_content(content: str) -> str:
     """无条件过滤markdown格式内容，保留英文单词间的空格"""

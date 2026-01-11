@@ -22,8 +22,6 @@ _LOGGER = logging.getLogger(__name__)
 MATCH_ALL = "*"
 
 
-
-
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -96,14 +94,16 @@ class AIHubConversationEntity(
     ) -> conversation.ConversationResult:
         """Process a sentence and return a response.
 
-        Simplified processing flow:
-        1. Automation request handling
-        2. Home Assistant intent processing (including registered Chinese intents)
-        3. LLM fallback processing
+        处理流程:
+        1. 本地意图处理（全局设备控制等 HA 原生不支持的功能）
+        2. 如果本地没匹配，交给 Home Assistant 处理（内置意图 + LLM）
         """
         options = self.subentry.data
 
-        # 检查是否是自动化创建请求
+        # ========== 步骤1: 本地意图处理 ==========
+        # 只处理 HA 原生不支持的功能（如全局设备控制）
+        
+        # 1a. 检查是否是自动化创建请求
         try:
             automation_result = await self._handle_automation_request(user_input)
             if automation_result:
@@ -111,13 +111,12 @@ class AIHubConversationEntity(
         except Exception as e:
             _LOGGER.debug("Automation handling failed: %s", e)
 
-        # 🚀 检查是否需要本地意图处理 (全局设备控制)
+        # 1b. 检查是否需要本地意图处理 (全局设备控制)
         try:
             from .intents import get_global_intent_handler
             intent_handler = get_global_intent_handler(self.hass)
 
             if intent_handler and intent_handler.should_handle(user_input.text):
-                # 需要本地意图处理的全局控制指令
                 _LOGGER.info(f"🚀 本地意图处理: {user_input.text}")
                 intent_result = await intent_handler.handle(user_input.text, user_input.language)
 
@@ -127,14 +126,33 @@ class AIHubConversationEntity(
                         response=intent_result["response"],
                         conversation_id=user_input.conversation_id
                     )
-
         except Exception as e:
             _LOGGER.debug("Local intent handling failed: %s", e)
 
-        # 其他情况交给LLM处理
-        # Home Assistant会通过conversation组件自动处理意图
+        # ========== 步骤2: 尝试 HA 内置意图处理 ==========
+        # timer、shopping list、设备控制等 HA 原生支持的意图
+        try:
+            from homeassistant.components.conversation import default_agent
+            
+            # 获取 HA 默认的 conversation agent
+            agent = await default_agent.async_get_agent(self.hass)
+            if agent:
+                # 让默认 agent 处理
+                result = await agent.async_process(user_input)
+                if result and result.response:
+                    response_type = result.response.response_type
+                    # 如果成功处理（不是错误且不是 "no intent matched"）
+                    if response_type == intent.IntentResponseType.ACTION_DONE:
+                        _LOGGER.info(f"✅ HA 内置意图处理成功: {user_input.text}")
+                        return result
+                    elif response_type == intent.IntentResponseType.QUERY_ANSWER:
+                        _LOGGER.info(f"✅ HA 内置意图查询成功: {user_input.text}")
+                        return result
+                        
+        except Exception as e:
+            _LOGGER.debug(f"HA 内置意图处理跳过: {e}")
 
-        # 步骤4: LLM处理 (如果所有意图处理都失败)
+        # ========== 步骤3: LLM 处理 ==========
 
         try:
             # 🚀 高性能LLM API配置获取
@@ -334,7 +352,6 @@ class AIHubConversationEntity(
         # 暂时返回True，表示其他操作假设成功
         return True
 
-
     async def _handle_automation_request(
         self,
         user_input: conversation.ConversationInput
@@ -516,22 +533,19 @@ class AIHubConversationEntity(
             temperature_keywords = global_config.get('temperature_keywords', [])
 
             has_param_control = any(keyword in text_lower for keyword in
-                param_keywords + brightness_keywords + volume_keywords +
-                color_keywords + temperature_keywords)
+                                    param_keywords + brightness_keywords + volume_keywords +
+                                    color_keywords + temperature_keywords)
 
             # 跳过HA处理的情况：只有明确的全局指令才进行本地处理
             # 要求必须同时包含全局关键词和明确的动作或参数控制
             should_skip = has_global and (has_action or has_param_control)
 
             if should_skip:
-                _LOGGER.debug(f"跳过HA标准处理: '{text}' (全局关键词: {has_global}, 动作关键词: {has_action}, 参数控制: {has_param_control})")
+                _LOGGER.debug(
+                    f"跳过HA标准处理: '{text}' (全局关键词: {has_global}, 动作关键词: {has_action}, 参数控制: {has_param_control})")
 
             return should_skip
 
         except Exception as e:
             _LOGGER.debug(f"判断跳过HA处理时出错: {e}")
             return False
-
-    
-
-    
