@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Extract version from manifest
         id: extract_version
@@ -41,24 +43,47 @@ jobs:
       - name: Get previous tag
         id: prev_tag
         run: |
-          # 获取最新的（前一个）tag，排除当前要生成的（如果已存在则下一个）
           git fetch --tags
           prev_tag=$(git tag --sort=-creatordate | grep -v "^${{ steps.extract_version.outputs.version }}$" | head -n 1)
           echo "prev_tag=$prev_tag" >> $GITHUB_OUTPUT
 
       - name: Create changelog since previous release
         id: changelog
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
         run: |
           prev_tag="${{ steps.prev_tag.outputs.prev_tag }}"
-          version="${{ steps.extract_version.outputs.version }}"
           if [ -n "$prev_tag" ]; then
-            log=$(git log --pretty=format:"* %s (%an)" "$prev_tag"..HEAD)
+            log=$(git log --pretty=format:"- %s" "$prev_tag"..HEAD)
           else
-            log=$(git log --pretty=format:"* %s (%an)")
+            log=$(git log --pretty=format:"- %s")
           fi
-          # 替换 Github Actions 换行需求
-          log="${log//$'\n'/'%0A'}"
-          echo "log=$log" >> $GITHUB_OUTPUT
+          
+          # 如果有 API Key，使用 AI 生成双语 changelog
+          if [ -n "$ZHIPU_API_KEY" ]; then
+            prompt="请将以下 git commit 记录翻译成中英双语格式。如果原文是中文就翻译成英文，如果是英文就翻译成中文。输出格式：每条记录先显示中文，然后显示英文（用斜体），例如：- 修复登录问题 / *Fix login issue*。只输出翻译结果，不要其他内容。\n\n${log}"
+            
+            response=$(curl -s https://open.bigmodel.cn/api/paas/v4/chat/completions \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $ZHIPU_API_KEY" \
+              -d "$(jq -n --arg content "$prompt" '{
+                "model": "glm-4-flash",
+                "messages": [{"role": "user", "content": $content}],
+                "temperature": 0.1
+              }')")
+            
+            translated=$(echo "$response" | jq -r '.choices[0].message.content // empty')
+            
+            if [ -n "$translated" ]; then
+              log="$translated"
+            fi
+          fi
+          
+          {
+            echo "log<<EOF"
+            echo "$log"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
 
       - name: Create tag and release
         if: github.event_name == 'push' && steps.check_tag.outputs.exists == 'false'
@@ -76,11 +101,7 @@ jobs:
           tag_name: ${{ steps.extract_version.outputs.version }}
           name: Release ${{ steps.extract_version.outputs.version }}
           body: |
-            Auto-release for version ${{ steps.extract_version.outputs.version }}
-
-            Changes triggered by manifest.json update.
-
-            ## Changes since last release
+            ## Changes since ${{ steps.prev_tag.outputs.prev_tag }}
 
             ${{ steps.changelog.outputs.log }}
           draft: false
