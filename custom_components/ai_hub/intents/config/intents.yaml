@@ -98,64 +98,11 @@ intents:
           domain: cover
 
   # ------------------------------------------------
-  # D. 计时器意图 (使用 HA 原生意图名称)
+  # D. 计时器意图 - 完全交给 HA 内置处理
+  # 注意：不要在这里定义 Timer 意图，让 HA 使用内置的 Timer 处理器
+  # HA 内置支持: HassStartTimer, HassCancelTimer, HassPauseTimer, 
+  #              HassUnpauseTimer, HassTimerStatus, HassCancelAllTimers
   # ------------------------------------------------
-  HassStartTimer:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "[<let>] <action_verbs>一个{minutes}分钟的[计时器|定时器][{name}]"
-          - "[<let>] <action_verbs>{minutes}分钟的[计时器|定时器][{name}]"
-          - "[<let>] <action_verbs>[一个]{hours}小时的[计时器|定时器][{name}]"
-          - "[<let>] <action_verbs>[一个]{hours}小时{minutes}分钟的[计时器|定时器][{name}]"
-          - "[<let>] <action_verbs>[一个]{seconds}秒的[计时器|定时器][{name}]"
-          - "[<let>] [<aux_words>]{minutes}分钟[后|以后|之后]提醒我[{name}]"
-          - "[<let>] [<aux_words>]{hours}小时[后|以后|之后]提醒我[{name}]"
-          - "[<let>] <action_verbs>{minutes}分钟[倒计时|计时][{name}]"
-          - "[<let>] <set>[一个][<timer_duration>]分钟[的][计时器|定时器][{name}]"
-          - "[<let>] 提醒我[<timer_duration>]分钟[后|以后]"
-        slots:
-          hours: { type: number }
-          minutes: { type: number }
-          seconds: { type: number }
-          name: { type: text }
-
-  HassCancelTimer:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "[<let>] [取消|停止|关闭][计时器|定时器][{name}]"
-          - "[<let>] [计时器|定时器][{name}][取消|停止|关闭]"
-        slots:
-          name: { type: text }
-
-  HassPauseTimer:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "[<let>] [暂停][计时器|定时器][{name}]"
-          - "[<let>] [计时器|定时器][{name}][暂停]"
-        slots:
-          name: { type: text }
-
-  HassUnpauseTimer:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "[<let>] [继续|恢复][计时器|定时器][{name}]"
-          - "[<let>] [计时器|定时器][{name}][继续|恢复]"
-        slots:
-          name: { type: text }
-
-  HassTimerStatus:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "[<let>] [计时器|定时器][{name}][还有|剩余]多少时间"
-          - "[<let>] [计时器|定时器][{name}][状态|怎么样]"
-          - "[<let>] [查看|查询][计时器|定时器][{name}][状态]"
-        slots:
-          name: { type: text }
 
   # ------------------------------------------------
   # E. 通知意图
@@ -281,14 +228,8 @@ intents:
           domain: "scene"
 
   # ------------------------------------------------
-  # J. 取消所有定时器
+  # J. 取消所有定时器 - 交给 HA 内置处理
   # ------------------------------------------------
-  HassCancelAllTimers:
-    use_home_assistant: true
-    data:
-      - sentences:
-          - "[<let>] [取消|关闭|停止][所有|全部][计时器|定时器]"
-          - "[<let>] [清除|删除][全部|所有][计时器|定时器]"
 
   # ------------------------------------------------
   # K. 媒体增强控制

@@ -1,11 +1,9 @@
-"""Text to speech support for AI Hub using Edge TTS - 支持流式输出."""
+"""Text to speech support for AI Hub using Edge TTS - 支持流式输出和 prosody 参数."""
 
 from __future__ import annotations
-from homeassistant.helpers import device_registry as dr
-from .entity import AIHubEntityBase
 
 import logging
-import asyncio
+import time
 from typing import Any
 from collections.abc import AsyncGenerator
 
@@ -23,6 +21,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers import device_registry as dr
 
 try:
     import edge_tts
@@ -42,14 +41,18 @@ from .const import (
     EDGE_TTS_VOICES,
     DOMAIN,
 )
+from .entity import AIHubEntityBase
 
-# Create supported languages dynamically like edge_tts
+# Create supported languages dynamically
 SUPPORTED_LANGUAGES = {
     **dict(zip(EDGE_TTS_VOICES.values(), EDGE_TTS_VOICES.keys())),
     'zh-CN': 'zh-CN-XiaoxiaoNeural',
 }
 
 _LOGGER = logging.getLogger(__name__)
+
+# Prosody 参数选项
+PROSODY_OPTIONS = ['pitch', 'rate', 'volume']
 
 
 async def async_setup_entry(
@@ -69,12 +72,10 @@ async def async_setup_entry(
 
 
 class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
-    """AI Hub text-to-speech entity using Edge TTS - 支持流式输出."""
+    """AI Hub text-to-speech entity using Edge TTS."""
 
     _attr_has_entity_name = False
-    _attr_supported_options = ['voice']  # 只保留voice选项
-    
-    # 🚀 启用流式输出支持
+    _attr_supported_options = ['voice'] + PROSODY_OPTIONS
     _attr_supports_streaming_input = True
 
     def __init__(self, config_entry: ConfigEntry, subentry: ConfigSubentry) -> None:
@@ -82,12 +83,12 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
         super().__init__(config_entry, subentry, TTS_DEFAULT_VOICE)
         self._attr_available = True
 
-        # Override device info for TTS
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
             manufacturer="老王杂谈说",
             model="Edge TTS",
+            sw_version=edge_tts.__version__,
             entry_type=dr.DeviceEntryType.SERVICE,
         )
 
@@ -101,16 +102,16 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
         """Return default options."""
         return {
             ATTR_VOICE: TTS_DEFAULT_VOICE,
+            'pitch': '+0Hz',
+            'rate': '+0%',
+            'volume': '+0%',
         }
 
     @property
     def default_language(self) -> str:
         """Return the default language from configured voice."""
-        # First try to get language from legacy CONF_TTS_LANG for backward compatibility
         if CONF_TTS_LANG in self.subentry.data:
             return self.subentry.data[CONF_TTS_LANG]
-
-        # Extract language from configured voice ID (e.g., "zh-CN-XiaoxiaoNeural" -> "zh-CN")
         voice = self.subentry.data.get(CONF_TTS_VOICE, TTS_DEFAULT_VOICE)
         return EDGE_TTS_VOICES.get(voice, TTS_DEFAULT_LANG)
 
@@ -120,292 +121,193 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
         return list([*SUPPORTED_LANGUAGES.keys(), *EDGE_TTS_VOICES.keys()])
 
     @property
-    def supported_formats(self) -> list[str]:
-        """Return a list of supported audio formats."""
-        return ["wav", "mp3", "ogg", "flac"]
-
-    @property
-    def supported_codecs(self) -> list[str]:
-        """Return a list of supported audio codecs."""
-        return ["pcm", "mp3", "wav", "flac", "aac", "ogg"]
-
-    @property
-    def supported_sample_rates(self) -> list[int]:
-        """Return a list of supported sample rates."""
-        return [8000, 11025, 16000, 22050, 44100, 48000]
-
-    @property
-    def supported_bit_rates(self) -> list[int]:
-        """Return a list of supported bit rates."""
-        return [8, 16, 24, 32, 64, 128, 256, 320]
-
-    @property
-    def supported_channels(self) -> list[int]:
-        """Return a list of supported audio channels."""
-        return [1, 2]
-
-    @property
     def _supported_voices(self) -> list[Voice]:
         """Return supported voices."""
-        voices = []
-        for voice_id in EDGE_TTS_VOICES.keys():
-            voices.append(Voice(voice_id, voice_id))
-        return voices
+        return [Voice(voice_id, voice_id) for voice_id in EDGE_TTS_VOICES.keys()]
 
     @callback
     def async_get_supported_voices(self, language: str) -> list[Voice]:
         """Return a list of supported voices for a language."""
         if language is None:
             return self._supported_voices
-
-        # Return voices for the specified language
-        voices = []
-        for voice_id, voice_lang in EDGE_TTS_VOICES.items():
-            if voice_lang == language:
-                voices.append(Voice(voice_id, voice_id))
-        return voices
+        return [
+            Voice(voice_id, voice_id)
+            for voice_id, voice_lang in EDGE_TTS_VOICES.items()
+            if voice_lang == language
+        ]
 
     def _get_default_voice_for_language(self, language: str) -> str:
         """Get default voice for a language."""
-        # Default voices for each language
         default_voices = {
-            "zh-CN": "zh-CN-XiaoxiaoNeural",    # 晓晓 - 中文简体女声
-            "zh-TW": "zh-TW-HsiaochenNeural",   # 曉臻 - 中文繁体女声
-            "zh-HK": "zh-HK-HiuMaanNeural",     # 曉嫻 - 中文香港女声
-            "en-US": "en-US-JennyNeural",       # Jenny - 美式英语女声
-            "en-GB": "en-GB-LibbyNeural",       # Libby - 英式英语女声
-            "en-AU": "en-AU-NatashaNeural",     # Natasha - 澳式英语女声
-            "en-CA": "en-CA-ClaraNeural",       # Clara - 加式英语女声
-            "en-IN": "en-IN-NeerjaNeural",      # Neerja - 印式英语女声
-            "ja-JP": "ja-JP-NanamiNeural",     # Nanami - 日语女声
-            "ko-KR": "ko-KR-SunHiNeural",      # SunHi - 韩语女声
-            "es-ES": "es-ES-ElviraNeural",     # Elvira - 西班牙女声
-            "es-MX": "es-MX-DaliaNeural",      # Dalia - 墨西哥西班牙语女声
-            "fr-FR": "fr-FR-DeniseNeural",     # Denise - 法语女声
-            "fr-CA": "fr-CA-SylvieNeural",     # Sylvie - 加拿大法语女声
-            "de-DE": "de-DE-KatjaNeural",      # Katja - 德语女声
-            "it-IT": "it-IT-ElsaNeural",       # Elsa - 意大利语女声
-            "pt-BR": "pt-BR-FranciscaNeural",  # Francisca - 巴西葡萄牙语女声
-            "pt-PT": "pt-PT-RaquelNeural",     # Raquel - 葡萄牙葡萄牙语女声
-            "ru-RU": "ru-RU-SvetlanaNeural",   # Svetlana - 俄语女声
-            "ar-SA": "ar-SA-ZariyahNeural",    # Zariyah - 阿拉伯语女声
-            "hi-IN": "hi-IN-SwaraNeural",      # Swara - 印地语女声
+            "zh-CN": "zh-CN-XiaoxiaoNeural",
+            "zh-TW": "zh-TW-HsiaoChenNeural",
+            "zh-HK": "zh-HK-HiuMaanNeural",
+            "en-US": "en-US-JennyNeural",
+            "en-GB": "en-GB-LibbyNeural",
+            "ja-JP": "ja-JP-NanamiNeural",
+            "ko-KR": "ko-KR-SunHiNeural",
+            "fr-FR": "fr-FR-DeniseNeural",
+            "de-DE": "de-DE-KatjaNeural",
+            "es-ES": "es-ES-ElviraNeural",
+            "it-IT": "it-IT-ElsaNeural",
+            "pt-BR": "pt-BR-FranciscaNeural",
+            "ru-RU": "ru-RU-SvetlanaNeural",
         }
-
-        # Return language-specific default if available, otherwise fallback to Chinese
         return default_voices.get(language, TTS_DEFAULT_VOICE)
+
+    def _resolve_voice(self, language: str, options: dict[str, Any] | None) -> str:
+        """Resolve voice from options, config, or language default."""
+        voice = None
+        if options and options.get('voice'):
+            voice = options['voice']
+        else:
+            voice = self.subentry.data.get(CONF_TTS_VOICE, TTS_DEFAULT_VOICE)
+
+        # 如果 voice 是语言代码，转换为对应的默认语音
+        if voice in SUPPORTED_LANGUAGES:
+            voice = SUPPORTED_LANGUAGES[voice]
+
+        if voice not in EDGE_TTS_VOICES:
+            voice = self._get_default_voice_for_language(language)
+            if voice not in EDGE_TTS_VOICES:
+                voice = TTS_DEFAULT_VOICE
+
+        return voice
 
     async def async_get_tts_audio(
         self, message: str, language: str, options: dict[str, Any] | None = None
     ) -> TtsAudioType:
         """Load TTS audio."""
-        config = self.subentry.data
-        return await self._process_tts_audio(
-            message,
-            language,
-            config,
-            options or {}
-        )
+        return "mp3", await self._process_tts_audio(message, language, options or {})
 
     async def _process_tts_audio(
-        self,
-        message: str,
-        language: str,
-        config: dict,
-        options: dict[str, Any]
-    ) -> TtsAudioType:
-        """极简TTS处理 - 只使用voice参数，避免所有格式问题."""
+        self, message: str, language: str, options: dict[str, Any]
+    ) -> bytes:
+        """Process TTS with prosody support."""
         if not message or not message.strip():
             raise HomeAssistantError("文本内容不能为空")
 
-        # Voice selection logic (same as before)
-        voice = None
-        if 'voice' in options and options['voice']:
-            voice = options['voice']
-            _LOGGER.debug("Using Voice Assistant specified voice: %s", voice)
-        else:
-            # Use configured voice from integration
-            voice = config.get(CONF_TTS_VOICE, TTS_DEFAULT_VOICE)
-            _LOGGER.debug("Using integration configured voice: %s", voice)
+        voice = self._resolve_voice(language, options)
 
-        # Verify the voice exists in our supported voices
-        if voice not in EDGE_TTS_VOICES:
-            _LOGGER.warning("Voice '%s' not found in supported voices, using default for language %s", voice, language)
-            # Try to get default voice for the language
-            voice = self._get_default_voice_for_language(language)
-            if voice not in EDGE_TTS_VOICES:
-                voice = TTS_DEFAULT_VOICE
+        # Prosody 参数
+        pitch = options.get('pitch', '+0Hz')
+        rate = options.get('rate', '+0%')
+        volume = options.get('volume', '+0%')
 
-        # Extract the actual language from the selected voice
-        actual_language = EDGE_TTS_VOICES.get(voice, TTS_DEFAULT_LANG)
+        _LOGGER.debug(
+            'TTS: message="%s", voice="%s", pitch=%s, rate=%s, volume=%s',
+            message[:50], voice, pitch, rate, volume
+        )
 
-        # Log language/voice mapping for debugging
-        if language and actual_language and language != actual_language:
-            _LOGGER.info("Language mapping: Voice Assistant requested '%s', using voice '%s' (language: %s)",
-                         language, voice, actual_language)
-
-        _LOGGER.debug('极简TTS: message="%s", voice="%s", requested_lang="%s", actual_lang="%s"',
-                      message, voice, language, actual_language)
+        start_time = time.perf_counter()
 
         try:
-            # 🚀 极简版本：只使用最基本的参数
-            # Edge TTS的rate/pitch/volume参数格式要求极其严格，暂时禁用
             communicate = edge_tts.Communicate(
                 text=message,
                 voice=voice,
-                # 所有可选参数都禁用，使用默认值
-                # 这样可以确保TTS基本功能正常工作
+                pitch=pitch,
+                rate=rate,
+                volume=volume,
             )
 
-            _LOGGER.debug("Edge TTS communication created successfully, starting stream...")
-
             audio_bytes = b""
-            chunk_count = 0
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     audio_bytes += chunk["data"]
-                    chunk_count += 1
 
-            _LOGGER.debug("Received %d audio chunks, total size: %d bytes", chunk_count, len(audio_bytes))
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
+            _LOGGER.debug("TTS 生成耗时: %.1fms, 音频大小: %d bytes", elapsed_ms, len(audio_bytes))
 
             if not audio_bytes:
                 raise HomeAssistantError("未生成音频数据")
 
-            return "mp3", audio_bytes
+            return audio_bytes
 
+        except edge_tts.exceptions.NoAudioReceived as exc:
+            _LOGGER.warning("Edge TTS 未收到音频: %s", message[:50])
+            raise HomeAssistantError(f"TTS 未收到音频: {message[:50]}") from exc
         except Exception as exc:
             _LOGGER.error("Edge TTS 生成失败: %s", exc)
-
-            # 极简版本的重试：只改voice，不使用任何其他参数
-            if "Invalid" in str(exc):
-                _LOGGER.warning("参数错误，尝试使用默认voice重试...")
+            # 使用默认参数重试
+            if voice != TTS_DEFAULT_VOICE:
+                _LOGGER.warning("尝试使用默认语音重试...")
                 try:
-                    communicate = edge_tts.Communicate(
-                        text=message,
-                        voice=TTS_DEFAULT_VOICE,  # 使用最安全的默认voice
-                        # 不使用任何其他参数
-                    )
-
+                    communicate = edge_tts.Communicate(text=message, voice=TTS_DEFAULT_VOICE)
                     audio_bytes = b""
                     async for chunk in communicate.stream():
                         if chunk["type"] == "audio":
                             audio_bytes += chunk["data"]
-
                     if audio_bytes:
-                        _LOGGER.info("使用默认voice成功生成音频")
-                        return "mp3", audio_bytes
-
+                        _LOGGER.info("使用默认语音成功")
+                        return audio_bytes
                 except Exception as retry_exc:
-                    _LOGGER.error("默认voice重试也失败: %s", retry_exc)
-
+                    _LOGGER.error("默认语音重试失败: %s", retry_exc)
             raise HomeAssistantError(f"TTS 生成失败: {exc}") from exc
 
-    # ========== 🚀 流式输出支持 ==========
-    
+    # ========== 流式输出支持 ==========
+
     async def async_stream_tts_audio(self, request: TTSAudioRequest) -> TTSAudioResponse:
-        """
-        🚀 流式 TTS 音频输出 - Home Assistant 2024.1+ 支持.
-        
-        接收 TTSAudioRequest，返回 TTSAudioResponse，实现真正的流式输出。
-        """
+        """Stream TTS audio - Home Assistant 2024.1+ support."""
         return TTSAudioResponse("mp3", self._stream_tts_audio(request))
 
     async def _stream_tts_audio(self, request: TTSAudioRequest) -> AsyncGenerator[bytes, None]:
-        """
-        🚀 流式生成 TTS 音频数据.
-        
-        支持流式输入：当消息逐字/逐句到达时，按句子分割并逐段生成音频。
-        这样可以在 LLM 流式输出时实现边生成边播放。
-        """
-        _LOGGER.debug("🚀 开始流式TTS，options: %s", request.options)
-        
-        # 句子分隔符
+        """Stream TTS audio generation."""
+        _LOGGER.debug("开始流式TTS, options: %s", request.options)
+
         separators = "\n。.，,；;！!？?、"
         buffer = ""
         count = 0
-        
-        # 从流式消息中读取
+
         async for message in request.message_gen:
-            _LOGGER.debug("流式TTS收到文本: %s", message)
+            _LOGGER.debug("流式TTS收到: %s", message)
             count += 1
-            # 动态调整最小长度，避免过于频繁的TTS调用
             min_len = 2 ** count * 10
-            
+
             for char in message:
                 buffer += char
                 msg = buffer.strip()
-                # 当达到最小长度且遇到分隔符时，生成音频
                 if len(msg) >= min_len and char in separators:
-                    audio_data = await self._generate_tts_audio_bytes(msg, request.language, request.options)
-                    if audio_data:
-                        yield audio_data
+                    audio = await self._generate_stream_audio(msg, request.language, request.options)
+                    if audio:
+                        yield audio
                     buffer = ""
-        
-        # 处理剩余的文本
-        if msg := buffer.strip():
-            audio_data = await self._generate_tts_audio_bytes(msg, request.language, request.options)
-            if audio_data:
-                yield audio_data
 
-    async def _generate_tts_audio_bytes(
-        self, message: str, language: str, options: dict[str, Any] | None = None
+        if msg := buffer.strip():
+            audio = await self._generate_stream_audio(msg, request.language, request.options)
+            if audio:
+                yield audio
+
+    async def _generate_stream_audio(
+        self, message: str, language: str, options: dict[str, Any] | None
     ) -> bytes | None:
-        """生成单段文本的 TTS 音频字节."""
-        if not message or not message.strip():
+        """Generate audio for streaming."""
+        if not message:
             return None
-            
-        voice = self._get_voice_for_streaming(language, options)
-        
-        _LOGGER.debug("生成音频: message='%s', voice='%s'", message[:50], voice)
-        
+
+        voice = self._resolve_voice(language, options)
+        pitch = options.get('pitch', '+0Hz') if options else '+0Hz'
+        rate = options.get('rate', '+0%') if options else '+0%'
+        volume = options.get('volume', '+0%') if options else '+0%'
+
         try:
             communicate = edge_tts.Communicate(
                 text=message,
                 voice=voice,
+                pitch=pitch,
+                rate=rate,
+                volume=volume,
             )
-            
+
             audio_bytes = b""
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
                     audio_bytes += chunk["data"]
-            
+
             return audio_bytes if audio_bytes else None
-            
-        except Exception as exc:
-            _LOGGER.error("流式TTS生成失败: %s", exc)
-            # 尝试使用默认voice重试
-            if "Invalid" in str(exc):
-                try:
-                    communicate = edge_tts.Communicate(
-                        text=message,
-                        voice=TTS_DEFAULT_VOICE,
-                    )
-                    audio_bytes = b""
-                    async for chunk in communicate.stream():
-                        if chunk["type"] == "audio":
-                            audio_bytes += chunk["data"]
-                    return audio_bytes if audio_bytes else None
-                except Exception:
-                    pass
+
+        except edge_tts.exceptions.NoAudioReceived:
+            _LOGGER.warning("流式TTS未收到音频: %s", message[:30])
             return None
-
-    def _get_voice_for_streaming(
-        self, language: str, options: dict[str, Any] | None = None
-    ) -> str:
-        """获取流式输出使用的语音."""
-        config = self.subentry.data
-        
-        # Voice selection logic
-        voice = None
-        if options and 'voice' in options and options['voice']:
-            voice = options['voice']
-        else:
-            voice = config.get(CONF_TTS_VOICE, TTS_DEFAULT_VOICE)
-
-        # Verify the voice exists
-        if voice not in EDGE_TTS_VOICES:
-            voice = self._get_default_voice_for_language(language)
-            if voice not in EDGE_TTS_VOICES:
-                voice = TTS_DEFAULT_VOICE
-        
-        return voice
+        except Exception as exc:
+            _LOGGER.error("流式TTS失败: %s", exc)
+            return None

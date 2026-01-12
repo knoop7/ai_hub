@@ -34,80 +34,6 @@ def get_localized_name(hass: HomeAssistant, zh_name: str, en_name: str) -> str:
         return en_name
 
 
-def _build_edge_tts_languages() -> dict:
-    """从EDGE_TTS_VOICES构建语言映射，避免重复维护."""
-    languages = {}
-    for voice_id, lang_code in EDGE_TTS_VOICES.items():
-        # 提取语音名称（去掉语言代码后缀）
-        voice_name = voice_id.replace(f"{lang_code}-", "")
-
-        if lang_code not in languages:
-            # 获取本地化语言名称
-            if lang_code == "zh-CN":
-                lang_name = "中文（简体）"
-            elif lang_code == "en-US":
-                lang_name = "English (US)"
-            elif lang_code == "en-GB":
-                lang_name = "English (UK)"
-            elif lang_code == "ja-JP":
-                lang_name = "日本語"
-            elif lang_code == "ko-KR":
-                lang_name = "한국어"
-            elif lang_code == "fr-FR":
-                lang_name = "Français"
-            elif lang_code == "de-DE":
-                lang_name = "Deutsch"
-            elif lang_code == "es-ES":
-                lang_name = "Español"
-            elif lang_code == "it-IT":
-                lang_name = "Italiano"
-            elif lang_code == "pt-BR":
-                lang_name = "Português (Brasil)"
-            elif lang_code == "ru-RU":
-                lang_name = "Русский"
-            elif lang_code == "ar-SA":
-                lang_name = "العربية"
-            elif lang_code == "hi-IN":
-                lang_name = "हिन्दी"
-            elif lang_code == "th-TH":
-                lang_name = "ไทย"
-            elif lang_code == "vi-VN":
-                lang_name = "Tiếng Việt"
-            elif lang_code == "id-ID":
-                lang_name = "Bahasa Indonesia"
-            elif lang_code == "ms-MY":
-                lang_name = "Bahasa Melayu"
-            elif lang_code == "tr-TR":
-                lang_name = "Türkçe"
-            elif lang_code == "nl-NL":
-                lang_name = "Nederlands"
-            elif lang_code == "pl-PL":
-                lang_name = "Polski"
-            elif lang_code == "sv-SE":
-                lang_name = "Svenska"
-            elif lang_code == "nb-NO":
-                lang_name = "Norsk"
-            elif lang_code == "da-DK":
-                lang_name = "Dansk"
-            elif lang_code == "fi-FI":
-                lang_name = "Suomi"
-            elif lang_code == "el-GR":
-                lang_name = "Ελληνικά"
-            elif lang_code == "he-IL":
-                lang_name = "עברית"
-            else:
-                lang_name = lang_code
-
-            languages[lang_code] = {
-                "name": lang_name,
-                "voices": {}
-            }
-
-        languages[lang_code]["voices"][voice_id] = voice_name
-
-    return languages
-
-
 # Domain
 DOMAIN: Final = "ai_hub"
 
@@ -115,12 +41,9 @@ DOMAIN: Final = "ai_hub"
 AI_HUB_API_BASE: Final = "https://open.bigmodel.cn/api/paas/v4"
 AI_HUB_CHAT_URL: Final = f"{AI_HUB_API_BASE}/chat/completions"
 AI_HUB_IMAGE_GEN_URL: Final = f"{AI_HUB_API_BASE}/images/generations"
-AI_HUB_TTS_URL: Final = f"{AI_HUB_API_BASE}/audio/speech"
-AI_HUB_STT_URL: Final = f"{AI_HUB_API_BASE}/audio/transcriptions"
 
 # Timeout
 DEFAULT_REQUEST_TIMEOUT: Final = 30000  # milliseconds
-TIMEOUT_SECONDS: Final = 30
 
 # Configuration Keys
 CONF_API_KEY: Final = "api_key"
@@ -157,8 +80,6 @@ RECOMMENDED_IMAGE_ANALYSIS_MODEL: Final = "glm-4.6v-flash"
 RECOMMENDED_IMAGE_MODEL: Final = "cogview-3-flash"
 
 # Edge TTS Configuration
-EDGE_TTS_VERSION: Final = "7.2.0"
-DEFAULT_TTS_LANG: Final = "zh-CN"
 RECOMMENDED_TTS_MODEL: Final = "zh-CN-XiaoxiaoNeural"
 
 # Silicon Flow ASR Configuration
@@ -173,24 +94,8 @@ SILICONFLOW_STT_MODELS: Final = [
 ]
 
 # Silicon Flow STT Language Options
-SILICONFLOW_STT_LANGUAGES: Final = {
-    "zh": "Chinese (Simplified)",
-    "zh-CN": "Chinese (Simplified)",
-    "zh-TW": "Chinese (Traditional)",
-    "en": "English",
-    "ja": "Japanese",
-    "ko": "Korean",
-    "fr": "French",
-    "de": "German",
-    "es": "Spanish",
-    "it": "Italian",
-    "pt": "Portuguese",
-    "ru": "Russian",
-    "ar": "Arabic",
-    "hi": "Hindi",
-    "th": "Thai",
-    "vi": "Vietnamese",
-}
+# SiliconFlow STT 支持自动语言检测，无需手动指定语言
+# SenseVoice 模型支持：中文、英文、日文、韩文、粤语等多种语言
 
 # Silicon Flow STT Audio Formats
 SILICONFLOW_STT_AUDIO_FORMATS: Final = [
@@ -514,9 +419,6 @@ EDGE_TTS_VOICES: Final = {
     'zu-ZA-ThandoNeural': 'zu-ZA',
     'zu-ZA-ThembaNeural': 'zu-ZA',
 }
-
-# Edge TTS Language to Voices Mapping (自动生成，避免重复维护)
-EDGE_TTS_LANGUAGES: Final = _build_edge_tts_languages()
 
 # Edge TTS Configuration Keys
 CONF_TTS_VOICE: Final = "voice"

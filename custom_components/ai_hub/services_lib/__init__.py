@@ -1,0 +1,109 @@
+"""Services library module for AI Hub integration - 模块化服务.
+
+本模块提供 AI Hub 集成的所有服务功能，包括：
+
+模块结构:
+- schemas.py: 服务调用的数据验证模式
+- image.py: 图像分析和生成服务
+- tts.py: 文本转语音服务
+- stt.py: 语音转文本服务
+- wechat.py: 微信消息推送服务
+- translation.py: 组件翻译服务
+- blueprints.py: 蓝图翻译服务
+
+使用示例:
+    from .services_lib import (
+        handle_analyze_image,
+        handle_generate_image,
+        handle_tts_speech,
+        handle_stt_transcribe,
+        handle_send_wechat_message,
+    )
+    
+    # 在服务注册中使用
+    result = await handle_analyze_image(hass, call, api_key)
+"""
+
+from __future__ import annotations
+
+# Schemas
+from .schemas import (
+    IMAGE_ANALYZER_SCHEMA,
+    IMAGE_GENERATOR_SCHEMA,
+    TTS_SCHEMA,
+    TTS_STREAM_SCHEMA,
+    STT_SCHEMA,
+    WECHAT_SCHEMA,
+    TRANSLATION_SCHEMA,
+    BLUEPRINTS_TRANSLATION_SCHEMA,
+)
+
+# Image services
+from .image import (
+    handle_analyze_image,
+    handle_generate_image,
+    load_image_from_file,
+    load_image_from_camera,
+    process_image,
+    handle_stream_response,
+)
+
+# TTS services
+from .tts import (
+    handle_tts_speech,
+    handle_tts_stream,
+)
+
+# STT services
+from .stt import handle_stt_transcribe
+
+# WeChat services
+from .wechat import handle_send_wechat_message
+
+# Translation services
+from .translation import (
+    async_translate_text,
+    async_translate_json_values,
+    async_translate_component,
+    async_translate_all_components,
+)
+
+# Blueprint translation services
+from .blueprints import (
+    async_translate_blueprint_file,
+    async_translate_all_blueprints,
+)
+
+__all__ = [
+    # Schemas
+    "IMAGE_ANALYZER_SCHEMA",
+    "IMAGE_GENERATOR_SCHEMA",
+    "TTS_SCHEMA",
+    "TTS_STREAM_SCHEMA",
+    "STT_SCHEMA",
+    "WECHAT_SCHEMA",
+    "TRANSLATION_SCHEMA",
+    "BLUEPRINTS_TRANSLATION_SCHEMA",
+    # Image
+    "handle_analyze_image",
+    "handle_generate_image",
+    "load_image_from_file",
+    "load_image_from_camera",
+    "process_image",
+    "handle_stream_response",
+    # TTS
+    "handle_tts_speech",
+    "handle_tts_stream",
+    # STT
+    "handle_stt_transcribe",
+    # WeChat
+    "handle_send_wechat_message",
+    # Translation
+    "async_translate_text",
+    "async_translate_json_values",
+    "async_translate_component",
+    "async_translate_all_components",
+    # Blueprints
+    "async_translate_blueprint_file",
+    "async_translate_all_blueprints",
+]

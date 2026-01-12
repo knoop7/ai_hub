@@ -121,9 +121,25 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
 
     @property
     def supported_languages(self) -> list[str]:
-        """Return a list of supported languages."""
-        # Silicon Flow ASR官方支持的格式：wav, mp3, pcm, opus, webm
-        return ["zh-CN", "en-US"]
+        """Return a list of supported languages.
+        
+        SiliconFlow SenseVoice 模型支持自动语言检测，
+        支持中文、英文、日文、韩文、粤语等多种语言。
+        """
+        return [
+            "zh-CN",  # 中文简体
+            "zh-TW",  # 中文繁体
+            "zh-HK",  # 粤语
+            "en-US",  # 英语
+            "ja-JP",  # 日语
+            "ko-KR",  # 韩语
+            "fr-FR",  # 法语
+            "de-DE",  # 德语
+            "es-ES",  # 西班牙语
+            "it-IT",  # 意大利语
+            "pt-BR",  # 葡萄牙语
+            "ru-RU",  # 俄语
+        ]
 
     @property
     def supported_formats(self) -> list[str]:

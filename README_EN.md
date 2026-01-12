@@ -58,15 +58,16 @@ If you don't need some entries, just leave the api key blank or delete it. You c
 
 #### 🔊 TTS (Text to Speech, Edge TTS)
 - **High-Quality Voice**: Integrates Microsoft Edge TTS, supporting multiple languages and styles.
-- **Rich Voice Library**: Supports voices like Xiaoxiao, Yun Jian, Aria, Jenny, and more.
-- **Parameter Adjustment**: Supports speed/volume/pitch/style adjustments.
-- **Various Formats**: Supports output in WAV/MP3/OGG and other formats.
+- **Rich Voice Library**: Supports 400+ voices including Xiaoxiao, Yun Jian, Aria, Jenny, and more.
+- **Prosody Parameters**: Supports rate, volume, and pitch adjustments.
+- **Streaming Output**: Supports streaming TTS output for LLM conversation scenarios.
+- **Audio Format**: Outputs MP3 format audio.
 
 #### 🎤 STT (Speech to Text, SiliconFlow)
-- **High Accuracy Recognition**: Integrates SiliconFlow speech recognition service.
-- **Multiple Language Support**: Supports Mandarin, English, and other languages with auto-detection.
-- **Format Compatibility**: Supports WAV/MP3/FLAC and other audio formats.
-- **Real-Time Processing**: Suitable for voice control, automation, etc.
+- **High Accuracy Recognition**: Integrates SiliconFlow SenseVoice speech recognition service.
+- **Auto Language Detection**: Automatically detects Chinese, English, Japanese, Korean, and other languages without manual specification.
+- **Format Compatibility**: Supports WAV/MP3/FLAC/OGG/WebM and other audio formats.
+- **Real-Time Processing**: Suitable for voice control, Voice Assistant, and other scenarios.
 
 #### 🌐 HACS Integration Localization
 - **Auto Translation**: Use Zhipu AI to automatically translate custom component English translation files to Chinese.
@@ -228,8 +229,9 @@ service: ai_hub.tts_speech
 data:
   text: "Welcome to AI Hub voice synthesis"
   voice: "zh-CN-XiaoxiaoNeural"
-  rate: "+0%"
-  volume: "+0%"
+  pitch: "+0Hz"    # Pitch adjustment, e.g., "+5Hz" or "-5Hz"
+  rate: "+0%"      # Speed adjustment, e.g., "+10%" or "-10%"
+  volume: "+0%"    # Volume adjustment, e.g., "+10%" or "-10%"
   media_player_entity: media_player.living_room_speaker
 ```
 
@@ -389,8 +391,9 @@ service: ai_hub.tts_speech
 data:
   text: "Text to convert"  # required
   voice: "zh-CN-XiaoxiaoNeural"  # optional
-  speed: 1.0  # optional
-  volume: 1.0  # optional
+  pitch: "+0Hz"  # optional: pitch adjustment
+  rate: "+0%"  # optional: speed adjustment
+  volume: "+0%"  # optional: volume adjustment
   media_player_entity: "media_player.speaker"  # optional
 ```
 
@@ -462,16 +465,16 @@ data:
 - **Max Tokens**: 2000
 
 #### TTS
-- **Default Voice**: zh-CN-XiaoxiaoNeural
-- **Default Format**: audio-16khz-32kbitrate-mono-mp3
-- **Speed**: 1.0
-- **Volume**: 1.0
-- **Stream Output**: Enabled
+- **Default Voice**: zh-CN-XiaoxiaoNeural (Xiaoxiao)
+- **Pitch**: +0Hz (default, adjustable e.g., +5Hz/-5Hz)
+- **Rate**: +0% (default, adjustable e.g., +10%/-10%)
+- **Volume**: +0% (default, adjustable e.g., +10%/-10%)
+- **Stream Output**: Supported
 
 #### STT
 - **Default Model**: FunAudioLLM/SenseVoiceSmall
-- **Support Languages**: Chinese (Simplified), English, Japanese, Korean, etc. (15 languages)
-- **Audio Formats**: WAV, MP3, FLAC, M4A, OGG, WebM
+- **Language Detection**: Automatic (supports Chinese, English, Japanese, Korean, etc.)
+- **Audio Formats**: WAV, MP3, FLAC, OGG, WebM
 - **Max File Size**: 25MB
 
 ---

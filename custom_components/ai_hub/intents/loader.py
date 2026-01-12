@@ -141,6 +141,11 @@ async def async_setup_intents(hass: HomeAssistant) -> None:
 
         _INTENTS_CONFIG = config
 
+        # 验证配置
+        from .validator import validate_config
+        if not validate_config(config):
+            _LOGGER.warning("意图配置验证未通过，部分功能可能受限")
+
         # 统计句子数量
         intents = config.get('intents', {})
         registered_count = sum(

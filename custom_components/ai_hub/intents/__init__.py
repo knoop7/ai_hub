@@ -21,6 +21,7 @@ from .handlers import (
     get_global_intent_handler,
     get_local_intents_config,
 )
+from .validator import ConfigValidator, validate_config
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,4 +41,7 @@ __all__ = [
     "LocalIntentHandler",
     "get_global_intent_handler",
     "get_local_intents_config",
+    # 配置验证
+    "ConfigValidator",
+    "validate_config",
 ]
