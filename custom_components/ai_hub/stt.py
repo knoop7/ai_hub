@@ -308,70 +308,70 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
                     data=data,
                     timeout=timeout
                 ) as response:
-                        _LOGGER.debug("HTTP response: status=%d", response.status)
-                        if response.status != 200:
-                            error_text = await response.text()
-                            _LOGGER.error("HTTP错误: %s - %s", response.status, error_text)
-                            raise HomeAssistantError(f"HTTP请求失败: {response.status}")
+                    _LOGGER.debug("HTTP response: status=%d", response.status)
+                    if response.status != 200:
+                        error_text = await response.text()
+                        _LOGGER.error("HTTP错误: %s - %s", response.status, error_text)
+                        raise HomeAssistantError(f"HTTP请求失败: {response.status}")
 
+                    try:
+                        response_data = await response.json()
+                        _LOGGER.debug("Silicon Flow ASR 响应: %s", response_data)
+                    except Exception as e:
+                        _LOGGER.error("解析Silicon Flow ASR响应失败: %s", e)
                         try:
-                            response_data = await response.json()
-                            _LOGGER.debug("Silicon Flow ASR 响应: %s", response_data)
-                        except Exception as e:
-                            _LOGGER.error("解析Silicon Flow ASR响应失败: %s", e)
-                            try:
-                                response_text = await response.text()
-                                _LOGGER.error("原始响应内容: %s", response_text[:500])  # 只显示前500字符
-                            except Exception as text_error:
-                                _LOGGER.error("无法获取原始响应文本: %s", text_error)
-                            raise HomeAssistantError(f"解析响应失败: {e}") from e
+                            response_text = await response.text()
+                            _LOGGER.error("原始响应内容: %s", response_text[:500])
+                        except Exception as text_error:
+                            _LOGGER.error("无法获取原始响应文本: %s", text_error)
+                        raise HomeAssistantError(f"解析响应失败: {e}") from e
 
-                    # Extract transcribed text from response
-                    transcribed_text = None
+                # Extract transcribed text from response
+                transcribed_text = None
 
-                    # OpenAI-style response
-                    if "text" in response_data:
-                        transcribed_text = response_data["text"]
-                    elif "transcription" in response_data:
-                        transcribed_text = response_data["transcription"]
-                    # Silicon Flow API format
-                    elif "code" in response_data:
-                        code = response_data.get("code")
-                        if code != 20000:
-                            error_msg = response_data.get("message", "Unknown API error")
-                            _LOGGER.error("Silicon Flow API错误: code=%s, message=%s", code, error_msg)
-                            raise HomeAssistantError(f"API错误: {error_msg}")
-                        data = response_data.get("data")
-                        if data:
-                            transcribed_text = data.get("text") or data.get("transcription")
-                    elif "result" in response_data:
-                        result = response_data["result"]
-                        if isinstance(result, dict) and "text" in result:
-                            transcribed_text = result["text"]
-                        elif isinstance(result, str):
-                            transcribed_text = result
+                # OpenAI-style response
+                if "text" in response_data:
+                    transcribed_text = response_data["text"]
+                elif "transcription" in response_data:
+                    transcribed_text = response_data["transcription"]
+                # Silicon Flow API format
+                elif "code" in response_data:
+                    code = response_data.get("code")
+                    if code != 20000:
+                        error_msg = response_data.get("message", "Unknown API error")
+                        _LOGGER.error("Silicon Flow API错误: code=%s, message=%s", code, error_msg)
+                        raise HomeAssistantError(f"API错误: {error_msg}")
+                    data = response_data.get("data")
+                    if data:
+                        transcribed_text = data.get("text") or data.get("transcription")
+                elif "result" in response_data:
+                    result = response_data["result"]
+                    if isinstance(result, dict) and "text" in result:
+                        transcribed_text = result["text"]
+                    elif isinstance(result, str):
+                        transcribed_text = result
 
-                    # Last resort: look for any string field
-                    if not transcribed_text and isinstance(response_data, dict):
-                        for key, value in response_data.items():
-                            if isinstance(value, str) and len(value.strip()) > 0 and key not in ["message", "msg"]:
-                                transcribed_text = value
-                                break
+                # Last resort: look for any string field
+                if not transcribed_text and isinstance(response_data, dict):
+                    for key, value in response_data.items():
+                        if isinstance(value, str) and len(value.strip()) > 0 and key not in ["message", "msg"]:
+                            transcribed_text = value
+                            break
 
-                    if not transcribed_text:
-                        _LOGGER.error("无法从响应中提取转录文本: %s", response_data)
-                        raise HomeAssistantError("API 响应格式错误，无法找到转录文本")
+                if not transcribed_text:
+                    _LOGGER.error("无法从响应中提取转录文本: %s", response_data)
+                    raise HomeAssistantError("API 响应格式错误，无法找到转录文本")
 
-                    _LOGGER.info("STT识别成功: '%s'", transcribed_text)
+                _LOGGER.info("STT识别成功: '%s'", transcribed_text)
 
-                    # 应用 markdown_filter 清理
-                    cleaned_text = filter_markdown_content(transcribed_text)
+                # 应用 markdown_filter 清理
+                cleaned_text = filter_markdown_content(transcribed_text)
 
-                    result = stt.SpeechResult(
-                        cleaned_text.strip(),
-                        stt.SpeechResultState.SUCCESS
-                    )
-                    return result
+                result = stt.SpeechResult(
+                    cleaned_text.strip(),
+                    stt.SpeechResultState.SUCCESS
+                )
+                return result
 
             except asyncio.TimeoutError as exc:
                 _LOGGER.error("Silicon Flow ASR 请求超时: %s", exc)
