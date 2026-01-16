@@ -13,6 +13,7 @@ from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 import aiohttp
 
@@ -94,6 +95,7 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
         """Initialize the STT entity."""
         super().__init__(config_entry, subentry, STT_DEFAULT_MODEL)
         self._attr_available = True
+        self._hass: HomeAssistant | None = None
 
         # Override device info for STT
         self._attr_device_info = dr.DeviceInfo(
@@ -106,6 +108,11 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
 
         # Get Silicon Flow API key
         self._api_key = config_entry.data.get(CONF_SILICONFLOW_API_KEY)
+
+    async def async_added_to_hass(self) -> None:
+        """When entity is added to hass."""
+        await super().async_added_to_hass()
+        self._hass = self.hass
 
     @property
     def options(self) -> dict[str, Any]:
@@ -293,13 +300,14 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
                 _LOGGER.debug("Audio header: %s, format=%s", header_bytes.hex(), metadata.format)
 
             try:
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    _LOGGER.debug("Starting HTTP POST to Silicon Flow ASR")
-                    async with session.post(
-                        SILICONFLOW_ASR_URL,
-                        headers=headers,
-                        data=data
-                    ) as response:
+                # 使用 Home Assistant 的共享 session 提高性能
+                session = async_get_clientsession(self._hass or self.hass)
+                async with session.post(
+                    SILICONFLOW_ASR_URL,
+                    headers=headers,
+                    data=data,
+                    timeout=timeout
+                ) as response:
                         _LOGGER.debug("HTTP response: status=%d", response.status)
                         if response.status != 200:
                             error_text = await response.text()

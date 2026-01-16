@@ -19,6 +19,7 @@ from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError, TemplateError
 from homeassistant.helpers import config_entry_flow, device_registry as dr, llm
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import ulid
 
@@ -109,7 +110,7 @@ class AIHubBaseLLMEntity(Entity):
                 vision_models = ["glm-4.1v-thinking", "glm-4v-flash"]
                 if configured_model not in vision_models:
                     final_model = RECOMMENDED_IMAGE_ANALYSIS_MODEL  # GLM-4.1V-Thinking
-                    _LOGGER.info(
+                    _LOGGER.debug(
                         "Auto-switching to vision model %s for media attachments (original: %s)",
                         final_model,
                         configured_model)
@@ -170,40 +171,40 @@ class AIHubBaseLLMEntity(Entity):
         try:
             # Debug: Log the request parameters and validate model
             model_name = model_config.get("model", "unknown")
-            _LOGGER.info("Sending request to AI Hub with model: %s", model_name)
+            _LOGGER.debug("Sending request to AI Hub with model: %s", model_name)
 
             # Note: Model vision capability check is not needed here since
             # we auto-switch to vision models when media attachments are detected
             # This warning is removed to avoid confusion during model switching
 
-            _LOGGER.info("Number of messages: %d", len(messages))
+            _LOGGER.debug("Number of messages: %d", len(messages))
             for i, msg in enumerate(messages):
-                _LOGGER.info("Message %d: role=%s, content_type=%s", i, msg.get("role"), type(msg.get("content")))
+                _LOGGER.debug("Message %d: role=%s, content_type=%s", i, msg.get("role"), type(msg.get("content")))
                 if isinstance(msg.get("content"), list):
                     for j, part in enumerate(msg["content"]):
-                        _LOGGER.info("  Part %d: type=%s", j, part.get("type"))
+                        _LOGGER.debug("  Part %d: type=%s", j, part.get("type"))
                         if part.get("type") == "image_url":
                             url = part.get("image_url", {}).get("url", "")
-                            _LOGGER.info("    Image URL length: %d", len(url))
+                            _LOGGER.debug("    Image URL length: %d", len(url))
 
             # Debug: Log the full request
-            _LOGGER.info("Full API request parameters: %s", json.dumps(request_params, indent=2, ensure_ascii=False))
+            _LOGGER.debug("Full API request parameters: %s", json.dumps(request_params, indent=2, ensure_ascii=False))
 
             # Additional debugging: Check message structure specifically
             if messages:
                 first_msg = messages[0]
                 if isinstance(first_msg.get("content"), list):
-                    _LOGGER.info("Message content structure:")
+                    _LOGGER.debug("Message content structure:")
                     for i, part in enumerate(first_msg["content"]):
-                        _LOGGER.info("  Part %d: %s", i, json.dumps(part, indent=2, ensure_ascii=False))
+                        _LOGGER.debug("  Part %d: %s", i, json.dumps(part, indent=2, ensure_ascii=False))
                         if part.get("type") == "image_url":
                             url = part.get("image_url", {}).get("url", "")
                             if url.startswith("data:image/"):
-                                _LOGGER.info("    Image URL format looks correct (data URI)")
+                                _LOGGER.debug("    Image URL format looks correct (data URI)")
                             else:
                                 _LOGGER.error("    Image URL format incorrect: %s", url[:100])
                 else:
-                    _LOGGER.info("Message content is simple string: %s", first_msg.get("content", "")[:100])
+                    _LOGGER.debug("Message content is simple string: %s", first_msg.get("content", "")[:100])
 
             # Call AI Hub API with streaming via HTTP
             headers = {
@@ -211,22 +212,23 @@ class AIHubBaseLLMEntity(Entity):
                 "Content-Type": "application/json",
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    AI_HUB_CHAT_URL,
-                    json=request_params,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        _LOGGER.error("API request failed: %s", error_text)
-                        raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: {error_text}")
+            # 使用 Home Assistant 的共享 session 提高性能
+            session = async_get_clientsession(self.hass)
+            async with session.post(
+                AI_HUB_CHAT_URL,
+                json=request_params,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=60),
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    _LOGGER.error("API request failed: %s", error_text)
+                    raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: {error_text}")
 
-                    # Process streaming response using the new API
-                    [
-                        content
-                        async for content in chat_log.async_add_delta_content_stream(
+                # Process streaming response using the new API
+                [
+                    content
+                    async for content in chat_log.async_add_delta_content_stream(
                             self.entity_id, self._transform_stream(response)
                         )
                     ]
@@ -253,7 +255,7 @@ class AIHubBaseLLMEntity(Entity):
         # For debugging: Check if we have attachments and simplify format
         last_content = chat_log.content[-1]
         if last_content.role == "user" and last_content.attachments:
-            _LOGGER.info("Simplifying to single message format with attachments (like working service)")
+            _LOGGER.debug("Simplifying to single message format with attachments (like working service)")
             # Only send the last user message with attachments, like the working service
             return [await self._convert_user_message(last_content)]
 
@@ -320,11 +322,11 @@ class AIHubBaseLLMEntity(Entity):
         if content.attachments:
             parts = []
             successful_images = []
-            _LOGGER.info("Processing %d attachments for user message", len(content.attachments))
+            _LOGGER.debug("Processing %d attachments for user message", len(content.attachments))
 
             # First, process all attachments and collect successful ones
             for i, attachment in enumerate(content.attachments):
-                _LOGGER.info("Processing attachment %d: %s", i, attachment)
+                _LOGGER.debug("Processing attachment %d: %s", i, attachment)
 
                 if attachment.mime_type and attachment.mime_type.startswith("image/"):
                     try:
@@ -333,21 +335,21 @@ class AIHubBaseLLMEntity(Entity):
 
                         # Handle media_content_id - try direct file path first (more reliable)
                         if hasattr(attachment, 'media_content_id'):
-                            _LOGGER.info("Attachment has media_content_id: %s", attachment.media_content_id)
-                            _LOGGER.info("Attachment attributes: %s", dir(attachment))
+                            _LOGGER.debug("Attachment has media_content_id: %s", attachment.media_content_id)
+                            _LOGGER.debug("Attachment attributes: %s", dir(attachment))
                             # First check if we have a direct file path (most reliable)
                             if hasattr(attachment, 'path') and attachment.path:
                                 try:
-                                    _LOGGER.info("Reading file directly from path: %s", attachment.path)
+                                    _LOGGER.debug("Reading file directly from path: %s", attachment.path)
                                     import asyncio
                                     image_bytes = await asyncio.to_thread(self._read_file_bytes, str(attachment.path))
                                     image_data = base64.b64encode(image_bytes).decode()
-                                    _LOGGER.info("Successfully read file directly, base64 length: %d", len(image_data))
+                                    _LOGGER.debug("Successfully read file directly, base64 length: %d", len(image_data))
                                 except Exception as err:
                                     _LOGGER.error("Failed to read file %s: %s", attachment.path, err, exc_info=True)
                             else:
                                 # Try media source resolution as fallback
-                                _LOGGER.info(
+                                _LOGGER.debug(
                                     "No file path, trying media source resolution for %s",
                                     attachment.media_content_id)
                                 try:
@@ -356,7 +358,7 @@ class AIHubBaseLLMEntity(Entity):
                                     )
                                     if image_bytes:
                                         image_data = base64.b64encode(image_bytes).decode()
-                                        _LOGGER.info(
+                                        _LOGGER.debug(
                                             "Successfully resolved media content, base64 length: %d", len(image_data))
                                     else:
                                         _LOGGER.warning(
@@ -366,18 +368,18 @@ class AIHubBaseLLMEntity(Entity):
                                                   attachment.media_content_id, err, exc_info=True)
                         # Check if attachment has resolved content
                         elif hasattr(attachment, 'content'):
-                            _LOGGER.info("Attachment has resolved content")
+                            _LOGGER.debug("Attachment has resolved content")
                             # Direct content (bytes)
                             if isinstance(attachment.content, bytes):
                                 image_data = base64.b64encode(attachment.content).decode()
-                                _LOGGER.info("Converted bytes to base64, length: %d", len(image_data))
+                                _LOGGER.debug("Converted bytes to base64, length: %d", len(image_data))
                             elif isinstance(attachment.content, str):
                                 # Already base64 encoded
                                 image_data = attachment.content
-                                _LOGGER.info("Using existing base64 content, length: %d", len(image_data))
+                                _LOGGER.debug("Using existing base64 content, length: %d", len(image_data))
                         elif hasattr(attachment, 'path') and attachment.path:
                             # Traditional file path (handle asynchronously)
-                            _LOGGER.info("Reading image from path: %s", attachment.path)
+                            _LOGGER.debug("Reading image from path: %s", attachment.path)
                             try:
                                 import asyncio
                                 image_bytes = await asyncio.to_thread(self._read_file_bytes, str(attachment.path))
@@ -396,7 +398,7 @@ class AIHubBaseLLMEntity(Entity):
                                     "url": f"data:image/jpeg;base64,{image_data}"
                                 }
                             })
-                            _LOGGER.info(
+                            _LOGGER.debug(
                                 "Successfully added image to message parts using official example format (image/jpeg)")
                         else:
                             _LOGGER.warning("Could not get image data from attachment: %s", attachment)
@@ -404,7 +406,7 @@ class AIHubBaseLLMEntity(Entity):
                     except Exception as err:
                         _LOGGER.error("Failed to process image attachment %s: %s", attachment, err, exc_info=True)
                 else:
-                    _LOGGER.info("Skipping non-image attachment: %s (mime: %s)",
+                    _LOGGER.debug("Skipping non-image attachment: %s (mime: %s)",
                                  attachment, getattr(attachment, 'mime_type', 'unknown'))
 
             # Build content EXACTLY like our working services.py
@@ -418,7 +420,7 @@ class AIHubBaseLLMEntity(Entity):
                 })
 
                 message["content"] = parts
-                _LOGGER.info(
+                _LOGGER.debug(
                     "Final message content has %d parts (%d images + text) - EXACTLY like working services.py",
                     len(parts),
                     len(successful_images))
@@ -607,25 +609,25 @@ class AIHubBaseLLMEntity(Entity):
     async def _async_download_image_from_url(self, url: str) -> bytes | None:
         """Download image from URL."""
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
-                    if response.status == 200:
-                        return await response.read()
-                    else:
-                        _LOGGER.warning("Failed to download image from URL: %s, status: %s", url, response.status)
-                        return None
+            session = async_get_clientsession(self.hass)
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                if response.status == 200:
+                    return await response.read()
+                else:
+                    _LOGGER.warning("Failed to download image from URL: %s, status: %s", url, response.status)
+                    return None
         except Exception as err:
             _LOGGER.warning("Error downloading image from URL %s: %s", url, err)
             return None
 
     async def _async_get_media_content(self, media_content_id: str, mime_type: str) -> bytes | None:
         """Get media content from Home Assistant media source."""
-        _LOGGER.info("Getting media content for ID: %s, mime_type: %s", media_content_id, mime_type)
+        _LOGGER.debug("Getting media content for ID: %s, mime_type: %s", media_content_id, mime_type)
 
         try:
             # Handle media-source:// URLs
             if media_content_id.startswith("media-source://"):
-                _LOGGER.info("Processing media-source URL: %s", media_content_id)
+                _LOGGER.debug("Processing media-source URL: %s", media_content_id)
 
                 if not media_source.is_media_source_id(media_content_id):
                     _LOGGER.warning("Invalid media source ID: %s", media_content_id)
@@ -636,7 +638,7 @@ class AIHubBaseLLMEntity(Entity):
                     media_item = await media_source.async_resolve_media(
                         self.hass, media_content_id, self.entity_id
                     )
-                    _LOGGER.info("Resolved media item: %s", media_item)
+                    _LOGGER.debug("Resolved media item: %s", media_item)
                 except Exception as err:
                     _LOGGER.error("Error resolving media source %s: %s", media_content_id, err, exc_info=True)
                     return None
@@ -661,7 +663,7 @@ class AIHubBaseLLMEntity(Entity):
                             _LOGGER.warning("Could not get Home Assistant URL, using localhost: %s", err)
                             media_url = f"http://localhost:8123{media_url}"
 
-                    _LOGGER.info("Media item URL: %s", media_url)
+                    _LOGGER.debug("Media item URL: %s", media_url)
 
                     # Download the media content using Home Assistant's session
                     try:
@@ -671,10 +673,10 @@ class AIHubBaseLLMEntity(Entity):
                             media_url,
                             timeout=aiohttp.ClientTimeout(total=30)
                         ) as response:
-                            _LOGGER.info("Response status: %s", response.status)
+                            _LOGGER.debug("Response status: %s", response.status)
                             if response.status == 200:
                                 content = await response.read()
-                                _LOGGER.info("Successfully downloaded media content, size: %d bytes", len(content))
+                                _LOGGER.debug("Successfully downloaded media content, size: %d bytes", len(content))
                                 return content
                             else:
                                 error_text = await response.text()
@@ -701,7 +703,7 @@ class AIHubBaseLLMEntity(Entity):
                 else:
                     url = media_content_id
 
-                _LOGGER.info("Processing serve URL: %s", url)
+                _LOGGER.debug("Processing serve URL: %s", url)
 
                 # Use Home Assistant's internal API client
                 try:
@@ -713,7 +715,7 @@ class AIHubBaseLLMEntity(Entity):
                     ) as response:
                         if response.status == 200:
                             content = await response.read()
-                            _LOGGER.info("Successfully got served image, size: %d bytes", len(content))
+                            _LOGGER.debug("Successfully got served image, size: %d bytes", len(content))
                             return content
                         else:
                             _LOGGER.warning("Failed to get served image: %s, status: %s", url, response.status)
@@ -724,7 +726,7 @@ class AIHubBaseLLMEntity(Entity):
 
             # Handle direct URLs
             elif media_content_id.startswith(("http://", "https://")):
-                _LOGGER.info("Processing direct URL: %s", media_content_id)
+                _LOGGER.debug("Processing direct URL: %s", media_content_id)
                 return await self._async_download_image_from_url(media_content_id)
 
             else:

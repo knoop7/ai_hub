@@ -133,6 +133,7 @@ class AIHubConversationEntity(
 
         # ========== 步骤2: 尝试 HA 内置意图处理 ==========
         # timer、shopping list、设备控制等 HA 原生支持的意图
+        # 注意：这个步骤可能会增加延迟，只在必要时启用
         try:
             from homeassistant.components.conversation import default_agent
             
@@ -152,7 +153,7 @@ class AIHubConversationEntity(
                         return result
                         
         except Exception as e:
-            _LOGGER.debug(f"HA 内置意图处理跳过: {e}")
+            _LOGGER.debug("HA 内置意图处理跳过: %s", e)
 
         # ========== 步骤3: LLM 处理 ==========
 
@@ -204,16 +205,16 @@ class AIHubConversationEntity(
 
             await self._async_handle_chat_log(chat_log)
 
-            # 🔄 新增：验证设备操作并重试 (3秒内)
-            if hasattr(chat_log, 'tool_calls') and chat_log.tool_calls:
-                device_operations = [
-                    call for call in chat_log.tool_calls
-                    if self._is_device_operation(call.tool_name)
-                ]
-
-                if device_operations:
-                    _LOGGER.debug("验证 %d 个设备操作", len(device_operations))
-                    await self._verify_device_operations_with_retry(device_operations)
+            # 🔄 设备操作验证（可选，默认禁用以提高响应速度）
+            # 如果需要验证设备操作，可以在配置中启用
+            # if hasattr(chat_log, 'tool_calls') and chat_log.tool_calls:
+            #     device_operations = [
+            #         call for call in chat_log.tool_calls
+            #         if self._is_device_operation(call.tool_name)
+            #     ]
+            #     if device_operations:
+            #         _LOGGER.debug("验证 %d 个设备操作", len(device_operations))
+            #         await self._verify_device_operations_with_retry(device_operations)
 
             # 检查是否有工具调用结果
             if hasattr(chat_log, 'unresponded_tool_results') and chat_log.unresponded_tool_results:
