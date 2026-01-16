@@ -166,8 +166,11 @@ def get_intents_config() -> Optional[Dict[str, Any]]:
 
 
 def get_device_operations_config() -> Dict[str, Any]:
-    """从配置动态加载设备操作配置."""
-    config = _load_intents_config_sync()
+    """从缓存获取设备操作配置."""
+    global _INTENTS_CONFIG
+    
+    # 使用已加载的缓存配置
+    config = _INTENTS_CONFIG if _CONFIG_LOADED else _load_intents_config_sync()
     
     # 尝试从 device_operations.control_operations 获取
     device_ops = config.get('device_operations', {})
@@ -179,8 +182,11 @@ def get_device_operations_config() -> Dict[str, Any]:
 
 
 def get_device_verification_config() -> Dict[str, Any]:
-    """从配置动态加载设备验证配置."""
-    config = _load_intents_config_sync()
+    """从缓存获取设备验证配置."""
+    global _INTENTS_CONFIG
+    
+    # 使用已加载的缓存配置
+    config = _INTENTS_CONFIG if _CONFIG_LOADED else _load_intents_config_sync()
     
     # 尝试从 device_operations.verification 获取
     device_ops = config.get('device_operations', {})
@@ -207,7 +213,14 @@ def is_device_operation(tool_name: str) -> bool:
 
 
 def get_global_config() -> Optional[Dict[str, Any]]:
-    """获取全局配置."""
+    """获取全局配置（使用缓存）."""
+    global _INTENTS_CONFIG, _CONFIG_LOADED
+    if _CONFIG_LOADED and _INTENTS_CONFIG:
+        return _INTENTS_CONFIG
+    # 如果未加载，同步加载一次
+    if not _CONFIG_LOADED:
+        _INTENTS_CONFIG = _load_intents_config_sync()
+        _CONFIG_LOADED = True
     return _INTENTS_CONFIG
 
 

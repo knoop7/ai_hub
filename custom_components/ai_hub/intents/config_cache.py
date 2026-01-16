@@ -3,44 +3,21 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any, Dict, List, Optional
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _load_intents_config() -> Dict[str, Any]:
-    """加载配置 - 委托给 loader 模块."""
-    from .loader import _load_intents_config_sync
-    return _load_intents_config_sync()
-
-
 class ConfigCache:
-    """配置缓存管理器，避免重复加载配置文件."""
-
-    def __init__(self):
-        self._cache: Dict[str, Any] = {}
-        self._cache_time: float = 0
-        self._cache_ttl: int = 30  # 缓存30秒
+    """配置缓存管理器，使用 loader 模块的全局缓存."""
 
     def get_config(self, force_reload: bool = False) -> Optional[Dict[str, Any]]:
-        """获取配置，支持缓存."""
-        current_time = time.time()
-
-        # 检查缓存是否过期或强制重新加载
-        if (force_reload or
-            current_time - self._cache_time > self._cache_ttl or
-                not self._cache):
-
-            try:
-                self._cache = _load_intents_config()
-                self._cache_time = current_time
-                _LOGGER.debug("配置已刷新缓存")
-            except Exception as e:
-                _LOGGER.warning(f"配置加载失败，返回缓存: {e}")
-                # 返回过期缓存而不是None
-
-        return self._cache
+        """获取配置，使用 loader 的缓存."""
+        from .loader import get_global_config, reload_config
+        
+        if force_reload:
+            return reload_config()
+        return get_global_config()
 
     def _get_defaults(self) -> Dict[str, Any]:
         """获取默认配置."""

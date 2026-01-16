@@ -52,7 +52,22 @@ class LocalIntentHandler:
 
     def __init__(self, hass: HomeAssistant):
         self.hass = hass
-        self.local_config = get_local_intents_config()
+        self._config = None  # 延迟加载
+        self._local_config = None
+
+    @property
+    def local_config(self):
+        """延迟加载本地意图配置."""
+        if self._local_config is None:
+            self._local_config = get_local_intents_config()
+        return self._local_config
+
+    @property
+    def config(self):
+        """延迟加载全局配置."""
+        if self._config is None:
+            self._config = get_global_config()
+        return self._config
 
     def _get_default_area_name(self) -> str:
         """获取默认区域名称."""
@@ -136,7 +151,8 @@ class LocalIntentHandler:
         area_names = []
         device_types = []
         
-        config = get_global_config()
+        # 使用缓存的配置
+        config = self.config
         
         # 获取区域配置
         try:
@@ -425,7 +441,8 @@ class LocalIntentHandler:
     def _parse_areas(self, text_lower: str) -> list:
         """解析区域名称."""
         area_names = []
-        config = get_global_config()
+        # 使用缓存的配置
+        config = self.config
         try:
             if config and 'lists' in config:
                 areas = config['lists'].get('area_names', {}).get('values', [])
