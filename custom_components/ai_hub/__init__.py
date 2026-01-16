@@ -84,18 +84,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     entry.runtime_data = api_key
 
     # Forward setup to platforms
-    _LOGGER.info("Setting up AI Hub platforms: %s", PLATFORMS)
-    _LOGGER.info("Entry has subentries: %s", hasattr(entry, 'subentries') and entry.subentries)
-
-    # Check if we have wechat subentries
-    has_wechat = (
-        hasattr(entry, 'subentries') and entry.subentries and
-        any(subentry.subentry_type == "wechat" for subentry in entry.subentries.values())
-    )
-    _LOGGER.info("Has WeChat subentry: %s", has_wechat)
+    _LOGGER.debug("Setting up AI Hub platforms: %s", PLATFORMS)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _LOGGER.info("Platforms setup completed")
+    _LOGGER.debug("Platforms setup completed")
 
     # Set up intent handlers
     from .intents import async_setup_intents

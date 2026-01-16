@@ -17,6 +17,8 @@ from .const import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN
 from .entity import AIHubBaseLLMEntity
 from .intents import get_config_cache
 
+from homeassistant.helpers import llm
+
 _LOGGER = logging.getLogger(__name__)
 
 MATCH_ALL = "*"
@@ -28,14 +30,14 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up conversation entities."""
-    _LOGGER.info("Setting up conversation entities, subentries: %s", config_entry.subentries)
+    _LOGGER.debug("Setting up conversation entities, subentries: %s", config_entry.subentries)
 
     if not config_entry.subentries:
         _LOGGER.warning("No subentries found in config entry")
         return
 
     for subentry in config_entry.subentries.values():
-        _LOGGER.info("Processing subentry: %s, type: %s", subentry.subentry_id, subentry.subentry_type)
+        _LOGGER.debug("Processing subentry: %s, type: %s", subentry.subentry_id, subentry.subentry_type)
         if subentry.subentry_type != "conversation":
             continue
 
@@ -43,7 +45,7 @@ async def async_setup_entry(
             [AIHubConversationEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
-        _LOGGER.info("Created conversation entity for subentry: %s", subentry.subentry_id)
+        _LOGGER.debug("Created conversation entity for subentry: %s", subentry.subentry_id)
 
 
 class AIHubConversationEntity(
@@ -117,11 +119,11 @@ class AIHubConversationEntity(
             intent_handler = get_global_intent_handler(self.hass)
 
             if intent_handler and intent_handler.should_handle(user_input.text):
-                _LOGGER.info(f"🚀 本地意图处理: {user_input.text}")
+                _LOGGER.debug("本地意图处理: %s", user_input.text)
                 intent_result = await intent_handler.handle(user_input.text, user_input.language)
 
                 if intent_result:
-                    _LOGGER.info(f"✅ 本地意图完成")
+                    _LOGGER.debug("本地意图完成")
                     return conversation.ConversationResult(
                         response=intent_result["response"],
                         conversation_id=user_input.conversation_id
@@ -143,10 +145,10 @@ class AIHubConversationEntity(
                     response_type = result.response.response_type
                     # 如果成功处理（不是错误且不是 "no intent matched"）
                     if response_type == intent.IntentResponseType.ACTION_DONE:
-                        _LOGGER.info(f"✅ HA 内置意图处理成功: {user_input.text}")
+                        _LOGGER.debug("HA 内置意图处理成功: %s", user_input.text)
                         return result
                     elif response_type == intent.IntentResponseType.QUERY_ANSWER:
-                        _LOGGER.info(f"✅ HA 内置意图查询成功: {user_input.text}")
+                        _LOGGER.debug("HA 内置意图查询成功: %s", user_input.text)
                         return result
                         
         except Exception as e:
@@ -164,7 +166,7 @@ class AIHubConversationEntity(
                 try:
                     default_llm_api = llm.LLM_API_ASSIST
                     llm_apis = [default_llm_api]
-                    _LOGGER.info(f"🚀 使用默认LLM API: {type(default_llm_api)}")
+                    _LOGGER.debug("使用默认LLM API")
                 except Exception as e:
                     _LOGGER.error(f"❌ LLM_API_ASSIST获取失败: {e}")
                     empty_response = intent.IntentResponse(language=user_input.language)
@@ -192,15 +194,13 @@ class AIHubConversationEntity(
         loop_count = 0
         while True:
             loop_count += 1
-            _LOGGER.info(f"🔄 LLM处理循环 {loop_count}: 检查是否有工具调用")
+            _LOGGER.debug("LLM处理循环 %d", loop_count)
 
             # 检查chat_log状态
             if hasattr(chat_log, 'tool_calls') and chat_log.tool_calls:
-                _LOGGER.info(f"🔧 LLM发起了 {len(chat_log.tool_calls)} 个工具调用")
-                for tool_call in chat_log.tool_calls:
-                    _LOGGER.info(f"🛠️ 工具调用请求: {tool_call.tool_name} - {tool_call.arguments}")
+                _LOGGER.debug("LLM发起了 %d 个工具调用", len(chat_log.tool_calls))
             else:
-                _LOGGER.info("ℹ️ LLM没有发起工具调用")
+                _LOGGER.debug("LLM没有发起工具调用")
 
             await self._async_handle_chat_log(chat_log)
 
@@ -212,21 +212,14 @@ class AIHubConversationEntity(
                 ]
 
                 if device_operations:
-                    _LOGGER.info(f"🔧 验证 {len(device_operations)} 个设备操作 (3秒内完成)")
+                    _LOGGER.debug("验证 %d 个设备操作", len(device_operations))
                     await self._verify_device_operations_with_retry(device_operations)
 
             # 检查是否有工具调用结果
             if hasattr(chat_log, 'unresponded_tool_results') and chat_log.unresponded_tool_results:
-                # 检查是否是boolean值
-                if isinstance(chat_log.unresponded_tool_results, bool):
-                    _LOGGER.info("🔧 发现未处理的工具调用结果")
-                else:
-                    # 如果是列表，显示数量
-                    _LOGGER.info(f"🔧 发现 {len(chat_log.unresponded_tool_results)} 个未处理的工具结果")
-                    for tool_result in chat_log.unresponded_tool_results:
-                        _LOGGER.info(f"🛠️ 工具调用结果: {tool_result.tool_name} - {tool_result.result}")
+                _LOGGER.debug("发现未处理的工具调用结果")
             else:
-                _LOGGER.info("✅ 没有更多工具调用，处理完成")
+                _LOGGER.debug("没有更多工具调用，处理完成")
 
             # If there are no unresponded tool results, continue the loop
             if not chat_log.unresponded_tool_results:
@@ -265,7 +258,7 @@ class AIHubConversationEntity(
         max_retries = config.get('max_retries', 3)
         wait_times = config.get('wait_times', [0.5, 0.8, 1.1])
 
-        _LOGGER.info(f"🔧 开始设备操作验证，总时间限制{total_timeout}秒，最多重试{max_retries}次")
+        _LOGGER.debug("开始设备操作验证，总时间限制%ds，最多重试%d次", total_timeout, max_retries)
 
         for attempt in range(max_retries):
             # 检查是否还有时间
@@ -297,10 +290,10 @@ class AIHubConversationEntity(
 
                 if all_successful:
                     total_time = time.time() - start_time
-                    _LOGGER.info(f"✅ 所有设备操作验证成功 (耗时{total_time:.1f}秒)")
+                    _LOGGER.debug("所有设备操作验证成功 (耗时%.1fs)", total_time)
                     return True
                 else:
-                    _LOGGER.info(f"⏳ 第{attempt + 1}次验证未完全成功，继续等待 (剩余{remaining_time:.1f}秒)")
+                    _LOGGER.debug("第%d次验证未完全成功，继续等待", attempt + 1)
 
             except Exception as e:
                 _LOGGER.debug(f"验证过程出错: {e}")
@@ -510,7 +503,9 @@ class AIHubConversationEntity(
             if not config:
                 return False
 
-            global_config = config.get('GlobalDeviceControl', {})
+            # 从 local_intents.GlobalDeviceControl 获取配置
+            local_intents = config.get('local_intents', {})
+            global_config = local_intents.get('GlobalDeviceControl', {})
             if not global_config:
                 return False
 

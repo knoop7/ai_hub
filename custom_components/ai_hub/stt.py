@@ -171,7 +171,7 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
         self, metadata: stt.SpeechMetadata, stream
     ) -> stt.SpeechResult:
         """Process an audio stream and return the transcription result."""
-        _LOGGER.info("=== 开始STT处理: format=%s, sample_rate=%d, channel=%d ===",
+        _LOGGER.debug("开始STT处理: format=%s, sample_rate=%d, channel=%d",
                      metadata.format, metadata.sample_rate, metadata.channel)
 
         if not self._api_key:
@@ -206,13 +206,11 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
             if model not in SILICONFLOW_STT_MODELS:
                 raise HomeAssistantError(f"不支持的模型: {model}")
 
-            # STT模型处理：所有模型都是免费的，不使用stream参数
-            _LOGGER.info("使用STT模型: %s", model)
+            _LOGGER.debug("使用STT模型: %s", model)
 
             # Convert raw PCM data to WAV format if needed
-            # Check if audio data already has a WAV header
             if len(audio_data) < 12 or audio_data[:4] != b'RIFF':
-                _LOGGER.info("Converting raw PCM data to WAV format")
+                _LOGGER.debug("Converting raw PCM data to WAV format")
 
                 # Create WAV header for 16-bit PCM, mono, 16kHz
                 sample_rate = metadata.sample_rate
@@ -244,9 +242,9 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
 
                 # Combine header and audio data
                 audio_data = bytes(wav_header) + audio_data
-                _LOGGER.info("Created WAV header, new total size: %d bytes", len(audio_data))
+                _LOGGER.debug("Created WAV header, total size: %d bytes", len(audio_data))
             else:
-                _LOGGER.info("Audio data already has WAV format")
+                _LOGGER.debug("Audio data already has WAV format")
 
             # Check file size (limit to 10MB for better reliability)
             max_size = 10 * 1024 * 1024  # 10MB
@@ -286,56 +284,31 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
             # 🚀 使用动态超时计算，根据音频大小自动调整
             timeout = _calculate_dynamic_timeout(len(audio_data))
 
-            _LOGGER.info("Sending request to Silicon Flow ASR: model=%s, format=%s, size=%d bytes",
-                         model, metadata.format, len(audio_data))
+            _LOGGER.debug("Sending request to Silicon Flow ASR: model=%s, size=%d bytes",
+                         model, len(audio_data))
 
-            # Log the actual request details for debugging
-            _LOGGER.debug("Request details: URL=%s, headers=%s", SILICONFLOW_ASR_URL, headers)
-            _LOGGER.debug("Request form fields: model=%s, file_size=%d bytes, filename=%s, content_type=%s",
-                          model, len(audio_data), filename, content_type)
-
-            # Debug: Log first few bytes of audio data to understand the actual format
+            # Debug: Log first few bytes of audio data
             if len(audio_data) >= 8:
                 header_bytes = audio_data[:8]
-                _LOGGER.info("Audio data header: %s", header_bytes.hex())
-                _LOGGER.info("Audio metadata from HA: format=%s, codec=%s, sample_rate=%d, bit_rate=%d",
-                             metadata.format, metadata.codec, metadata.sample_rate, metadata.bit_rate)
-
-                # Check if this is raw PCM data or has a container format
-                if header_bytes[:4] == b'RIFF':
-                    _LOGGER.info("Detected WAV container format")
-                elif header_bytes[:4] == b'ftyp':
-                    _LOGGER.info("Detected MP4/M4A container format")
-                else:
-                    _LOGGER.info("Appears to be raw audio data (likely PCM)")
-                    # Log more of the header to understand the format
-                    _LOGGER.debug("First 16 bytes: %s", audio_data[:16].hex())
+                _LOGGER.debug("Audio header: %s, format=%s", header_bytes.hex(), metadata.format)
 
             try:
                 async with aiohttp.ClientSession(timeout=timeout) as session:
-                    # Log the actual multipart data before sending
-                    _LOGGER.debug("Multipart form data being sent:")
-                    _LOGGER.debug("  - field: file, size: %d bytes, filename: audio.%s",
-                                  len(audio_data), metadata.format)
-                    _LOGGER.debug("  - field: model, value: %s", model)
-
-                    _LOGGER.info("Starting HTTP POST request to %s", SILICONFLOW_ASR_URL)
+                    _LOGGER.debug("Starting HTTP POST to Silicon Flow ASR")
                     async with session.post(
                         SILICONFLOW_ASR_URL,
                         headers=headers,
                         data=data
                     ) as response:
-                        _LOGGER.info("HTTP response received: status=%d, content-type=%s",
-                                     response.status, response.headers.get('content-type', 'unknown'))
+                        _LOGGER.debug("HTTP response: status=%d", response.status)
                         if response.status != 200:
                             error_text = await response.text()
                             _LOGGER.error("HTTP错误: %s - %s", response.status, error_text)
                             raise HomeAssistantError(f"HTTP请求失败: {response.status}")
 
                         try:
-                            _LOGGER.info("Waiting for JSON response from Silicon Flow API...")
                             response_data = await response.json()
-                            _LOGGER.info("Silicon Flow ASR 响应成功: %s", response_data)
+                            _LOGGER.debug("Silicon Flow ASR 响应: %s", response_data)
                         except Exception as e:
                             _LOGGER.error("解析Silicon Flow ASR响应失败: %s", e)
                             try:
@@ -345,56 +318,35 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
                                 _LOGGER.error("无法获取原始响应文本: %s", text_error)
                             raise HomeAssistantError(f"解析响应失败: {e}") from e
 
-                    # Log the full response structure for debugging
-                    _LOGGER.info(
-                        "响应结构分析: keys=%s", list(
-                            response_data.keys()) if isinstance(
-                            response_data, dict) else "不是字典")
-
-                    # Try to extract transcribed text from various possible response formats
+                    # Extract transcribed text from response
                     transcribed_text = None
 
-                    # First check for direct OpenAI-style response (most likely)
+                    # OpenAI-style response
                     if "text" in response_data:
                         transcribed_text = response_data["text"]
-                        _LOGGER.info("从text字段提取文本: '%s'", transcribed_text)
                     elif "transcription" in response_data:
                         transcribed_text = response_data["transcription"]
-                        _LOGGER.info("从transcription字段提取文本: '%s'", transcribed_text)
-
-                    # Check for Silicon Flow API format: {"code": 20000, "message": "...", "data": {...}}
+                    # Silicon Flow API format
                     elif "code" in response_data:
                         code = response_data.get("code")
-                        _LOGGER.info("API响应码: %s", code)
-
                         if code != 20000:
                             error_msg = response_data.get("message", "Unknown API error")
                             _LOGGER.error("Silicon Flow API错误: code=%s, message=%s", code, error_msg)
                             raise HomeAssistantError(f"API错误: {error_msg}")
-
-                        # Success response, data contains the transcription
                         data = response_data.get("data")
-                        _LOGGER.info("data字段内容: %s", data)
-
                         if data:
                             transcribed_text = data.get("text") or data.get("transcription")
-                            _LOGGER.info("从data提取的文本: '%s'", transcribed_text)
-
-                    # Check for result field
                     elif "result" in response_data:
                         result = response_data["result"]
-                        _LOGGER.info("result字段内容: %s", result)
                         if isinstance(result, dict) and "text" in result:
                             transcribed_text = result["text"]
                         elif isinstance(result, str):
                             transcribed_text = result
 
-                    # Last resort: look for any string field that might contain the transcription
+                    # Last resort: look for any string field
                     if not transcribed_text and isinstance(response_data, dict):
-                        _LOGGER.info("尝试查找可能的文本字段...")
                         for key, value in response_data.items():
                             if isinstance(value, str) and len(value.strip()) > 0 and key not in ["message", "msg"]:
-                                _LOGGER.info("找到可能的文本字段 %s: '%s'", key, value)
                                 transcribed_text = value
                                 break
 
@@ -402,20 +354,15 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
                         _LOGGER.error("无法从响应中提取转录文本: %s", response_data)
                         raise HomeAssistantError("API 响应格式错误，无法找到转录文本")
 
-                    _LOGGER.info("=== STT识别成功: '%s' ===", transcribed_text)
+                    _LOGGER.info("STT识别成功: '%s'", transcribed_text)
 
-                    # 应用 markdown_filter 清理可能的 markdown 格式内容
+                    # 应用 markdown_filter 清理
                     cleaned_text = filter_markdown_content(transcribed_text)
-                    _LOGGER.info("应用 markdown_filter 后: '%s' → '%s'", transcribed_text, cleaned_text)
 
-                    _LOGGER.info("返回SpeechResult对象，格式检查...")
-
-                    # Create SpeechResult object using the correct format like zhipuai
                     result = stt.SpeechResult(
                         cleaned_text.strip(),
                         stt.SpeechResultState.SUCCESS
                     )
-                    _LOGGER.info("SpeechResult创建成功，text='%s'", result.text)
                     return result
 
             except asyncio.TimeoutError as exc:
