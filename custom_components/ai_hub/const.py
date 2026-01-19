@@ -60,7 +60,7 @@ CONF_RECOMMENDED: Final = "recommended"
 CONF_MAX_HISTORY_MESSAGES: Final = "max_history_messages"
 
 # Recommended Values for Conversation
-RECOMMENDED_CHAT_MODEL: Final = "GLM-4-Flash-250414"
+RECOMMENDED_CHAT_MODEL: Final = "glm-4.7-flash"
 RECOMMENDED_TEMPERATURE: Final = 0.3
 RECOMMENDED_TOP_P: Final = 0.5
 RECOMMENDED_TOP_K: Final = 1
@@ -68,7 +68,7 @@ RECOMMENDED_MAX_TOKENS: Final = 250
 RECOMMENDED_MAX_HISTORY_MESSAGES: Final = 30  # Keep last 30 messages for continuous conversation
 
 # Recommended Values for AI Task
-RECOMMENDED_AI_TASK_MODEL: Final = "GLM-4-Flash-250414"
+RECOMMENDED_AI_TASK_MODEL: Final = "glm-4.7-flash"
 RECOMMENDED_AI_TASK_TEMPERATURE: Final = 0.95
 RECOMMENDED_AI_TASK_TOP_P: Final = 0.7
 RECOMMENDED_AI_TASK_MAX_TOKENS: Final = 2000
@@ -456,6 +456,7 @@ IMAGE_SIZES: Final = [
 # Available Models (智谱AI官方完整列表)
 AI_HUB_CHAT_MODELS: Final = [
     # 免费模型
+    "glm-4.7-flash",        # GLM-4.7-Flash - 最新免费模型，128K/16K，免费（推荐）
     "GLM-4-Flash",          # GLM-4-Flash - 免费通用，128K/16K，免费
     "glm-4.5-flash",        # GLM-4.5-Flash - 免费通用模型，128K/16K，免费使用，解码速度20-25tokens/秒
     "GLM-4-Flash-250414",   # GLM-4-Flash-250414 - 免费通用，128K/16K，免费
