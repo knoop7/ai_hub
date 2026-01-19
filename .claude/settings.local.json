@@ -31,7 +31,8 @@
       "Read(C:\\Users\\djhui\\OneDrive\\Github\\My-HA\\respeaker-xvf3800.yaml)",
       "Bash(cd:*)",
       "Read(C:\\Users\\djhui\\OneDrive\\Github\\ai_hub\\custom_components\\ai_hub\\entity.py)",
-      "mcp__zread__read_file"
+      "mcp__zread__read_file",
+      "mcp__acp__Bash"
     ],
     "deny": [],
     "ask": []

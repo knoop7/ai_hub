@@ -67,7 +67,7 @@ jobs:
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $ZHIPU_API_KEY" \
               -d "$(jq -n --arg content "$prompt" '{
-                "model": "glm-4-flash",
+                "model": "glm-4.7-flash",
                 "messages": [{"role": "user", "content": $content}],
                 "temperature": 0.1
               }')")
