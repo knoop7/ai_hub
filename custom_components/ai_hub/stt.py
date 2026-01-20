@@ -353,15 +353,21 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
                         transcribed_text = result
 
                 # Last resort: look for any string field
-                if not transcribed_text and isinstance(response_data, dict):
+                if transcribed_text is None and isinstance(response_data, dict):
                     for key, value in response_data.items():
                         if isinstance(value, str) and len(value.strip()) > 0 and key not in ["message", "msg"]:
                             transcribed_text = value
                             break
 
-                if not transcribed_text:
+                # Handle empty text (user didn't speak clearly or was silent)
+                if transcribed_text is None:
                     _LOGGER.error("无法从响应中提取转录文本: %s", response_data)
                     raise HomeAssistantError("API 响应格式错误，无法找到转录文本")
+
+                # Empty string is valid (user was silent), return success with empty text
+                if not transcribed_text.strip():
+                    _LOGGER.debug("STT返回空文本（用户可能没有说话）")
+                    return stt.SpeechResult("", SpeechResultState.SUCCESS)
 
                 _LOGGER.info("STT识别成功: '%s'", transcribed_text)
 
@@ -398,6 +404,9 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
                 _LOGGER.error("Silicon Flow ASR 转录失败: %s", exc, exc_info=True)
                 raise HomeAssistantError(f"ASR 转录失败: {exc}") from exc
 
+        except HomeAssistantError:
+            # Already a HomeAssistantError, just re-raise without wrapping
+            raise
         except Exception as exc:
             _LOGGER.error("Silicon Flow ASR 转录失败: %s", exc, exc_info=True)
             _LOGGER.error("异常类型: %s", type(exc).__name__)
