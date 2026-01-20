@@ -261,7 +261,7 @@ class AIHubBaseLLMEntity(Entity):
         # Add system messages
         for content in chat_log.content:
             if content.role == "system":
-                messages.append({"role": "system", "content": content.content})
+                messages.append({"role": "system", "content": content.content or ""})
 
         # Process history messages (excluding system and last user input)
         history_content = chat_log.content[1:-1] if len(chat_log.content) > 1 else []
@@ -412,7 +412,7 @@ class AIHubBaseLLMEntity(Entity):
                 # Add text part (like working service)
                 parts.append({
                     "type": "text",
-                    "text": content.content
+                    "text": content.content or ""
                 })
 
                 message["content"] = parts
@@ -423,9 +423,9 @@ class AIHubBaseLLMEntity(Entity):
             else:
                 # No images processed successfully, fall back to text only
                 _LOGGER.warning("No images were processed successfully, falling back to text only")
-                message["content"] = content.content
+                message["content"] = content.content or ""
         else:
-            message["content"] = content.content
+            message["content"] = content.content or ""
 
         return message
 
@@ -449,7 +449,7 @@ class AIHubBaseLLMEntity(Entity):
             ]
             message["content"] = content.content or ""
         else:
-            message["content"] = content.content
+            message["content"] = content.content or ""
 
         return message
 
