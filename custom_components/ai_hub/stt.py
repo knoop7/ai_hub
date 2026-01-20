@@ -35,27 +35,27 @@ _LOGGER = logging.getLogger(__name__)
 def _calculate_dynamic_timeout(audio_size_bytes: int) -> aiohttp.ClientTimeout:
     """
     🚀 根据音频大小动态计算超时时间.
-    
+
     计算逻辑：
-    - 基础超时：8秒（适合短语音命令）
-    - 每100KB额外增加2秒
-    - 最小8秒，最大30秒
-    
+    - 基础超时：15秒（适合短语音命令，考虑到服务器可能繁忙）
+    - 每100KB额外增加3秒
+    - 最小15秒，最大60秒
+
     这样可以避免长语音被过早超时，同时短语音仍然快速失败。
     """
     audio_size_kb = audio_size_bytes / 1024
-    
-    # 基础超时 + 每100KB增加2秒
-    base_timeout = 8
-    timeout_per_100kb = 2
+
+    # 基础超时 + 每100KB增加3秒
+    base_timeout = 15
+    timeout_per_100kb = 3
     calculated_timeout = base_timeout + (audio_size_kb / 100) * timeout_per_100kb
-    
-    # 限制在8-30秒范围内
-    total_timeout = min(max(calculated_timeout, 8), 30)
-    
-    # 连接超时固定3秒，读取超时为总超时的70%
-    connect_timeout = 3
-    sock_read_timeout = max(total_timeout * 0.7, 5)
+
+    # 限制在15-60秒范围内
+    total_timeout = min(max(calculated_timeout, 15), 60)
+
+    # 连接超时固定5秒，读取超时为总超时的80%
+    connect_timeout = 5
+    sock_read_timeout = max(total_timeout * 0.8, 10)
     
     _LOGGER.debug(
         "动态超时计算: audio_size=%dKB, total=%.1fs, connect=%.1fs, read=%.1fs",
