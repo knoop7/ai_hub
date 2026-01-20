@@ -14,7 +14,7 @@ class ConfigCache:
     def get_config(self, force_reload: bool = False) -> Optional[Dict[str, Any]]:
         """获取配置，使用 loader 的缓存."""
         from .loader import get_global_config, reload_config
-        
+
         if force_reload:
             return reload_config()
         return get_global_config()

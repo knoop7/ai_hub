@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import intent
@@ -137,7 +137,7 @@ class LocalIntentHandler:
 
         # 3. 解析设备类型和区域
         area_names, device_types = self._parse_device_and_area(text_lower, global_config)
-        
+
         if not device_types:
             return None
 
@@ -150,10 +150,10 @@ class LocalIntentHandler:
         """解析设备类型和区域."""
         area_names = []
         device_types = []
-        
+
         # 使用缓存的配置
         config = self.config
-        
+
         # 获取区域配置
         try:
             if config and 'lists' in config:
@@ -166,10 +166,10 @@ class LocalIntentHandler:
 
         # 获取设备类型
         device_type_keywords = global_config.get('device_type_keywords', {})
-        
+
         if isinstance(device_type_keywords, str) and device_type_keywords.startswith("{{lists}}"):
             lists_config = config.get('lists', {}) if config else {}
-            
+
             domain_mapping = {
                 'light': 'light_names',
                 'switch': 'switch_names',
@@ -197,15 +197,15 @@ class LocalIntentHandler:
         return area_names, list(set(device_types))
 
     async def _execute_control(
-        self, area_names: list, device_types: list, 
+        self, area_names: list, device_types: list,
         is_on: bool, global_config: dict, language: str
     ):
         """执行设备控制."""
         is_global_control = not area_names
-        
+
         try:
             all_devices = []
-            
+
             if is_global_control:
                 for domain in device_types:
                     try:
@@ -265,11 +265,11 @@ class LocalIntentHandler:
     async def _get_area_devices(self, area_names: list, device_types: list) -> list:
         """获取指定区域的设备."""
         all_devices = []
-        
+
         try:
             from homeassistant.helpers import entity_registry as er
             registry = er.async_get(self.hass)
-            
+
             for domain in device_types:
                 domain_devices = self.hass.states.async_entity_ids(domain)
                 for device_id in domain_devices:
@@ -286,7 +286,7 @@ class LocalIntentHandler:
             # 回退到全局
             for domain in device_types:
                 all_devices.extend(self.hass.states.async_entity_ids(domain))
-        
+
         return all_devices
 
     def _match_area_name(self, area_name: str, target_areas: list) -> bool:
@@ -300,7 +300,7 @@ class LocalIntentHandler:
         return False
 
     async def _execute_device_operations(
-        self, devices: list, domain: str, service_name: str, service_data: dict = None
+        self, devices: list, domain: str, service_name: str, service_data: dict | None = None
     ) -> tuple:
         """执行批量设备操作."""
         if service_data is None:
@@ -330,7 +330,7 @@ class LocalIntentHandler:
                 return state.attributes['friendly_name']
         except Exception:
             pass
-        
+
         if '.' in device_id:
             return device_id.split('.', 1)[1].replace('_', ' ')
         return device_id
@@ -339,7 +339,7 @@ class LocalIntentHandler:
         """格式化失败消息."""
         if error_count == 0:
             return ""
-        
+
         unique_failed = list(set(failed_devices))
         if len(unique_failed) <= 3:
             return f"，但以下{len(unique_failed)}个设备失败：{'、'.join(unique_failed)}"
@@ -410,7 +410,7 @@ class LocalIntentHandler:
             if any(kw in text_lower for kw in hot_kw):
                 default_brightness = brightness_complaint.get('default_brightness', {})
                 return await self._control_light_brightness(
-                    area_names, is_global, 
+                    area_names, is_global,
                     default_brightness.get('hot_recommendation', 30)
                 )
             elif any(kw in text_lower for kw in cold_kw):

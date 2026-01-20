@@ -3,40 +3,21 @@
 from __future__ import annotations
 
 import logging
+from typing import TypeAlias
 
 import aiohttp
-
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import CONF_API_KEY, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
-from homeassistant.config_entries import ConfigSubentry
-from homeassistant.helpers import config_entry_flow
-from types import MappingProxyType
 
-from .const import (
-    DEFAULT_AI_TASK_NAME,
-    DEFAULT_AI_TASK_NAME_EN,
-    DEFAULT_CONVERSATION_NAME,
-    DEFAULT_CONVERSATION_NAME_EN,
-    DEFAULT_TTS_NAME,
-    DEFAULT_TTS_NAME_EN,
-    DEFAULT_STT_NAME,
-    DEFAULT_STT_NAME_EN,
-    DOMAIN,
-    RECOMMENDED_AI_TASK_OPTIONS,
-    RECOMMENDED_CONVERSATION_OPTIONS,
-    RECOMMENDED_TTS_OPTIONS,
-    RECOMMENDED_STT_OPTIONS,
-    AI_HUB_CHAT_URL,
-    get_localized_name,
-)
+from .const import AI_HUB_CHAT_URL
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.CONVERSATION, Platform.AI_TASK, Platform.TTS, Platform.STT, Platform.BUTTON]
 
-type AIHubConfigEntry = ConfigEntry[str]  # Store API key
+AIHubConfigEntry: TypeAlias = ConfigEntry  # Store API key
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
@@ -132,6 +113,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         new_options = {**entry.options}
 
         # Create default subentries
+        from homeassistant.helpers import llm
+
         from .const import (
             CONF_CHAT_MODEL,
             CONF_LLM_HASS_API,
@@ -151,7 +134,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             RECOMMENDED_TEMPERATURE,
             RECOMMENDED_TOP_P,
         )
-        from homeassistant.helpers import llm
 
         # Create conversation subentry from old options
         conversation_data = {
@@ -182,7 +164,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
         # Add subentries
-        conversation_subentry = config_entry_flow.ConfigSubentry(
+        conversation_subentry = ConfigSubentry(
             data=conversation_data,
             subentry_type="conversation",
             title=DEFAULT_CONVERSATION_NAME,
@@ -190,7 +172,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         hass.config_entries.async_add_subentry(entry, conversation_subentry)
 
-        ai_task_subentry = config_entry_flow.ConfigSubentry(
+        ai_task_subentry = ConfigSubentry(
             data=ai_task_data,
             subentry_type="ai_task_data",
             title=DEFAULT_AI_TASK_NAME,

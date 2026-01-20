@@ -3,22 +3,23 @@
 from __future__ import annotations
 
 import base64
-from collections.abc import AsyncGenerator, Callable
 import json
 import logging
+from collections.abc import AsyncGenerator, Callable
 from typing import Any
 
 import aiohttp
-from voluptuous_openapi import convert
-
 from homeassistant.components import conversation, media_source
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import config_entry_flow, device_registry as dr, llm
+from homeassistant.helpers import config_entry_flow, llm
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import ulid
+from voluptuous_openapi import convert
 
 from .const import (
+    AI_HUB_CHAT_URL,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
@@ -31,7 +32,6 @@ from .const import (
     RECOMMENDED_MAX_HISTORY_MESSAGES,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
-    AI_HUB_CHAT_URL,
 )
 from .markdown_filter import filter_markdown_streaming
 

@@ -4,30 +4,27 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import tempfile
 from typing import Any
 
+import aiohttp
 from homeassistant.components import stt
-from homeassistant.components.stt import SpeechToTextEntity, SpeechResultState
+from homeassistant.components.stt import SpeechResultState, SpeechToTextEntity
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-import aiohttp
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_SILICONFLOW_API_KEY,
-    CONF_STT_MODEL,
+    DOMAIN,
     SILICONFLOW_ASR_URL,
     SILICONFLOW_STT_MODELS,
     STT_DEFAULT_MODEL,
-    DOMAIN,
 )
 from .entity import AIHubEntityBase
 from .markdown_filter import filter_markdown_content
-from homeassistant.helpers import device_registry as dr
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,12 +53,12 @@ def _calculate_dynamic_timeout(audio_size_bytes: int) -> aiohttp.ClientTimeout:
     # 连接超时固定5秒，读取超时为总超时的80%
     connect_timeout = 5
     sock_read_timeout = max(total_timeout * 0.8, 10)
-    
+
     _LOGGER.debug(
         "动态超时计算: audio_size=%dKB, total=%.1fs, connect=%.1fs, read=%.1fs",
         int(audio_size_kb), total_timeout, connect_timeout, sock_read_timeout
     )
-    
+
     return aiohttp.ClientTimeout(
         total=total_timeout,
         connect=connect_timeout,
@@ -129,7 +126,7 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
     @property
     def supported_languages(self) -> list[str]:
         """Return a list of supported languages.
-        
+
         SiliconFlow SenseVoice 模型支持自动语言检测，
         支持中文、英文、日文、韩文、粤语等多种语言。
         """
@@ -258,7 +255,7 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
             max_size = 10 * 1024 * 1024  # 10MB
             if len(audio_data) > max_size:
                 _LOGGER.error("音频文件过大: %d bytes (最大支持: %d bytes)", len(audio_data), max_size)
-                raise HomeAssistantError(f"音频文件过大，请使用小于10MB的音频文件，或缩短录音时间")
+                raise HomeAssistantError("音频文件过大，请使用小于10MB的音频文件，或缩短录音时间")
 
             # Check if file format is supported
             supported_formats = ["wav", "mp3", "pcm", "opus", "webm"]
@@ -274,7 +271,6 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
 
             # Create multipart form data exactly like the working curl command
             # Replicate the curl: --form model=FunAudioLLM/SenseVoiceSmall --form file=@filename.mp3
-            import io
             data = aiohttp.FormData()
 
             # Add model field exactly as in curl command

@@ -3,20 +3,17 @@
 from __future__ import annotations
 
 import logging
-
-from homeassistant.components.button import ButtonEntity
-from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers import config_entry_flow
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers import device_registry as dr
 from datetime import datetime
 
-try:
-    from ..const import DOMAIN
-except ImportError:
-    DOMAIN = "ai_hub"
+from homeassistant.components.button import ButtonEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_entry_flow
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from ..const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 

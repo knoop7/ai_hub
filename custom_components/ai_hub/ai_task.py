@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import io
 import logging
-from json import JSONDecodeError, loads as json_loads
+from json import JSONDecodeError
+from json import loads as json_loads
 
 import aiohttp
-
 from homeassistant.components import ai_task, conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
@@ -15,15 +15,15 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    AI_HUB_IMAGE_GEN_URL,
     CONF_CHAT_MODEL,
     CONF_IMAGE_MODEL,
     CONF_IMAGE_URL,
     ERROR_GETTING_RESPONSE,
     RECOMMENDED_CHAT_MODEL,
-    RECOMMENDED_IMAGE_MODEL,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
+    RECOMMENDED_IMAGE_MODEL,
     VISION_MODELS,
-    AI_HUB_IMAGE_GEN_URL,
 )
 from .entity import AIHubBaseLLMEntity
 

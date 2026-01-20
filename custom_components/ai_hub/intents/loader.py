@@ -18,7 +18,7 @@ _CONFIG_LOADED = False
 # 配置文件列表（按加载顺序）
 CONFIG_FILES = [
     "base.yaml",
-    "lists.yaml", 
+    "lists.yaml",
     "expansion.yaml",
     "intents.yaml",
     "local_control.yaml",
@@ -57,11 +57,11 @@ def _load_intents_config_sync() -> Dict[str, Any]:
 
     # 优先尝试新的多文件配置
     config_dir = Path(__file__).parent / "config"
-    
+
     if config_dir.exists():
         merged_config = {}
         loaded_files = []
-        
+
         for filename in CONFIG_FILES:
             file_path = config_dir / filename
             if file_path.exists():
@@ -72,7 +72,7 @@ def _load_intents_config_sync() -> Dict[str, Any]:
                         loaded_files.append(filename)
                 except Exception as e:
                     _LOGGER.warning(f"加载配置文件 {filename} 失败: {e}")
-        
+
         if merged_config:
             _LOGGER.debug(f"从多文件加载配置成功: {loaded_files}")
             return merged_config
@@ -101,8 +101,7 @@ async def _load_intents_config_once() -> Optional[Dict[str, Any]]:
         return _INTENTS_CONFIG
 
     try:
-        import yaml
-        
+
         # 使用异步执行器避免阻塞
         loop = asyncio.get_running_loop()
         config = await loop.run_in_executor(None, _load_intents_config_sync)
@@ -168,15 +167,15 @@ def get_intents_config() -> Optional[Dict[str, Any]]:
 def get_device_operations_config() -> Dict[str, Any]:
     """从缓存获取设备操作配置."""
     global _INTENTS_CONFIG
-    
+
     # 使用已加载的缓存配置
     config = _INTENTS_CONFIG if _CONFIG_LOADED else _load_intents_config_sync()
-    
+
     # 尝试从 device_operations.control_operations 获取
     device_ops = config.get('device_operations', {})
     if 'control_operations' in device_ops:
         return device_ops['control_operations']
-    
+
     # 回退到旧路径
     return config.get('control_operations', _get_fallback_config())
 
@@ -184,15 +183,15 @@ def get_device_operations_config() -> Dict[str, Any]:
 def get_device_verification_config() -> Dict[str, Any]:
     """从缓存获取设备验证配置."""
     global _INTENTS_CONFIG
-    
+
     # 使用已加载的缓存配置
     config = _INTENTS_CONFIG if _CONFIG_LOADED else _load_intents_config_sync()
-    
+
     # 尝试从 device_operations.verification 获取
     device_ops = config.get('device_operations', {})
     if 'verification' in device_ops:
         return device_ops['verification']
-    
+
     # 回退默认值
     return {
         'total_timeout': 3,

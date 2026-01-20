@@ -2,18 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import logging
-import os
-import yaml
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
+import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.service import ServiceCall
-from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
-import voluptuous as vol
 
 from .const import DOMAIN
 
@@ -53,7 +48,7 @@ class AIAutomationManager:
                     await self.hass.services.async_call("automation", "reload", {}, blocking=True)
                     return {
                         "success": True,
-                        "message": f"自动化创建成功！配置已写入automations.yaml并重新加载。你可以在自动化界面中找到它。"
+                        "message": "自动化创建成功！配置已写入automations.yaml并重新加载。你可以在自动化界面中找到它。"
                     }
                 except Exception as reload_error:
                     return {
@@ -120,21 +115,7 @@ mode: single
 
             # 调用智谱AI对话引擎
             try:
-                # 获取对话组件
-                from .conversation import AIHubConversationEntity
-
-                # 创建一个特殊的对话输入用于YAML生成
-                import homeassistant.components.conversation as conversation
-
-                yaml_input = conversation.ConversationInput(
-                    text=yaml_prompt,
-                    conversation_id="automation_yaml_generation",
-                    language="zh"
-                )
-
-                # 查找智谱AI对话实例
-                # 由于我们无法直接访问对话实例，使用一个备选方案
-                # 备选方案：调用现有的智谱API
+                # 调用智谱API生成YAML
                 yaml_result = await self._call_zhipuai_api_for_yaml(yaml_prompt)
 
                 if yaml_result:
@@ -155,7 +136,6 @@ mode: single
         """Call AI Hub API directly for YAML generation."""
         try:
             import aiohttp
-            import json
 
             # 获取API密钥 - 从HASS配置中获取
             api_key = self._get_api_key()
@@ -361,8 +341,9 @@ mode: single'''
         """Write YAML configuration to automations.yaml file."""
         try:
             import os
-            import yaml
             import shutil
+
+            import yaml
 
             config_dir = self.hass.config.config_dir
             automations_file = os.path.join(config_dir, "automations.yaml")

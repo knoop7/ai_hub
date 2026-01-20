@@ -3,23 +3,20 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
-
-from homeassistant.core import HomeAssistant
 
 from .config_cache import ConfigCache, get_config_cache
-from .loader import (
-    async_setup_intents,
-    get_intents_config,
-    get_device_operations_config,
-    get_device_verification_config,
-    is_device_operation,
-)
 from .handlers import (
     ChineseIntentHandler,
     LocalIntentHandler,
     get_global_intent_handler,
     get_local_intents_config,
+)
+from .loader import (
+    async_setup_intents,
+    get_device_operations_config,
+    get_device_verification_config,
+    get_intents_config,
+    is_device_operation,
 )
 from .validator import ConfigValidator, validate_config
 

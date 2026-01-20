@@ -4,24 +4,21 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Literal, Dict, Any, Optional
-from dataclasses import dataclass
+from typing import Any, Dict, Literal, Optional
 
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import intent, llm
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers import intent
 
 from .const import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN
 from .entity import AIHubBaseLLMEntity
 from .intents import get_config_cache
 
-from homeassistant.helpers import llm
-
 _LOGGER = logging.getLogger(__name__)
 
-MATCH_ALL = "*"
+MATCH_ALL: Literal["*"] = "*"
 
 
 async def async_setup_entry(
@@ -104,7 +101,7 @@ class AIHubConversationEntity(
 
         # ========== 步骤1: 本地意图处理 ==========
         # 只处理 HA 原生不支持的功能（如全局设备控制）
-        
+
         # 1a. 检查是否是自动化创建请求
         try:
             automation_result = await self._handle_automation_request(user_input)
@@ -136,7 +133,7 @@ class AIHubConversationEntity(
         # 注意：这个步骤可能会增加延迟，只在必要时启用
         try:
             from homeassistant.components.conversation import default_agent
-            
+
             # 获取 HA 默认的 conversation agent
             agent = await default_agent.async_get_agent(self.hass)
             if agent:
@@ -151,7 +148,7 @@ class AIHubConversationEntity(
                     elif response_type == intent.IntentResponseType.QUERY_ANSWER:
                         _LOGGER.debug("HA 内置意图查询成功: %s", user_input.text)
                         return result
-                        
+
         except Exception as e:
             _LOGGER.debug("HA 内置意图处理跳过: %s", e)
 
@@ -251,7 +248,6 @@ class AIHubConversationEntity(
                 'wait_times': [0.5, 0.8, 1.1]
             }
 
-        import time
         import asyncio
 
         start_time = time.time()
@@ -396,7 +392,6 @@ class AIHubConversationEntity(
                     except KeyError:
                         message = success_template
                 else:
-                    default_template = self._config_cache.get_error_message("automation_default_name")
                     message = f"我已经为您创建了自动化: {automation_name}"
 
                 # 可以添加更多配置详情
@@ -455,8 +450,6 @@ class AIHubConversationEntity(
 
     def _is_local_special_function(self, intent_type: str, intent_info: Dict[str, Any]) -> bool:
         """判断是否是真正的本地特殊功能"""
-        text = intent_info.get("text", "").lower()
-
         # 检查是否是"所有设备"相关的操作（HA原生不支持）
         if self._is_all_device_operation(intent_info):
             return True

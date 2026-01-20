@@ -10,8 +10,6 @@ import wave
 from contextlib import suppress
 from typing import Any
 
-from homeassistant.exceptions import HomeAssistantError
-
 _LOGGER = logging.getLogger(__name__)
 
 

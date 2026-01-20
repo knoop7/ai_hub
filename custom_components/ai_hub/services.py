@@ -8,11 +8,11 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import (
+    CONF_BEMFA_UID,
+    CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
     CONF_IMAGE_URL,
-    CONF_BEMFA_UID,
-    CONF_CHAT_MODEL,
     CONF_SILICONFLOW_API_KEY,
     DOMAIN,
     RECOMMENDED_CHAT_MODEL,
@@ -25,26 +25,25 @@ from .const import (
     SERVICE_TTS_SPEECH,
     SERVICE_TTS_STREAM,
 )
-
 from .services_lib import (
+    BLUEPRINTS_TRANSLATION_SCHEMA,
     # Schemas
     IMAGE_ANALYZER_SCHEMA,
     IMAGE_GENERATOR_SCHEMA,
+    STT_SCHEMA,
+    TRANSLATION_SCHEMA,
     TTS_SCHEMA,
     TTS_STREAM_SCHEMA,
-    STT_SCHEMA,
     WECHAT_SCHEMA,
-    TRANSLATION_SCHEMA,
-    BLUEPRINTS_TRANSLATION_SCHEMA,
+    async_translate_all_blueprints,
+    async_translate_all_components,
     # Handlers
     handle_analyze_image,
     handle_generate_image,
+    handle_send_wechat_message,
+    handle_stt_transcribe,
     handle_tts_speech,
     handle_tts_stream,
-    handle_stt_transcribe,
-    handle_send_wechat_message,
-    async_translate_all_components,
-    async_translate_all_blueprints,
 )
 
 _LOGGER = logging.getLogger(__name__)

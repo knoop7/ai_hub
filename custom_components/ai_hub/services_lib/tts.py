@@ -42,7 +42,7 @@ def _check_edge_tts():
 async def handle_tts_speech(
     hass: HomeAssistant,
     call: ServiceCall,
-    api_key: str = None  # 保留参数兼容性，但不使用
+    api_key: str | None = None  # 保留参数兼容性，但不使用
 ) -> dict:
     """Handle Edge TTS service call - 生成语音."""
     try:
@@ -67,7 +67,7 @@ async def handle_tts_speech(
 
         # 使用 Edge TTS 生成音频
         communicate = edge_tts.Communicate(text=text, voice=voice)
-        
+
         audio_bytes = b""
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":

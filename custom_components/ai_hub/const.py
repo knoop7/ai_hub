@@ -522,9 +522,7 @@ DEFAULT_TRANSLATION_NAME_EN: Final = "AI Hub Localization"
 DEFAULT_CONVERSATION_NAME_EN: Final = "AI Hub Assistant"
 DEFAULT_AI_TASK_NAME_EN: Final = "AI Hub Task"
 
-# Configuration Keys
-CONF_API_KEY: Final = "api_key"
-CONF_SILICONFLOW_API_KEY: Final = "siliconflow_api_key"
+# Configuration Keys (additional)
 CONF_BEMFA_UID: Final = "bemfa_uid"
 CONF_CUSTOM_COMPONENTS_PATH: Final = "custom_components_path"
 CONF_FORCE_TRANSLATION: Final = "force_translation"  # 仅用于集成汉化

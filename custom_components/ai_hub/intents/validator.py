@@ -11,10 +11,10 @@
 
 使用示例:
     from .validator import validate_config, ConfigValidator
-    
+
     # 简单验证
     is_valid = validate_config(config)
-    
+
     # 详细验证
     validator = ConfigValidator(config)
     if not validator.validate():
@@ -34,10 +34,10 @@ class ConfigValidator:
 
     # 必需的顶级配置键
     REQUIRED_KEYS = ['local_intents']
-    
+
     # 必需的 local_intents 子键
     REQUIRED_LOCAL_INTENTS_KEYS = ['GlobalDeviceControl']
-    
+
     # GlobalDeviceControl 必需的配置
     REQUIRED_GLOBAL_DEVICE_CONTROL_KEYS = [
         'global_keywords',
@@ -49,7 +49,7 @@ class ConfigValidator:
 
     def __init__(self, config: Dict[str, Any]):
         """初始化验证器.
-        
+
         Args:
             config: 要验证的配置字典
         """
@@ -59,7 +59,7 @@ class ConfigValidator:
 
     def validate(self) -> bool:
         """执行完整验证.
-        
+
         Returns:
             bool: 验证是否通过（无错误）
         """
@@ -97,7 +97,7 @@ class ConfigValidator:
     def _validate_local_intents(self) -> None:
         """验证 local_intents 配置."""
         local_intents = self.config.get('local_intents', {})
-        
+
         if not local_intents:
             self.errors.append("local_intents 配置为空")
             return
@@ -131,7 +131,7 @@ class ConfigValidator:
     def _validate_lists(self) -> None:
         """验证 lists 配置."""
         lists = self.config.get('lists', {})
-        
+
         if not lists:
             self.warnings.append("lists 配置为空，设备类型识别可能受限")
             return
@@ -146,7 +146,7 @@ class ConfigValidator:
     def _validate_expansion_rules(self) -> None:
         """验证 expansion_rules 配置."""
         rules = self.config.get('expansion_rules', {})
-        
+
         if not rules:
             self.warnings.append("expansion_rules 配置为空")
             return
@@ -162,7 +162,7 @@ class ConfigValidator:
         expansion_rules = self.config.get('expansion_rules', {})
         local_intents = self.config.get('local_intents', {})
         global_control = local_intents.get('GlobalDeviceControl', {})
-        
+
         if not expansion_rules or not global_control:
             return
 
@@ -193,10 +193,10 @@ class ConfigValidator:
 
 def validate_config(config: Dict[str, Any]) -> bool:
     """验证配置的便捷函数.
-    
+
     Args:
         config: 要验证的配置字典
-        
+
     Returns:
         bool: 验证是否通过
     """

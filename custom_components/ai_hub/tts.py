@@ -4,42 +4,41 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
 from collections.abc import AsyncGenerator
-
-from propcache.api import cached_property
+from typing import Any
 
 from homeassistant.components.tts import (
     ATTR_VOICE,
     TextToSpeechEntity,
-    TtsAudioType,
     TTSAudioRequest,
     TTSAudioResponse,
+    TtsAudioType,
     Voice,
 )
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from propcache.api import cached_property
 
 try:
     import edge_tts
     import edge_tts.exceptions
 except ImportError:
     try:
-        import edgeTTS
+        import edgeTTS  # noqa: F401 - intentional check for wrong package
         raise Exception('Please uninstall edgeTTS and install edge_tts instead.')
     except ImportError:
         raise Exception('edge_tts is required. Please install edge_tts.')
 
 from .const import (
-    CONF_TTS_VOICE,
     CONF_TTS_LANG,
-    TTS_DEFAULT_VOICE,
-    TTS_DEFAULT_LANG,
-    EDGE_TTS_VOICES,
+    CONF_TTS_VOICE,
     DOMAIN,
+    EDGE_TTS_VOICES,
+    TTS_DEFAULT_LANG,
+    TTS_DEFAULT_VOICE,
 )
 from .entity import AIHubEntityBase
 
