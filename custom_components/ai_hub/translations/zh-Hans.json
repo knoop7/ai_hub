@@ -182,6 +182,12 @@
         "reconfigure": "重新配置汉化"
       },
       "entry_type": "AI Hub 汉化",
+      "step": {
+        "init": {
+          "title": "配置汉化",
+          "description": "配置汉化功能。使用智谱AI自动将英文文件翻译为中文。"
+        }
+      },
       "abort": {
         "translation_no_reconfigure": "汉化不支持重新配置。如需修改设置，请删除并重新添加。"
       }

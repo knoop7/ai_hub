@@ -179,6 +179,12 @@
         "reconfigure": "Reconfigure Localization"
       },
       "entry_type": "AI Hub Localization",
+      "step": {
+        "init": {
+          "title": "Configure Localization",
+          "description": "Configure localization function. Use Zhipu AI to automatically translate English files to Chinese."
+        }
+      },
       "abort": {
         "translation_no_reconfigure": "Localization does not support reconfiguration. To modify settings, please delete and re-add."
       }
