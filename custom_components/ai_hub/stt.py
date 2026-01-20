@@ -198,8 +198,9 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
         # Quick check for empty or too small audio (optimized for voice assistant)
         # Voice assistant audio is typically 10-50KB for 3-5 seconds of speech
         if len(audio_data) < 1000:  # Less than 1KB
-            _LOGGER.warning("Audio data too small: %d bytes, skipping STT", len(audio_data))
-            return stt.SpeechResult("", SpeechResultState.ERROR)
+            # This is normal when user doesn't speak or cancels, return empty success
+            _LOGGER.debug("Audio data too small: %d bytes, returning empty result", len(audio_data))
+            return stt.SpeechResult("", SpeechResultState.SUCCESS)
 
         # For voice assistant scenario, warn if audio is too long which might cause timeouts
         # Typical voice assistant commands are 3-10 seconds
