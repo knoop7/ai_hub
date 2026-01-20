@@ -27,14 +27,10 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from ..const import (
-    AI_HUB_CHAT_URL,
-    AI_HUB_IMAGE_GEN_URL,
     DOMAIN,
     ERROR_GETTING_RESPONSE,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
     RECOMMENDED_IMAGE_MODEL,
-    RECOMMENDED_MAX_TOKENS,
-    RECOMMENDED_TEMPERATURE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -154,9 +150,10 @@ async def handle_stream_response(hass: HomeAssistant, response: aiohttp.ClientRe
 
 
 async def handle_analyze_image(
-    hass: HomeAssistant, 
-    call: ServiceCall, 
-    api_key: str
+    hass: HomeAssistant,
+    call: ServiceCall,
+    api_key: str,
+    chat_url: str
 ) -> dict:
     """Handle image analysis service call."""
     try:
@@ -209,7 +206,7 @@ async def handle_analyze_image(
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                AI_HUB_CHAT_URL,
+                chat_url,
                 json=payload,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=60),
@@ -234,7 +231,8 @@ async def handle_analyze_image(
 async def handle_generate_image(
     hass: HomeAssistant,
     call: ServiceCall,
-    api_key: str
+    api_key: str,
+    image_url: str
 ) -> dict:
     """Handle image generation service call."""
     try:
@@ -257,7 +255,7 @@ async def handle_generate_image(
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                AI_HUB_IMAGE_GEN_URL,
+                image_url,
                 json=payload,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=120),

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from types import MappingProxyType
+from collections.abc import Mapping
 from typing import Any
 
 import aiohttp
@@ -19,7 +19,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_API_KEY, CONF_NAME
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import llm, selector
+from homeassistant.helpers import llm
 from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
@@ -28,14 +28,19 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
     TemplateSelector,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 
 from .const import (
     CONF_BEMFA_UID,
     CONF_CHAT_MODEL,
+    CONF_CHAT_URL,
+    CONF_CUSTOM_API_KEY,
     CONF_IMAGE_MODEL,
+    CONF_IMAGE_URL,
     CONF_SILICONFLOW_API_KEY,
-    CONF_CUSTOM_COMPONENTS_PATH,
     CONF_FORCE_TRANSLATION,
     CONF_TARGET_COMPONENT,
     CONF_LIST_COMPONENTS,
@@ -57,14 +62,11 @@ from .const import (
     DEFAULT_TTS_NAME,
     DEFAULT_WECHAT_NAME,
     DEFAULT_TRANSLATION_NAME,
-    DEFAULT_BLUEPRINT_TRANSLATION_NAME,
     DOMAIN,
     RECOMMENDED_AI_TASK_MAX_TOKENS,
-    RECOMMENDED_AI_TASK_MODEL,
     RECOMMENDED_AI_TASK_TEMPERATURE,
     RECOMMENDED_AI_TASK_TOP_P,
     RECOMMENDED_CHAT_MODEL,
-    RECOMMENDED_IMAGE_ANALYSIS_MODEL,
     RECOMMENDED_IMAGE_MODEL,
     RECOMMENDED_MAX_HISTORY_MESSAGES,
     RECOMMENDED_MAX_TOKENS,
@@ -76,15 +78,14 @@ from .const import (
     AI_HUB_CHAT_MODELS,
     AI_HUB_CHAT_URL,
     AI_HUB_IMAGE_MODELS,
+    AI_HUB_IMAGE_GEN_URL,
     EDGE_TTS_VOICES,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_STT_OPTIONS,
     RECOMMENDED_WECHAT_OPTIONS,
     RECOMMENDED_TRANSLATION_OPTIONS,
-    RECOMMENDED_BLUEPRINT_TRANSLATION_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
-    RECOMMENDED_TTS_MODEL,
     RECOMMENDED_STT_MODEL,
     DEFAULT_STT_NAME,
     CONF_STT_MODEL,
@@ -198,12 +199,6 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
                     "title": DEFAULT_TRANSLATION_NAME,
                     "unique_id": None,
                 },
-                {
-                    "subentry_type": "blueprint_translation",
-                    "data": RECOMMENDED_BLUEPRINT_TRANSLATION_OPTIONS,
-                    "title": DEFAULT_BLUEPRINT_TRANSLATION_NAME,
-                    "unique_id": None,
-                },
             ]
 
             return self.async_create_entry(
@@ -233,7 +228,6 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
             "stt": AIHubSubentryFlowHandler,
             "wechat": AIHubWeChatFlowHandler,
             "translation": AIHubTranslationFlowHandler,
-            "blueprint_translation": AIHubBlueprintTranslationFlowHandler,
         }
 
 
@@ -267,8 +261,6 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
                     self.options = RECOMMENDED_WECHAT_OPTIONS.copy()
                 elif self._subentry_type == "translation":
                     self.options = RECOMMENDED_TRANSLATION_OPTIONS.copy()
-                elif self._subentry_type == "blueprint_translation":
-                    self.options = RECOMMENDED_BLUEPRINT_TRANSLATION_OPTIONS.copy()
                 else:
                     self.options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
             else:
@@ -344,8 +336,6 @@ async def ai_hub_config_option_schema(
             default_name = DEFAULT_WECHAT_NAME
         elif subentry_type == "translation":
             default_name = DEFAULT_TRANSLATION_NAME
-        elif subentry_type == "blueprint_translation":
-            default_name = DEFAULT_BLUEPRINT_TRANSLATION_NAME
         else:
             default_name = DEFAULT_CONVERSATION_NAME
         schema[vol.Required(CONF_NAME, default=default_name)] = str
@@ -381,7 +371,7 @@ async def ai_hub_config_option_schema(
                     CONF_BEMFA_UID,
                     default=options.get(CONF_BEMFA_UID, ""),
                     description={"suggested_value": options.get(CONF_BEMFA_UID)},
-                ): str,
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             })
         elif subentry_type == "translation":
             # Translation: simple recommended mode with minimal configuration
@@ -400,9 +390,8 @@ async def ai_hub_config_option_schema(
                     CONF_TARGET_COMPONENT,
                     default=options.get(CONF_TARGET_COMPONENT, ""),
                     description={"suggested_value": options.get(CONF_TARGET_COMPONENT)},
-                ): str,
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             })
-        # blueprint_translation doesn't show any options in recommended mode - it's a one-click action
         return schema
 
     # Show advanced options only when not in recommended mode
@@ -424,8 +413,19 @@ async def ai_hub_config_option_schema(
                 SelectSelectorConfig(
                     options=AI_HUB_CHAT_MODELS,
                     mode=SelectSelectorMode.DROPDOWN,
+                    custom_value=True,
                 )
             ),
+            vol.Optional(
+                CONF_CHAT_URL,
+                default=options.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
+                description={"suggested_value": options.get(CONF_CHAT_URL)},
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+            vol.Optional(
+                CONF_CUSTOM_API_KEY,
+                default=options.get(CONF_CUSTOM_API_KEY, ""),
+                description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             vol.Optional(
                 CONF_TEMPERATURE,
                 default=options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
@@ -462,17 +462,8 @@ async def ai_hub_config_option_schema(
         })
 
     elif subentry_type == "ai_task_data":
+        # AI Task follows Conversation Agent's chat model and URL
         schema.update({
-            vol.Optional(
-                CONF_CHAT_MODEL,
-                default=options.get(CONF_CHAT_MODEL, RECOMMENDED_AI_TASK_MODEL),
-                description={"suggested_value": options.get(CONF_CHAT_MODEL)},
-            ): SelectSelector(
-                SelectSelectorConfig(
-                    options=AI_HUB_CHAT_MODELS,
-                    mode=SelectSelectorMode.DROPDOWN,
-                )
-            ),
             vol.Optional(
                 CONF_IMAGE_MODEL,
                 default=options.get(CONF_IMAGE_MODEL, RECOMMENDED_IMAGE_MODEL),
@@ -481,8 +472,19 @@ async def ai_hub_config_option_schema(
                 SelectSelectorConfig(
                     options=AI_HUB_IMAGE_MODELS,
                     mode=SelectSelectorMode.DROPDOWN,
+                    custom_value=True,
                 )
             ),
+            vol.Optional(
+                CONF_IMAGE_URL,
+                default=options.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL),
+                description={"suggested_value": options.get(CONF_IMAGE_URL)},
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+            vol.Optional(
+                CONF_CUSTOM_API_KEY,
+                default=options.get(CONF_CUSTOM_API_KEY, ""),
+                description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             vol.Optional(
                 CONF_TEMPERATURE,
                 default=options.get(CONF_TEMPERATURE, RECOMMENDED_AI_TASK_TEMPERATURE),
@@ -530,7 +532,7 @@ async def ai_hub_config_option_schema(
                 CONF_TTS_VOICE,
                 default=options.get(CONF_TTS_VOICE, TTS_DEFAULT_VOICE),
                 description={"suggested_value": options.get(CONF_TTS_VOICE)},
-            ): str,
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
         })
 
     elif subentry_type == "stt":
@@ -553,7 +555,7 @@ async def ai_hub_config_option_schema(
                 CONF_BEMFA_UID,
                 default=options.get(CONF_BEMFA_UID, ""),
                 description={"suggested_value": options.get(CONF_BEMFA_UID)},
-            ): str,
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
         })
 
     elif subentry_type == "translation":
@@ -572,9 +574,8 @@ async def ai_hub_config_option_schema(
                 CONF_TARGET_COMPONENT,
                 default=options.get(CONF_TARGET_COMPONENT, ""),
                 description={"suggested_value": options.get(CONF_TARGET_COMPONENT)},
-            ): str,
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
         })
-    # blueprint_translation doesn't show any configuration options - it's a one-click action
 
     return schema
 
@@ -629,7 +630,7 @@ class AIHubWeChatFlowHandler(ConfigSubentryFlow):
                 vol.Required(
                     CONF_BEMFA_UID,
                     default=""
-                ): str,
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             }),
             errors=errors,
         )
@@ -665,49 +666,13 @@ class AIHubTranslationFlowHandler(ConfigSubentryFlow):
             return self.async_abort(reason="translation_no_reconfigure")
 
         # Translation doesn't need any input, just create the subentry
+        # Unified translation includes both component and blueprint translation
         return self.async_create_entry(
             title=DEFAULT_TRANSLATION_NAME,
             data={
                 CONF_LIST_COMPONENTS: False,
                 CONF_FORCE_TRANSLATION: False,
                 CONF_TARGET_COMPONENT: "",
-                CONF_RECOMMENDED: True,
-            }
-        )
-
-
-class AIHubBlueprintTranslationFlowHandler(ConfigSubentryFlow):
-    """Handle Blueprint Translation subentry flow - no reconfiguration supported."""
-
-    options: dict[str, Any]
-
-    def __init__(self) -> None:
-        """Initialize the Blueprint Translation flow handler."""
-        super().__init__()
-        self.options = {}
-
-    @property
-    def _is_new(self) -> bool:
-        """Return if this is a new subentry."""
-        return self.source == "user"
-
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        """Handle options for Blueprint Translation subentry."""
-        return await self.async_step_init(user_input)
-
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        """Handle initial step for Blueprint Translation subentry."""
-        if not self._is_new:
-            return self.async_abort(reason="blueprint_translation_no_reconfigure")
-
-        # Blueprint Translation doesn't need any input, just create the subentry
-        return self.async_create_entry(
-            title=DEFAULT_BLUEPRINT_TRANSLATION_NAME,
-            data={
                 CONF_LIST_BLUEPRINTS: False,
                 CONF_TARGET_BLUEPRINT: "",
                 CONF_RECOMMENDED: True,

@@ -29,7 +29,12 @@ class AIHubWeChatButton(ButtonEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:wechat"
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, subentry: config_entry_flow.ConfigSubentry) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        subentry: config_entry_flow.ConfigSubentry,
+    ) -> None:
         """Initialize the button."""
         super().__init__()
         self._hass = hass
@@ -70,7 +75,12 @@ class AIHubTranslationButton(ButtonEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:translate"
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, subentry: config_entry_flow.ConfigSubentry) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        subentry: config_entry_flow.ConfigSubentry,
+    ) -> None:
         """Initialize the button."""
         super().__init__()
         self._hass = hass
@@ -111,7 +121,12 @@ class AIHubBlueprintTranslationButton(ButtonEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:file-document-outline"
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, subentry: config_entry_flow.ConfigSubentry) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        subentry: config_entry_flow.ConfigSubentry,
+    ) -> None:
         """Initialize the button."""
         super().__init__()
         self._hass = hass
@@ -157,8 +172,8 @@ async def async_setup_entry(
         if subentry.subentry_type == "wechat":
             buttons.append(AIHubWeChatButton(hass, entry, subentry))
         elif subentry.subentry_type == "translation":
+            # Unified translation: add both component and blueprint translation buttons
             buttons.append(AIHubTranslationButton(hass, entry, subentry))
-        elif subentry.subentry_type == "blueprint_translation":
             buttons.append(AIHubBlueprintTranslationButton(hass, entry, subentry))
 
     for button in buttons:

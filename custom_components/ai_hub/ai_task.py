@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import io
 import logging
 from json import JSONDecodeError, loads as json_loads
@@ -18,16 +17,25 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     CONF_CHAT_MODEL,
     CONF_IMAGE_MODEL,
+    CONF_IMAGE_URL,
     ERROR_GETTING_RESPONSE,
-    IMAGE_SIZES,
-    RECOMMENDED_AI_TASK_MODEL,
+    RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_IMAGE_MODEL,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
     VISION_MODELS,
+    AI_HUB_IMAGE_GEN_URL,
 )
 from .entity import AIHubBaseLLMEntity
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _get_conversation_model(config_entry: ConfigEntry) -> str:
+    """Get the chat model from Conversation Agent subentry."""
+    for subentry in config_entry.subentries.values():
+        if subentry.subentry_type == "conversation":
+            return subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
+    return RECOMMENDED_CHAT_MODEL
 
 
 async def async_setup_entry(
@@ -56,8 +64,9 @@ class AIHubTaskEntity(
         self, entry: ConfigEntry, subentry: ConfigSubentry
     ) -> None:
         """Initialize the entity."""
-        # Use vision model as default for better image support
-        default_model = subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_IMAGE_ANALYSIS_MODEL)
+        # Get chat model from Conversation Agent subentry (AI Task follows Conversation's model)
+        conversation_model = _get_conversation_model(entry)
+        default_model = conversation_model
         super().__init__(entry, subentry, default_model)
 
         # Start with basic features
@@ -68,7 +77,7 @@ class AIHubTaskEntity(
 
         # Add image generation support if configured
         # Enable for: 1) Vision models, 2) Image generation models, 3) Recommended mode
-        model = subentry.data.get(CONF_CHAT_MODEL, default_model)
+        model = conversation_model
         is_recommended = subentry.data.get("recommended", False)
 
         from .const import AI_HUB_IMAGE_MODELS
@@ -88,10 +97,8 @@ class AIHubTaskEntity(
         chat_log: conversation.ChatLog,
     ) -> ai_task.GenDataTaskResult:
         """Handle a generate data task."""
-        # Get the actual model being used (may be auto-switched)
-        from .const import RECOMMENDED_IMAGE_ANALYSIS_MODEL
-        options = self.subentry.data
-        configured_model = options.get(CONF_CHAT_MODEL, self.default_model)
+        # Get model from Conversation Agent (AI Task follows Conversation's model)
+        configured_model = _get_conversation_model(self.entry)
 
         # Check if we need to auto-switch for attachments
         has_attachments = any(
@@ -205,11 +212,12 @@ class AIHubTaskEntity(
                 "Content-Type": "application/json",
             }
 
-            from .const import AI_HUB_IMAGE_GEN_URL
+            # Get image URL from config (complete URL)
+            image_url = options.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL)
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    AI_HUB_IMAGE_GEN_URL,
+                    image_url,
                     json=request_params,
                     headers=headers,
                     timeout=aiohttp.ClientTimeout(total=120),

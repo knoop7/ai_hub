@@ -48,6 +48,8 @@
             "recommended": "Recommended Mode",
             "prompt": "Prompt Template",
             "chat_model": "Chat Model",
+            "chat_url": "Chat API URL",
+            "custom_api_key": "Custom API Key",
             "temperature": "Temperature",
             "top_p": "Top P",
             "top_k": "Top K",
@@ -57,6 +59,9 @@
           "data_description": {
             "recommended": "Use recommended settings",
             "prompt": "Custom system prompt",
+            "chat_model": "Select or enter custom model name",
+            "chat_url": "Complete chat API URL (if API fails, try appending /chat/completions)",
+            "custom_api_key": "Custom API key (leave empty to use main key)",
             "temperature": "Control creativity (0-2)",
             "top_p": "Sampling parameter (0-1)",
             "max_tokens": "Maximum response length",
@@ -74,18 +79,22 @@
       "step": {
         "init": {
           "title": "Configure AI Task",
-          "description": "Customize AI task behavior and parameters. Enable recommended mode for best settings, or disable to customize all parameters. After submitting, the configuration information will be switched.",
+          "description": "Customize AI task behavior and parameters. Chat model automatically follows Conversation Agent settings. Enable recommended mode for best settings, or disable to customize parameters.",
           "data": {
             "name": "Name",
             "recommended": "Recommended Mode",
-            "chat_model": "Chat Model",
             "image_model": "Image Model",
+            "image_url": "Image Generation API URL",
+            "custom_api_key": "Custom API Key",
             "temperature": "Temperature",
             "top_p": "Top P",
             "max_tokens": "Max Tokens"
           },
           "data_description": {
             "recommended": "Use recommended settings",
+            "image_model": "Select or enter custom image generation model",
+            "image_url": "Complete image generation API URL (default: ZhipuAI)",
+            "custom_api_key": "Custom API key (leave empty to use main key)",
             "temperature": "Control creativity (0-2)",
             "top_p": "Sampling parameter (0-1)",
             "max_tokens": "Maximum response length"
@@ -166,47 +175,12 @@
     },
     "translation": {
       "initiate_flow": {
-        "user": "Add Integration Translation",
-        "reconfigure": "Reconfigure Integration Translation"
+        "user": "Add Localization",
+        "reconfigure": "Reconfigure Localization"
       },
-      "entry_type": "AI Hub Integration Translation",
-      "step": {
-        "init": {
-          "title": "Configure Integration Translation",
-          "description": "Configure integration translation function. Use Zhipu AI to automatically translate English translation files to Chinese.",
-          "data": {
-            "name": "Name",
-            "recommended": "Recommended Mode",
-            "custom_components_path": "Custom Components Path"
-          },
-          "data_description": {
-            "recommended": "Use recommended settings",
-            "custom_components_path": "Custom integration directory path, default is custom_components"
-          }
-        }
-      }
-    },
-    "blueprint_translation": {
-      "initiate_flow": {
-        "user": "Add Blueprint Translation",
-        "reconfigure": "Reconfigure Blueprint Translation"
-      },
-      "entry_type": "AI Hub Blueprint Translation",
-      "step": {
-        "init": {
-          "title": "Configure Blueprint Translation",
-          "description": "Configure blueprint translation function. Use Zhipu AI to automatically translate English blueprint files to Chinese.",
-          "data": {
-            "name": "Name",
-            "recommended": "Recommended Mode"
-          },
-          "data_description": {
-            "recommended": "Use recommended settings"
-          }
-        }
-      },
+      "entry_type": "AI Hub Localization",
       "abort": {
-        "blueprint_translation_no_reconfigure": "Blueprint translation does not support reconfiguration. To modify settings, please delete and re-add."
+        "translation_no_reconfigure": "Localization does not support reconfiguration. To modify settings, please delete and re-add."
       }
     }
   },

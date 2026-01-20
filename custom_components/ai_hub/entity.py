@@ -6,18 +6,13 @@ import base64
 from collections.abc import AsyncGenerator, Callable
 import json
 import logging
-import mimetypes
-from pathlib import Path
 from typing import Any
 
 import aiohttp
 from voluptuous_openapi import convert
 
 from homeassistant.components import conversation, media_source
-from homeassistant.components.homeassistant.exposed_entities import async_should_expose
-from homeassistant.const import CONF_API_KEY
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError, TemplateError
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_entry_flow, device_registry as dr, llm
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import Entity
@@ -25,24 +20,20 @@ from homeassistant.util import ulid
 
 from .const import (
     CONF_CHAT_MODEL,
-    CONF_LLM_HASS_API,
+    CONF_CHAT_URL,
+    CONF_CUSTOM_API_KEY,
     CONF_MAX_HISTORY_MESSAGES,
     CONF_MAX_TOKENS,
-    CONF_PROMPT,
     CONF_TEMPERATURE,
-    CONF_TOP_K,
-    CONF_TOP_P,
     DOMAIN,
     ERROR_GETTING_RESPONSE,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
     RECOMMENDED_MAX_HISTORY_MESSAGES,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
-    RECOMMENDED_TOP_K,
-    RECOMMENDED_TOP_P,
     AI_HUB_CHAT_URL,
 )
-from .markdown_filter import filter_markdown_content, filter_markdown_streaming
+from .markdown_filter import filter_markdown_streaming
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,8 +57,9 @@ class AIHubBaseLLMEntity(Entity):
         self._attr_unique_id = subentry.subentry_id
         self._attr_name = subentry.title
 
-        # Get API key from runtime data
-        self._api_key = entry.runtime_data
+        # Get API key: use custom key if provided, otherwise use main key
+        custom_key = subentry.data.get(CONF_CUSTOM_API_KEY, "").strip()
+        self._api_key = custom_key if custom_key else entry.runtime_data
 
         # Device info
         self._attr_device_info = dr.DeviceInfo(
@@ -213,9 +205,11 @@ class AIHubBaseLLMEntity(Entity):
             }
 
             # 使用 Home Assistant 的共享 session 提高性能
+            # Get chat URL from config (complete URL, no derivation needed)
+            api_url = options.get(CONF_CHAT_URL, AI_HUB_CHAT_URL)
             session = async_get_clientsession(self.hass)
             async with session.post(
-                AI_HUB_CHAT_URL,
+                api_url,
                 json=request_params,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=60),
@@ -229,9 +223,9 @@ class AIHubBaseLLMEntity(Entity):
                 [
                     content
                     async for content in chat_log.async_add_delta_content_stream(
-                            self.entity_id, self._transform_stream(response)
-                        )
-                    ]
+                        self.entity_id, self._transform_stream(response)
+                    )
+                ]
 
         except aiohttp.ClientError as err:
             _LOGGER.error("Network error calling AI Hub API: %s", err)
@@ -406,8 +400,10 @@ class AIHubBaseLLMEntity(Entity):
                     except Exception as err:
                         _LOGGER.error("Failed to process image attachment %s: %s", attachment, err, exc_info=True)
                 else:
-                    _LOGGER.debug("Skipping non-image attachment: %s (mime: %s)",
-                                 attachment, getattr(attachment, 'mime_type', 'unknown'))
+                    _LOGGER.debug(
+                        "Skipping non-image attachment: %s (mime: %s)",
+                        attachment, getattr(attachment, 'mime_type', 'unknown')
+                    )
 
             # Build content EXACTLY like our working services.py
             if successful_images:
@@ -765,8 +761,9 @@ class AIHubEntityBase(Entity):
         self._attr_unique_id = subentry.subentry_id
         self._attr_name = subentry.title
 
-        # Get API key from runtime data
-        self._api_key = entry.runtime_data
+        # Get API key: use custom key if provided, otherwise use main key
+        custom_key = subentry.data.get(CONF_CUSTOM_API_KEY, "").strip()
+        self._api_key = custom_key if custom_key else entry.runtime_data
 
         # Device info
         self._attr_device_info = dr.DeviceInfo(

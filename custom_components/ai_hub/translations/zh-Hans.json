@@ -48,6 +48,8 @@
             "recommended": "推荐模式",
             "prompt": "提示词模板",
             "chat_model": "聊天模型",
+            "chat_url": "对话API地址",
+            "custom_api_key": "自定义API密钥",
             "temperature": "温度",
             "top_p": "Top P",
             "top_k": "Top K",
@@ -57,6 +59,9 @@
           "data_description": {
             "recommended": "使用推荐配置",
             "prompt": "自定义系统提示词",
+            "chat_model": "选择或输入自定义模型名称",
+            "chat_url": "完整的对话API地址（如API不通，请在地址后添加 /chat/completions）",
+            "custom_api_key": "自定义API密钥（留空使用主密钥）",
             "temperature": "控制创造性（0-2）",
             "top_p": "采样参数（0-1）",
             "max_tokens": "最大响应长度",
@@ -74,18 +79,22 @@
       "step": {
         "init": {
           "title": "配置AI任务",
-          "description": "自定义AI任务的行为和参数。开启推荐模式使用最佳设置，或关闭以自定义所有参数。提交后将切换配置信息。",
+          "description": "自定义AI任务的行为和参数。聊天模型自动跟随对话助手的设置。开启推荐模式使用最佳设置，或关闭以自定义参数。",
           "data": {
             "name": "名称",
             "recommended": "推荐模式",
-            "chat_model": "聊天模型",
             "image_model": "图像模型",
+            "image_url": "图像生成API地址",
+            "custom_api_key": "自定义API密钥",
             "temperature": "温度",
             "top_p": "Top P",
             "max_tokens": "最大令牌数"
           },
           "data_description": {
             "recommended": "使用推荐设置",
+            "image_model": "选择或输入自定义图像生成模型",
+            "image_url": "完整的图像生成API地址（默认智谱AI）",
+            "custom_api_key": "自定义API密钥（留空使用主密钥）",
             "temperature": "控制创造性（0-2）",
             "top_p": "采样参数（0-1）",
             "max_tokens": "最大响应长度"
@@ -169,37 +178,12 @@
     },
     "translation": {
       "initiate_flow": {
-        "user": "添加集成翻译",
-        "reconfigure": "重新配置集成翻译"
+        "user": "添加汉化",
+        "reconfigure": "重新配置汉化"
       },
-      "entry_type": "AI Hub 集成翻译",
+      "entry_type": "AI Hub 汉化",
       "abort": {
-        "translation_no_reconfigure": "集成翻译不支持重新配置。如需修改设置，请删除并重新添加。"
-      }
-    },
-    "blueprint_translation": {
-      "initiate_flow": {
-        "user": "添加蓝图翻译",
-        "reconfigure": "重新配置蓝图翻译"
-      },
-      "entry_type": "AI Hub 蓝图翻译",
-      "step": {
-        "init": {
-          "title": "配置蓝图翻译",
-          "description": "配置蓝图翻译功能。使用智谱AI自动将英文蓝图文件翻译为中文。",
-          "data": {
-            "name": "名称",
-            "recommended": "推荐模式",
-            "custom_components_path": "自定义组件路径"
-          },
-          "data_description": {
-            "recommended": "使用推荐设置",
-            "custom_components_path": "自定义集成目录路径，默认为配置目录"
-          }
-        }
-      },
-      "abort": {
-        "blueprint_translation_no_reconfigure": "蓝图翻译不支持重新配置。如需修改设置，请删除并重新添加。"
+        "translation_no_reconfigure": "汉化不支持重新配置。如需修改设置，请删除并重新添加。"
       }
     }
   },

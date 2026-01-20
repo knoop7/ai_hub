@@ -38,18 +38,20 @@ def get_localized_name(hass: HomeAssistant, zh_name: str, en_name: str) -> str:
 DOMAIN: Final = "ai_hub"
 
 # API Configuration
-AI_HUB_API_BASE: Final = "https://open.bigmodel.cn/api/paas/v4"
-AI_HUB_CHAT_URL: Final = f"{AI_HUB_API_BASE}/chat/completions"
-AI_HUB_IMAGE_GEN_URL: Final = f"{AI_HUB_API_BASE}/images/generations"
+AI_HUB_CHAT_URL: Final = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+AI_HUB_IMAGE_GEN_URL: Final = "https://open.bigmodel.cn/api/paas/v4/images/generations"
 
 # Timeout
 DEFAULT_REQUEST_TIMEOUT: Final = 30000  # milliseconds
 
 # Configuration Keys
 CONF_API_KEY: Final = "api_key"
+CONF_CUSTOM_API_KEY: Final = "custom_api_key"
 CONF_SILICONFLOW_API_KEY: Final = "siliconflow_api_key"
 CONF_CHAT_MODEL: Final = "chat_model"
+CONF_CHAT_URL: Final = "chat_url"
 CONF_IMAGE_MODEL: Final = "image_model"
+CONF_IMAGE_URL: Final = "image_url"
 CONF_MAX_TOKENS: Final = "max_tokens"
 CONF_PROMPT: Final = "prompt"
 CONF_TEMPERATURE: Final = "temperature"
@@ -515,10 +517,8 @@ DEFAULT_STT_NAME: Final = "AI Hub STT语音"
 DEFAULT_STT_NAME_EN: Final = "AI Hub STT"
 DEFAULT_WECHAT_NAME: Final = "AI Hub 微信通知"
 DEFAULT_WECHAT_NAME_EN: Final = "AI Hub WeChat"
-DEFAULT_TRANSLATION_NAME: Final = "AI Hub 集成汉化"
-DEFAULT_TRANSLATION_NAME_EN: Final = "AI Hub Integration Localization"
-DEFAULT_BLUEPRINT_TRANSLATION_NAME: Final = "AI Hub 蓝图汉化"
-DEFAULT_BLUEPRINT_TRANSLATION_NAME_EN: Final = "AI Hub Blueprint Translation"
+DEFAULT_TRANSLATION_NAME: Final = "AI Hub 汉化"
+DEFAULT_TRANSLATION_NAME_EN: Final = "AI Hub Localization"
 DEFAULT_CONVERSATION_NAME_EN: Final = "AI Hub Assistant"
 DEFAULT_AI_TASK_NAME_EN: Final = "AI Hub Task"
 
@@ -544,6 +544,7 @@ RECOMMENDED_CONVERSATION_OPTIONS: Final = {
     CONF_LLM_HASS_API: LLM_API_ASSIST,
     CONF_PROMPT: DEFAULT_INSTRUCTIONS_PROMPT,
     CONF_CHAT_MODEL: RECOMMENDED_CHAT_MODEL,
+    CONF_CHAT_URL: AI_HUB_CHAT_URL,
     CONF_TEMPERATURE: RECOMMENDED_TEMPERATURE,
     CONF_TOP_P: RECOMMENDED_TOP_P,
     CONF_TOP_K: RECOMMENDED_TOP_K,
@@ -553,11 +554,11 @@ RECOMMENDED_CONVERSATION_OPTIONS: Final = {
 
 RECOMMENDED_AI_TASK_OPTIONS: Final = {
     CONF_RECOMMENDED: True,
-    CONF_CHAT_MODEL: RECOMMENDED_AI_TASK_MODEL,
+    CONF_IMAGE_MODEL: RECOMMENDED_IMAGE_MODEL,
+    CONF_IMAGE_URL: AI_HUB_IMAGE_GEN_URL,
     CONF_TEMPERATURE: RECOMMENDED_AI_TASK_TEMPERATURE,
     CONF_TOP_P: RECOMMENDED_AI_TASK_TOP_P,
     CONF_MAX_TOKENS: RECOMMENDED_AI_TASK_MAX_TOKENS,
-    CONF_IMAGE_MODEL: RECOMMENDED_IMAGE_MODEL,
 }
 
 RECOMMENDED_TTS_OPTIONS: Final = {
@@ -579,16 +580,12 @@ RECOMMENDED_STT_OPTIONS: Final = {
     CONF_STT_MODEL: STT_DEFAULT_MODEL,
 }
 
-# Recommended Options for Translation (simplified)
+# Recommended Options for Translation (unified - both components and blueprints)
 RECOMMENDED_TRANSLATION_OPTIONS: Final = {
     CONF_RECOMMENDED: True,
     CONF_FORCE_TRANSLATION: False,
     CONF_TARGET_COMPONENT: "",
     CONF_LIST_COMPONENTS: False,
-}
-
-RECOMMENDED_BLUEPRINT_TRANSLATION_OPTIONS: Final = {
-    CONF_RECOMMENDED: True,
     CONF_TARGET_BLUEPRINT: "",
     CONF_LIST_BLUEPRINTS: False,
 }

@@ -28,7 +28,12 @@ from ..const import AI_HUB_CHAT_URL, RECOMMENDED_CHAT_MODEL
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_translate_text(text: str, api_key: str) -> str:
+async def async_translate_text(
+    text: str,
+    api_key: str,
+    api_url: str | None = None,
+    model: str | None = None
+) -> str:
     """异步翻译文本，保留占位符."""
     if not text or len(text.strip()) < 2:
         return text
@@ -44,7 +49,7 @@ async def async_translate_text(text: str, api_key: str) -> str:
     placeholders = re.findall(placeholder_pattern, text)
 
     if not placeholders:
-        return await _async_translate_simple_text(text, api_key)
+        return await _async_translate_simple_text(text, api_key, api_url, model)
 
     placeholder_map = {}
     temp_text = text
@@ -53,7 +58,7 @@ async def async_translate_text(text: str, api_key: str) -> str:
         placeholder_map[marker] = placeholder
         temp_text = temp_text.replace(placeholder, marker, 1)
 
-    translated_temp = await _async_translate_simple_text(temp_text, api_key)
+    translated_temp = await _async_translate_simple_text(temp_text, api_key, api_url, model)
 
     translated_text = translated_temp
     for marker, placeholder in placeholder_map.items():
@@ -62,27 +67,41 @@ async def async_translate_text(text: str, api_key: str) -> str:
     return translated_text
 
 
-async def async_translate_json_values(data, api_key: str):
+async def async_translate_json_values(
+    data,
+    api_key: str,
+    api_url: str | None = None,
+    model: str | None = None
+):
     """异步递归翻译JSON值."""
     if isinstance(data, dict):
-        return {key: await async_translate_json_values(value, api_key) for key, value in data.items()}
+        return {key: await async_translate_json_values(value, api_key, api_url, model) for key, value in data.items()}
     elif isinstance(data, list):
-        return [await async_translate_json_values(item, api_key) for item in data]
+        return [await async_translate_json_values(item, api_key, api_url, model) for item in data]
     elif isinstance(data, str) and data.strip():
-        return await async_translate_text(data, api_key)
+        return await async_translate_text(data, api_key, api_url, model)
     else:
         return data
 
 
-async def _async_translate_simple_text(text: str, api_key: str) -> str:
+async def _async_translate_simple_text(
+    text: str,
+    api_key: str,
+    api_url: str | None = None,
+    model: str | None = None
+) -> str:
     """异步翻译函数."""
+    # Use provided values or defaults
+    url = api_url or AI_HUB_CHAT_URL
+    chat_model = model or RECOMMENDED_CHAT_MODEL
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
 
     payload = {
-        "model": RECOMMENDED_CHAT_MODEL,
+        "model": chat_model,
         "messages": [
             {"role": "system", "content": "Translate English to Chinese. Return only the translation."},
             {"role": "user", "content": text}
@@ -93,7 +112,7 @@ async def _async_translate_simple_text(text: str, api_key: str) -> str:
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(AI_HUB_CHAT_URL, headers=headers, json=payload,
+            async with session.post(url, headers=headers, json=payload,
                                     timeout=aiohttp.ClientTimeout(total=30)) as response:
                 response.raise_for_status()
                 result = await response.json()
@@ -103,8 +122,14 @@ async def _async_translate_simple_text(text: str, api_key: str) -> str:
         return text
 
 
-async def async_translate_component(component_dir: Path, component_name: str, api_key: str,
-                                    force_translation: bool = False) -> str:
+async def async_translate_component(
+    component_dir: Path,
+    component_name: str,
+    api_key: str,
+    force_translation: bool = False,
+    api_url: str | None = None,
+    model: str | None = None
+) -> str:
     """异步翻译单个组件."""
     translations_dir = component_dir / "translations"
     en_file = translations_dir / "en.json"
@@ -120,7 +145,7 @@ async def async_translate_component(component_dir: Path, component_name: str, ap
         with open(en_file, 'r', encoding='utf-8') as f:
             en_data = json.load(f)
 
-        zh_data = await async_translate_json_values(en_data, api_key)
+        zh_data = await async_translate_json_values(en_data, api_key, api_url, model)
 
         with open(zh_file, 'w', encoding='utf-8') as f:
             json.dump(zh_data, f, ensure_ascii=False, indent=2)
@@ -132,11 +157,15 @@ async def async_translate_component(component_dir: Path, component_name: str, ap
         return "error"
 
 
-async def async_translate_all_components(custom_components_path: str = "custom_components",
-                                         api_key: str | None = None,
-                                         force_translation: bool = False,
-                                         target_component: str = "",
-                                         list_components: bool = False) -> dict:
+async def async_translate_all_components(
+    custom_components_path: str = "custom_components",
+    api_key: str | None = None,
+    force_translation: bool = False,
+    target_component: str = "",
+    list_components: bool = False,
+    api_url: str | None = None,
+    model: str | None = None
+) -> dict:
     """异步翻译所有组件."""
     base_path = None
     paths_to_try = [
@@ -184,11 +213,15 @@ async def async_translate_all_components(custom_components_path: str = "custom_c
             return {"error": f"Target component not found: {target_component}"}
         component_dirs = [target_dir]
     else:
-        component_dirs = [d for d in base_path.iterdir() 
-                         if d.is_dir() and d.name not in ["ai_hub", "translation_localizer"]]
+        component_dirs = [
+            d for d in base_path.iterdir()
+            if d.is_dir() and d.name not in ["ai_hub", "translation_localizer"]
+        ]
 
     for component_dir in component_dirs:
-        result = await async_translate_component(component_dir, component_dir.name, api_key, force_translation)
+        result = await async_translate_component(
+            component_dir, component_dir.name, api_key, force_translation, api_url, model
+        )
         if result == "translated":
             translated += 1
             translated_components.append(component_dir.name)
