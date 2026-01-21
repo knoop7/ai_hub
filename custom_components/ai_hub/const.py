@@ -1,9 +1,19 @@
-"""Constants for the AI Hub integration."""
+"""Constants for the AI Hub integration.
+
+This module contains all constants organized by category:
+- Domain and API URLs
+- Timeouts and Retry Configuration
+- Cache and Audio Limits
+- Configuration Keys
+- Model Lists
+- Default Values and Recommended Options
+- Services
+"""
 
 from __future__ import annotations
 
 import logging
-from typing import Final
+from typing import Any, Final
 
 from homeassistant.core import HomeAssistant
 
@@ -13,45 +23,140 @@ try:
     LLM_API_ASSIST = llm.LLM_API_ASSIST
     DEFAULT_INSTRUCTIONS_PROMPT = llm.DEFAULT_INSTRUCTIONS_PROMPT
 except ImportError:
-    # Fallback values if llm module is not available
     LLM_API_ASSIST = "assist"
-    DEFAULT_INSTRUCTIONS_PROMPT = "你是一个有用的AI助手，请根据用户的问题提供准确、有帮助的回答。"
+    DEFAULT_INSTRUCTIONS_PROMPT = "You are a helpful AI assistant."
 
 _LOGGER = logging.getLogger(__name__)
-LOGGER = _LOGGER  # 为了向后兼容，提供不带下划线的版本
+LOGGER = _LOGGER  # Backwards compatibility
 
 
 def get_localized_name(hass: HomeAssistant, zh_name: str, en_name: str) -> str:
-    """根据Home Assistant语言设置返回本地化名称."""
+    """Return localized name based on Home Assistant language setting."""
     language = hass.config.language
-
-    # 中文语言代码列表
     chinese_languages = ["zh", "zh-cn", "zh-hans", "zh-hant", "zh-tw", "zh-hk"]
-
     if language and language.lower() in chinese_languages:
         return zh_name
-    else:
-        return en_name
+    return en_name
 
 
-# Domain
+# =============================================================================
+# Domain and API URLs
+# =============================================================================
+
 DOMAIN: Final = "ai_hub"
 
-# API Configuration
-AI_HUB_CHAT_URL: Final = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-AI_HUB_IMAGE_GEN_URL: Final = "https://open.bigmodel.cn/api/paas/v4/images/generations"
+# API Endpoints
+API_URLS: Final = {
+    "chat": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    "image": "https://open.bigmodel.cn/api/paas/v4/images/generations",
+    "siliconflow_base": "https://api.siliconflow.cn/v1",
+    "siliconflow_asr": "https://api.siliconflow.cn/v1/audio/transcriptions",
+    "bemfa_wechat": "https://apis.bemfa.com/vb/wechat/v1/wechatAlertJson",
+}
 
-# Timeout
+# Keep legacy constants for backwards compatibility
+AI_HUB_CHAT_URL: Final = API_URLS["chat"]
+AI_HUB_IMAGE_GEN_URL: Final = API_URLS["image"]
+SILICONFLOW_API_BASE: Final = API_URLS["siliconflow_base"]
+SILICONFLOW_ASR_URL: Final = API_URLS["siliconflow_asr"]
+BEMFA_API_URL: Final = API_URLS["bemfa_wechat"]
+
+
+# =============================================================================
+# Timeouts Configuration (in seconds)
+# =============================================================================
+
+TIMEOUTS: Final = {
+    "default": 30.0,
+    "chat_api": 60.0,
+    "image_api": 120.0,
+    "stt_api": 30.0,
+    "tts_api": 30.0,
+    "wechat_api": 15.0,
+    "translation_api": 60.0,
+    "media_download": 30.0,
+    "health_check": 10.0,
+}
+
+# Legacy timeout constants for backwards compatibility
 DEFAULT_REQUEST_TIMEOUT: Final = 30000  # milliseconds
+TIMEOUT_DEFAULT: Final = TIMEOUTS["default"]
+TIMEOUT_CHAT_API: Final = TIMEOUTS["chat_api"]
+TIMEOUT_IMAGE_API: Final = TIMEOUTS["image_api"]
+TIMEOUT_STT_API: Final = TIMEOUTS["stt_api"]
+TIMEOUT_TTS_API: Final = TIMEOUTS["tts_api"]
+TIMEOUT_WECHAT_API: Final = TIMEOUTS["wechat_api"]
+TIMEOUT_TRANSLATION_API: Final = TIMEOUTS["translation_api"]
+TIMEOUT_MEDIA_DOWNLOAD: Final = TIMEOUTS["media_download"]
+TIMEOUT_HEALTH_CHECK: Final = TIMEOUTS["health_check"]
 
+
+# =============================================================================
+# Retry Configuration
+# =============================================================================
+
+RETRY_CONFIG: Final = {
+    "max_attempts": 3,
+    "base_delay": 1.0,
+    "max_delay": 30.0,
+    "exponential_base": 2.0,
+}
+
+# Legacy retry constants
+RETRY_MAX_ATTEMPTS: Final = RETRY_CONFIG["max_attempts"]
+RETRY_BASE_DELAY: Final = RETRY_CONFIG["base_delay"]
+RETRY_MAX_DELAY: Final = RETRY_CONFIG["max_delay"]
+RETRY_EXPONENTIAL_BASE: Final = RETRY_CONFIG["exponential_base"]
+
+
+# =============================================================================
+# Cache Configuration
+# =============================================================================
+
+CACHE_CONFIG: Final = {
+    "tts_max_size": 100,
+    "tts_ttl": 3600,  # 1 hour
+}
+
+TTS_CACHE_MAX_SIZE: Final = CACHE_CONFIG["tts_max_size"]
+TTS_CACHE_TTL: Final = CACHE_CONFIG["tts_ttl"]
+
+
+# =============================================================================
+# Audio Size Limits
+# =============================================================================
+
+AUDIO_LIMITS: Final = {
+    "stt_min_size": 1000,  # 1KB
+    "stt_max_size": 10 * 1024 * 1024,  # 10MB
+    "stt_warning_size": 500 * 1024,  # 500KB
+    "stt_max_file_size_mb": 25,
+}
+
+STT_MIN_AUDIO_SIZE: Final = AUDIO_LIMITS["stt_min_size"]
+STT_MAX_AUDIO_SIZE: Final = AUDIO_LIMITS["stt_max_size"]
+STT_WARNING_AUDIO_SIZE: Final = AUDIO_LIMITS["stt_warning_size"]
+STT_MAX_FILE_SIZE_MB: Final = AUDIO_LIMITS["stt_max_file_size_mb"]
+
+
+# =============================================================================
 # Configuration Keys
+# =============================================================================
+
+# API Keys
 CONF_API_KEY: Final = "api_key"
 CONF_CUSTOM_API_KEY: Final = "custom_api_key"
 CONF_SILICONFLOW_API_KEY: Final = "siliconflow_api_key"
+
+# Model Configuration
 CONF_CHAT_MODEL: Final = "chat_model"
 CONF_CHAT_URL: Final = "chat_url"
 CONF_IMAGE_MODEL: Final = "image_model"
 CONF_IMAGE_URL: Final = "image_url"
+CONF_STT_MODEL: Final = "model"
+CONF_STT_FILE: Final = "file"
+
+# LLM Parameters
 CONF_MAX_TOKENS: Final = "max_tokens"
 CONF_PROMPT: Final = "prompt"
 CONF_TEMPERATURE: Final = "temperature"
@@ -61,390 +166,173 @@ CONF_LLM_HASS_API: Final = "llm_hass_api"
 CONF_RECOMMENDED: Final = "recommended"
 CONF_MAX_HISTORY_MESSAGES: Final = "max_history_messages"
 
-# Recommended Values for Conversation
-RECOMMENDED_CHAT_MODEL: Final = "glm-4.7-flash"
-RECOMMENDED_TEMPERATURE: Final = 0.3
-RECOMMENDED_TOP_P: Final = 0.5
-RECOMMENDED_TOP_K: Final = 1
-RECOMMENDED_MAX_TOKENS: Final = 250
-RECOMMENDED_MAX_HISTORY_MESSAGES: Final = 30  # Keep last 30 messages for continuous conversation
-
-# Recommended Values for AI Task
-RECOMMENDED_AI_TASK_MODEL: Final = "glm-4.7-flash"
-RECOMMENDED_AI_TASK_TEMPERATURE: Final = 0.95
-RECOMMENDED_AI_TASK_TOP_P: Final = 0.7
-RECOMMENDED_AI_TASK_MAX_TOKENS: Final = 2000
-
-# Image Analysis
-RECOMMENDED_IMAGE_ANALYSIS_MODEL: Final = "glm-4.6v-flash"
-
-# Image Generation
-RECOMMENDED_IMAGE_MODEL: Final = "cogview-3-flash"
-
-# Edge TTS Configuration
-RECOMMENDED_TTS_MODEL: Final = "zh-CN-XiaoxiaoNeural"
-
-# Silicon Flow ASR Configuration
-SILICONFLOW_API_BASE: Final = "https://api.siliconflow.cn/v1"
-SILICONFLOW_ASR_URL: Final = f"{SILICONFLOW_API_BASE}/audio/transcriptions"
-RECOMMENDED_STT_MODEL: Final = "FunAudioLLM/SenseVoiceSmall"
-
-# Silicon Flow STT Models (官方完整列表)
-SILICONFLOW_STT_MODELS: Final = [
-    "TeleAI/TeleSpeechASR",          # TeleSpeechASR - 免费
-    "FunAudioLLM/SenseVoiceSmall",   # SenseVoiceSmall - 免费（推荐）
-]
-
-# Silicon Flow STT Language Options
-# SiliconFlow STT 支持自动语言检测，无需手动指定语言
-# SenseVoice 模型支持：中文、英文、日文、韩文、粤语等多种语言
-
-# Silicon Flow STT Audio Formats
-SILICONFLOW_STT_AUDIO_FORMATS: Final = [
-    "mp3",    # MP3格式
-    "wav",    # WAV格式
-    "flac",   # FLAC格式
-    "m4a",    # M4A格式
-    "ogg",    # OGG格式
-    "webm",   # WebM格式
-]
-
-# Edge TTS Voices (完整官方列表)
-EDGE_TTS_VOICES: Final = {
-    'zh-CN-XiaoxiaoNeural': 'zh-CN',
-    'zh-CN-XiaoyiNeural': 'zh-CN',
-    'zh-CN-YunjianNeural': 'zh-CN',
-    'zh-CN-YunxiNeural': 'zh-CN',
-    'zh-CN-YunxiaNeural': 'zh-CN',
-    'zh-CN-YunyangNeural': 'zh-CN',
-    'zh-HK-HiuGaaiNeural': 'zh-HK',
-    'zh-HK-HiuMaanNeural': 'zh-HK',
-    'zh-HK-WanLungNeural': 'zh-HK',
-    'zh-TW-HsiaoChenNeural': 'zh-TW',
-    'zh-TW-YunJheNeural': 'zh-TW',
-    'zh-TW-HsiaoYuNeural': 'zh-TW',
-    'af-ZA-AdriNeural': 'af-ZA',
-    'af-ZA-WillemNeural': 'af-ZA',
-    'am-ET-AmehaNeural': 'am-ET',
-    'am-ET-MekdesNeural': 'am-ET',
-    'ar-AE-FatimaNeural': 'ar-AE',
-    'ar-AE-HamdanNeural': 'ar-AE',
-    'ar-BH-AliNeural': 'ar-BH',
-    'ar-BH-LailaNeural': 'ar-BH',
-    'ar-DZ-AminaNeural': 'ar-DZ',
-    'ar-DZ-IsmaelNeural': 'ar-DZ',
-    'ar-EG-SalmaNeural': 'ar-EG',
-    'ar-EG-ShakirNeural': 'ar-EG',
-    'ar-IQ-BasselNeural': 'ar-IQ',
-    'ar-IQ-RanaNeural': 'ar-IQ',
-    'ar-JO-SanaNeural': 'ar-JO',
-    'ar-JO-TaimNeural': 'ar-JO',
-    'ar-KW-FahedNeural': 'ar-KW',
-    'ar-KW-NouraNeural': 'ar-KW',
-    'ar-LB-LaylaNeural': 'ar-LB',
-    'ar-LB-RamiNeural': 'ar-LB',
-    'ar-LY-ImanNeural': 'ar-LY',
-    'ar-LY-OmarNeural': 'ar-LY',
-    'ar-MA-JamalNeural': 'ar-MA',
-    'ar-MA-MounaNeural': 'ar-MA',
-    'ar-OM-AbdullahNeural': 'ar-OM',
-    'ar-OM-AyshaNeural': 'ar-OM',
-    'ar-QA-AmalNeural': 'ar-QA',
-    'ar-QA-MoazNeural': 'ar-QA',
-    'ar-SA-HamedNeural': 'ar-SA',
-    'ar-SA-ZariyahNeural': 'ar-SA',
-    'ar-SY-AmanyNeural': 'ar-SY',
-    'ar-SY-LaithNeural': 'ar-SY',
-    'ar-TN-HediNeural': 'ar-TN',
-    'ar-TN-ReemNeural': 'ar-TN',
-    'ar-YE-MaryamNeural': 'ar-YE',
-    'ar-YE-SalehNeural': 'ar-YE',
-    'az-AZ-BabekNeural': 'az-AZ',
-    'az-AZ-BanuNeural': 'az-AZ',
-    'bg-BG-BorislavNeural': 'bg-BG',
-    'bg-BG-KalinaNeural': 'bg-BG',
-    'bn-BD-NabanitaNeural': 'bn-BD',
-    'bn-BD-PradeepNeural': 'bn-BD',
-    'bn-IN-BashkarNeural': 'bn-IN',
-    'bn-IN-TanishaaNeural': 'bn-IN',
-    'bs-BA-GoranNeural': 'bs-BA',
-    'bs-BA-VesnaNeural': 'bs-BA',
-    'ca-ES-EnricNeural': 'ca-ES',
-    'ca-ES-JoanaNeural': 'ca-ES',
-    'cs-CZ-AntoninNeural': 'cs-CZ',
-    'cs-CZ-VlastaNeural': 'cs-CZ',
-    'cy-GB-AledNeural': 'cy-GB',
-    'cy-GB-NiaNeural': 'cy-GB',
-    'da-DK-ChristelNeural': 'da-DK',
-    'da-DK-JeppeNeural': 'da-DK',
-    'de-AT-IngridNeural': 'de-AT',
-    'de-AT-JonasNeural': 'de-AT',
-    'de-CH-JanNeural': 'de-CH',
-    'de-CH-LeniNeural': 'de-CH',
-    'de-DE-AmalaNeural': 'de-DE',
-    'de-DE-ConradNeural': 'de-DE',
-    'de-DE-KatjaNeural': 'de-DE',
-    'de-DE-SeraphinaMultilingualNeural': 'de-DE',
-    'de-DE-KillianNeural': 'de-DE',
-    'el-GR-AthinaNeural': 'el-GR',
-    'el-GR-NestorasNeural': 'el-GR',
-    'en-AU-NatashaNeural': 'en-AU',
-    'en-AU-WilliamNeural': 'en-AU',
-    'en-CA-ClaraNeural': 'en-CA',
-    'en-CA-LiamNeural': 'en-CA',
-    'en-GB-LibbyNeural': 'en-GB',
-    'en-GB-MaisieNeural': 'en-GB',
-    'en-GB-RyanNeural': 'en-GB',
-    'en-GB-SoniaNeural': 'en-GB',
-    'en-GB-ThomasNeural': 'en-GB',
-    'en-HK-SamNeural': 'en-HK',
-    'en-HK-YanNeural': 'en-HK',
-    'en-IE-ConnorNeural': 'en-IE',
-    'en-IE-EmilyNeural': 'en-IE',
-    'en-IN-NeerjaNeural': 'en-IN',
-    'en-IN-PrabhatNeural': 'en-IN',
-    'en-KE-AsiliaNeural': 'en-KE',
-    'en-KE-ChilembaNeural': 'en-KE',
-    'en-NG-AbeoNeural': 'en-NG',
-    'en-NG-EzinneNeural': 'en-NG',
-    'en-NZ-MitchellNeural': 'en-NZ',
-    'en-NZ-MollyNeural': 'en-NZ',
-    'en-PH-JamesNeural': 'en-PH',
-    'en-PH-RosaNeural': 'en-PH',
-    'en-SG-LunaNeural': 'en-SG',
-    'en-SG-WayneNeural': 'en-SG',
-    'en-TZ-ElimuNeural': 'en-TZ',
-    'en-TZ-ImaniNeural': 'en-TZ',
-    'en-US-AvaNeural': 'en-US',
-    'en-US-AndrewNeural': 'en-US',
-    'en-US-EmmaNeural': 'en-US',
-    'en-US-BrianNeural': 'en-US',
-    'en-US-AnaNeural': 'en-US',
-    'en-US-AndrewMultilingualNeural': 'en-US',
-    'en-US-AriaNeural': 'en-US',
-    'en-US-AvaMultilingualNeural': 'en-US',
-    'en-US-BrianMultilingualNeural': 'en-US',
-    'en-US-ChristopherNeural': 'en-US',
-    'en-US-EmmaMultilingualNeural': 'en-US',
-    'en-US-EricNeural': 'en-US',
-    'en-US-GuyNeural': 'en-US',
-    'en-US-JennyNeural': 'en-US',
-    'en-US-MichelleNeural': 'en-US',
-    'en-US-RogerNeural': 'en-US',
-    'en-US-SteffanNeural': 'en-US',
-    'en-ZA-LeahNeural': 'en-ZA',
-    'en-ZA-LukeNeural': 'en-ZA',
-    'es-AR-ElenaNeural': 'es-AR',
-    'es-AR-TomasNeural': 'es-AR',
-    'es-BO-MarceloNeural': 'es-BO',
-    'es-BO-SofiaNeural': 'es-BO',
-    'es-CL-CatalinaNeural': 'es-CL',
-    'es-CL-LorenzoNeural': 'es-CL',
-    'es-CO-GonzaloNeural': 'es-CO',
-    'es-CO-SalomeNeural': 'es-CO',
-    'es-CR-JuanNeural': 'es-CR',
-    'es-CR-MariaNeural': 'es-CR',
-    'es-CU-BelkysNeural': 'es-CU',
-    'es-CU-ManuelNeural': 'es-CU',
-    'es-DO-EmilioNeural': 'es-DO',
-    'es-DO-RamonaNeural': 'es-DO',
-    'es-EC-AndreaNeural': 'es-EC',
-    'es-EC-LuisNeural': 'es-EC',
-    'es-ES-AlvaroNeural': 'es-ES',
-    'es-ES-ElviraNeural': 'es-ES',
-    'es-ES-ManuelEsCUNeural': 'es-ES',
-    'es-GQ-JavierNeural': 'es-GQ',
-    'es-GQ-TeresaNeural': 'es-GQ',
-    'es-GT-AndresNeural': 'es-GT',
-    'es-GT-MartaNeural': 'es-GT',
-    'es-HN-CarlosNeural': 'es-HN',
-    'es-HN-KarlaNeural': 'es-HN',
-    'es-MX-DaliaNeural': 'es-MX',
-    'es-MX-JorgeNeural': 'es-MX',
-    'es-MX-LorenzoEsCLNeural': 'es-MX',
-    'es-NI-FedericoNeural': 'es-NI',
-    'es-NI-YolandaNeural': 'es-NI',
-    'es-PA-MargaritaNeural': 'es-PA',
-    'es-PA-RobertoNeural': 'es-PA',
-    'es-PE-AlexNeural': 'es-PE',
-    'es-PE-CamilaNeural': 'es-PE',
-    'es-PR-KarinaNeural': 'es-PR',
-    'es-PR-VictorNeural': 'es-PR',
-    'es-PY-MarioNeural': 'es-PY',
-    'es-PY-TaniaNeural': 'es-PY',
-    'es-SV-LorenaNeural': 'es-SV',
-    'es-SV-RodrigoNeural': 'es-SV',
-    'es-US-AlonsoNeural': 'es-US',
-    'es-US-PalomaNeural': 'es-US',
-    'es-UY-MateoNeural': 'es-UY',
-    'es-UY-ValentinaNeural': 'es-UY',
-    'es-VE-PaolaNeural': 'es-VE',
-    'es-VE-SebastianNeural': 'es-VE',
-    'et-EE-AnuNeural': 'et-EE',
-    'et-EE-KertNeural': 'et-EE',
-    'fa-IR-DilaraNeural': 'fa-IR',
-    'fa-IR-FaridNeural': 'fa-IR',
-    'fi-FI-HarriNeural': 'fi-FI',
-    'fi-FI-NooraNeural': 'fi-FI',
-    'fil-PH-AngeloNeural': 'fil-PH',
-    'fil-PH-BlessicaNeural': 'fil-PH',
-    'fr-BE-CharlineNeural': 'fr-BE',
-    'fr-BE-GerardNeural': 'fr-BE',
-    'fr-CA-AntoineNeural': 'fr-CA',
-    'fr-CA-JeanNeural': 'fr-CA',
-    'fr-CA-SylvieNeural': 'fr-CA',
-    'fr-CH-ArianeNeural': 'fr-CH',
-    'fr-CH-FabriceNeural': 'fr-CH',
-    'fr-FR-DeniseNeural': 'fr-FR',
-    'fr-FR-EloiseNeural': 'fr-FR',
-    'fr-FR-HenriNeural': 'fr-FR',
-    'ga-IE-ColmNeural': 'ga-IE',
-    'ga-IE-OrlaNeural': 'ga-IE',
-    'gl-ES-RoiNeural': 'gl-ES',
-    'gl-ES-SabelaNeural': 'gl-ES',
-    'gu-IN-DhwaniNeural': 'gu-IN',
-    'gu-IN-NiranjanNeural': 'gu-IN',
-    'he-IL-AvriNeural': 'he-IL',
-    'he-IL-HilaNeural': 'he-IL',
-    'hi-IN-MadhurNeural': 'hi-IN',
-    'hi-IN-SwaraNeural': 'hi-IN',
-    'hr-HR-GabrijelaNeural': 'hr-HR',
-    'hr-HR-SreckoNeural': 'hr-HR',
-    'hu-HU-NoemiNeural': 'hu-HU',
-    'hu-HU-TamasNeural': 'hu-HU',
-    'id-ID-ArdiNeural': 'id-ID',
-    'id-ID-GadisNeural': 'id-ID',
-    'is-IS-GudrunNeural': 'is-IS',
-    'is-IS-GunnarNeural': 'is-IS',
-    'it-IT-DiegoNeural': 'it-IT',
-    'it-IT-ElsaNeural': 'it-IT',
-    'it-IT-IsabellaNeural': 'it-IT',
-    'ja-JP-KeitaNeural': 'ja-JP',
-    'ja-JP-NanamiNeural': 'ja-JP',
-    'jv-ID-DimasNeural': 'jv-ID',
-    'jv-ID-SitiNeural': 'jv-ID',
-    'ka-GE-EkaNeural': 'ka-GE',
-    'ka-GE-GiorgiNeural': 'ka-GE',
-    'kk-KZ-AigulNeural': 'kk-KZ',
-    'kk-KZ-DauletNeural': 'kk-KZ',
-    'km-KH-PisethNeural': 'km-KH',
-    'km-KH-SreymomNeural': 'km-KH',
-    'kn-IN-GaganNeural': 'kn-IN',
-    'kn-IN-SapnaNeural': 'kn-IN',
-    'ko-KR-InJoonNeural': 'ko-KR',
-    'ko-KR-SunHiNeural': 'ko-KR',
-    'lo-LA-ChanthavongNeural': 'lo-LA',
-    'lo-LA-KeomanyNeural': 'lo-LA',
-    'lt-LT-LeonasNeural': 'lt-LT',
-    'lt-LT-OnaNeural': 'lt-LT',
-    'lv-LV-EveritaNeural': 'lv-LV',
-    'lv-LV-NilsNeural': 'lv-LV',
-    'mk-MK-AleksandarNeural': 'mk-MK',
-    'mk-MK-MarijaNeural': 'mk-MK',
-    'ml-IN-MidhunNeural': 'ml-IN',
-    'ml-IN-SobhanaNeural': 'ml-IN',
-    'mn-MN-BataaNeural': 'mn-MN',
-    'mn-MN-YesuiNeural': 'mn-MN',
-    'mr-IN-AarohiNeural': 'mr-IN',
-    'mr-IN-ManoharNeural': 'mr-IN',
-    'ms-MY-OsmanNeural': 'ms-MY',
-    'ms-MY-YasminNeural': 'ms-MY',
-    'mt-MT-GraceNeural': 'mt-MT',
-    'mt-MT-JosephNeural': 'mt-MT',
-    'my-MM-NilarNeural': 'my-MM',
-    'my-MM-ThihaNeural': 'my-MM',
-    'nb-NO-FinnNeural': 'nb-NO',
-    'nb-NO-PernilleNeural': 'nb-NO',
-    'ne-NP-HemkalaNeural': 'ne-NP',
-    'ne-NP-SagarNeural': 'ne-NP',
-    'nl-BE-ArnaudNeural': 'nl-BE',
-    'nl-BE-DenaNeural': 'nl-BE',
-    'nl-NL-ColetteNeural': 'nl-NL',
-    'nl-NL-FennaNeural': 'nl-NL',
-    'nl-NL-MaartenNeural': 'nl-NL',
-    'pl-PL-MarekNeural': 'pl-PL',
-    'pl-PL-ZofiaNeural': 'pl-PL',
-    'ps-AF-GulNawazNeural': 'ps-AF',
-    'ps-AF-LatifaNeural': 'ps-AF',
-    'pt-BR-AntonioNeural': 'pt-BR',
-    'pt-BR-FranciscaNeural': 'pt-BR',
-    'pt-PT-DuarteNeural': 'pt-PT',
-    'pt-PT-RaquelNeural': 'pt-PT',
-    'ro-RO-AlinaNeural': 'ro-RO',
-    'ro-RO-EmilNeural': 'ro-RO',
-    'ru-RU-DmitryNeural': 'ru-RU',
-    'ru-RU-SvetlanaNeural': 'ru-RU',
-    'si-LK-SameeraNeural': 'si-LK',
-    'si-LK-ThiliniNeural': 'si-LK',
-    'sk-SK-LukasNeural': 'sk-SK',
-    'sk-SK-ViktoriaNeural': 'sk-SK',
-    'sl-SI-PetraNeural': 'sl-SI',
-    'sl-SI-RokNeural': 'sl-SI',
-    'so-SO-MuuseNeural': 'so-SO',
-    'so-SO-UbaxNeural': 'so-SO',
-    'sq-AL-AnilaNeural': 'sq-AL',
-    'sq-AL-IlirNeural': 'sq-AL',
-    'sr-RS-NicholasNeural': 'sr-RS',
-    'sr-RS-SophieNeural': 'sr-RS',
-    'su-ID-JajangNeural': 'su-ID',
-    'su-ID-TutiNeural': 'su-ID',
-    'sv-SE-MattiasNeural': 'sv-SE',
-    'sv-SE-SofieNeural': 'sv-SE',
-    'sw-KE-RafikiNeural': 'sw-KE',
-    'sw-KE-ZuriNeural': 'sw-KE',
-    'sw-TZ-DaudiNeural': 'sw-TZ',
-    'sw-TZ-RehemaNeural': 'sw-TZ',
-    'ta-IN-PallaviNeural': 'ta-IN',
-    'ta-IN-ValluvarNeural': 'ta-IN',
-    'ta-LK-KumarNeural': 'ta-LK',
-    'ta-LK-SaranyaNeural': 'ta-LK',
-    'ta-MY-KaniNeural': 'ta-MY',
-    'ta-MY-SuryaNeural': 'ta-MY',
-    'ta-SG-AnbuNeural': 'ta-SG',
-    'ta-SG-VenbaNeural': 'ta-SG',
-    'te-IN-MohanNeural': 'te-IN',
-    'te-IN-ShrutiNeural': 'te-IN',
-    'th-TH-NiwatNeural': 'th-TH',
-    'th-TH-PremwadeeNeural': 'th-TH',
-    'tr-TR-AhmetNeural': 'tr-TR',
-    'tr-TR-EmelNeural': 'tr-TR',
-    'uk-UA-OstapNeural': 'uk-UA',
-    'uk-UA-PolinaNeural': 'uk-UA',
-    'ur-IN-GulNeural': 'ur-IN',
-    'ur-IN-SalmanNeural': 'ur-IN',
-    'ur-PK-AsadNeural': 'ur-PK',
-    'ur-PK-UzmaNeural': 'ur-PK',
-    'uz-UZ-MadinaNeural': 'uz-UZ',
-    'uz-UZ-SardorNeural': 'uz-UZ',
-    'vi-VN-HoaiMyNeural': 'vi-VN',
-    'vi-VN-NamMinhNeural': 'vi-VN',
-    'zu-ZA-ThandoNeural': 'zu-ZA',
-    'zu-ZA-ThembaNeural': 'zu-ZA',
-}
-
-# Edge TTS Configuration Keys
+# TTS Configuration
 CONF_TTS_VOICE: Final = "voice"
 CONF_TTS_LANG: Final = "lang"
 
-# Edge TTS Default Parameters
-TTS_DEFAULT_VOICE: Final = "zh-CN-XiaoxiaoNeural"  # 默认使用晓晓女声
+# WeChat and Translation
+CONF_BEMFA_UID: Final = "bemfa_uid"
+CONF_CUSTOM_COMPONENTS_PATH: Final = "custom_components_path"
+CONF_FORCE_TRANSLATION: Final = "force_translation"
+CONF_TARGET_COMPONENT: Final = "target_component"
+CONF_LIST_COMPONENTS: Final = "list_components"
+CONF_TARGET_BLUEPRINT: Final = "target_blueprint"
+CONF_LIST_BLUEPRINTS: Final = "list_blueprints"
+
+
+# =============================================================================
+# Recommended Values
+# =============================================================================
+
+RECOMMENDED: Final[dict[str, Any]] = {
+    # Conversation
+    "chat_model": "glm-4.7-flash",
+    "temperature": 0.3,
+    "top_p": 0.5,
+    "top_k": 1,
+    "max_tokens": 250,
+    "max_history_messages": 30,
+    # AI Task
+    "ai_task_model": "glm-4.7-flash",
+    "ai_task_temperature": 0.95,
+    "ai_task_top_p": 0.7,
+    "ai_task_max_tokens": 2000,
+    # Image
+    "image_model": "cogview-3-flash",
+    "image_analysis_model": "glm-4.6v-flash",
+    # TTS
+    "tts_voice": "zh-CN-XiaoxiaoNeural",
+    # STT
+    "stt_model": "FunAudioLLM/SenseVoiceSmall",
+}
+
+# Legacy recommended constants for backwards compatibility
+RECOMMENDED_CHAT_MODEL: Final = RECOMMENDED["chat_model"]
+RECOMMENDED_TEMPERATURE: Final = RECOMMENDED["temperature"]
+RECOMMENDED_TOP_P: Final = RECOMMENDED["top_p"]
+RECOMMENDED_TOP_K: Final = RECOMMENDED["top_k"]
+RECOMMENDED_MAX_TOKENS: Final = RECOMMENDED["max_tokens"]
+RECOMMENDED_MAX_HISTORY_MESSAGES: Final = RECOMMENDED["max_history_messages"]
+RECOMMENDED_AI_TASK_MODEL: Final = RECOMMENDED["ai_task_model"]
+RECOMMENDED_AI_TASK_TEMPERATURE: Final = RECOMMENDED["ai_task_temperature"]
+RECOMMENDED_AI_TASK_TOP_P: Final = RECOMMENDED["ai_task_top_p"]
+RECOMMENDED_AI_TASK_MAX_TOKENS: Final = RECOMMENDED["ai_task_max_tokens"]
+RECOMMENDED_IMAGE_MODEL: Final = RECOMMENDED["image_model"]
+RECOMMENDED_IMAGE_ANALYSIS_MODEL: Final = RECOMMENDED["image_analysis_model"]
+RECOMMENDED_TTS_MODEL: Final = RECOMMENDED["tts_voice"]
+RECOMMENDED_STT_MODEL: Final = RECOMMENDED["stt_model"]
+
+
+# =============================================================================
+# Default Names
+# =============================================================================
+
+DEFAULT_NAMES: Final = {
+    "title": "AI Hub",
+    "conversation": {"zh": "AI Hub对话助手", "en": "AI Hub Assistant"},
+    "ai_task": {"zh": "AI Hub AI任务", "en": "AI Hub Task"},
+    "tts": {"zh": "AI Hub TTS语音", "en": "AI Hub TTS"},
+    "stt": {"zh": "AI Hub STT语音", "en": "AI Hub STT"},
+    "wechat": {"zh": "AI Hub 微信通知", "en": "AI Hub WeChat"},
+    "translation": {"zh": "AI Hub 汉化", "en": "AI Hub Localization"},
+}
+
+# Legacy default name constants
+DEFAULT_TITLE: Final = DEFAULT_NAMES["title"]
+DEFAULT_CONVERSATION_NAME: Final = DEFAULT_NAMES["conversation"]["zh"]
+DEFAULT_CONVERSATION_NAME_EN: Final = DEFAULT_NAMES["conversation"]["en"]
+DEFAULT_AI_TASK_NAME: Final = DEFAULT_NAMES["ai_task"]["zh"]
+DEFAULT_AI_TASK_NAME_EN: Final = DEFAULT_NAMES["ai_task"]["en"]
+DEFAULT_TTS_NAME: Final = DEFAULT_NAMES["tts"]["zh"]
+DEFAULT_TTS_NAME_EN: Final = DEFAULT_NAMES["tts"]["en"]
+DEFAULT_STT_NAME: Final = DEFAULT_NAMES["stt"]["zh"]
+DEFAULT_STT_NAME_EN: Final = DEFAULT_NAMES["stt"]["en"]
+DEFAULT_WECHAT_NAME: Final = DEFAULT_NAMES["wechat"]["zh"]
+DEFAULT_WECHAT_NAME_EN: Final = DEFAULT_NAMES["wechat"]["en"]
+DEFAULT_TRANSLATION_NAME: Final = DEFAULT_NAMES["translation"]["zh"]
+DEFAULT_TRANSLATION_NAME_EN: Final = DEFAULT_NAMES["translation"]["en"]
+
+
+# =============================================================================
+# TTS Default Values
+# =============================================================================
+
+TTS_DEFAULT_VOICE: Final = "zh-CN-XiaoxiaoNeural"
 TTS_DEFAULT_LANG: Final = "zh-CN"
-
-# Silicon Flow STT Configuration
-# STT Configuration Keys
-CONF_STT_FILE: Final = "file"
-CONF_STT_MODEL: Final = "model"
-
-# STT Default Parameters
 STT_DEFAULT_MODEL: Final = "FunAudioLLM/SenseVoiceSmall"
 
+# Default voice per language
+TTS_DEFAULT_VOICES: Final = {
+    "zh-CN": "zh-CN-XiaoxiaoNeural",
+    "zh-TW": "zh-TW-HsiaoChenNeural",
+    "zh-HK": "zh-HK-HiuMaanNeural",
+    "en-US": "en-US-JennyNeural",
+    "en-GB": "en-GB-LibbyNeural",
+    "en-AU": "en-AU-NatashaNeural",
+    "ja-JP": "ja-JP-NanamiNeural",
+    "ko-KR": "ko-KR-SunHiNeural",
+    "fr-FR": "fr-FR-DeniseNeural",
+    "de-DE": "de-DE-KatjaNeural",
+    "es-ES": "es-ES-ElviraNeural",
+    "it-IT": "it-IT-ElsaNeural",
+    "pt-BR": "pt-BR-FranciscaNeural",
+    "ru-RU": "ru-RU-SvetlanaNeural",
+}
 
-# STT File Size Limits
-STT_MAX_FILE_SIZE_MB: Final = 25  # 最大文件大小 25MB
 
-# Update old references
-AI_HUB_STT_AUDIO_FORMATS: Final = SILICONFLOW_STT_AUDIO_FORMATS
-AI_HUB_STT_MODELS: Final = SILICONFLOW_STT_MODELS
+# =============================================================================
+# Model Lists
+# =============================================================================
+
+# Chat models (ZhipuAI)
+AI_HUB_CHAT_MODELS: Final = [
+    # Free models
+    "glm-4.7-flash",
+    "GLM-4-Flash",
+    "glm-4.5-flash",
+    "GLM-4-Flash-250414",
+    "GLM-Z1-Flash",
+    # Cost-effective models
+    "GLM-4-FlashX-250414",
+    "GLM-4-Long",
+    "GLM-4-Air",
+    "GLM-4-Air-250414",
+    "GLM-4-AirX",
+    "GLM-Z1-Air",
+    "GLM-Z1-AirX",
+    "GLM-Z1-FlashX-250414",
+    # GLM-4.5 series
+    "glm-4.5",
+    "glm-4.5-x",
+    "glm-4.5-air",
+    "glm-4.5-airx",
+    # Professional models
+    "GLM-4-Plus",
+    "GLM-4-0520",
+    "GLM-4-AllTools",
+    "GLM-4-Assistant",
+    "GLM-4-CodeGeex-4",
+    # Special models
+    "CharGLM-4",
+    "glm-zero-preview",
+]
+
+# Image generation models
+AI_HUB_IMAGE_MODELS: Final = [
+    "cogview-3-flash",  # Free
+    "cogview-3-plus",
+    "cogview-3",
+]
+
+# Vision models (support image analysis)
+VISION_MODELS: Final = [
+    "glm-4.6v-flash",  # Free (recommended)
+    "glm-4v-flash",
+    "glm-4v",
+    "glm-4v-plus",
+]
+
+# Image sizes
 IMAGE_SIZES: Final = [
     "1024x1024",
     "768x1344",
@@ -455,88 +343,67 @@ IMAGE_SIZES: Final = [
     "720x1440",
 ]
 
-# Available Models (智谱AI官方完整列表)
-AI_HUB_CHAT_MODELS: Final = [
-    # 免费模型
-    "glm-4.7-flash",        # GLM-4.7-Flash - 最新免费模型，128K/16K，免费（推荐）
-    "GLM-4-Flash",          # GLM-4-Flash - 免费通用，128K/16K，免费
-    "glm-4.5-flash",        # GLM-4.5-Flash - 免费通用模型，128K/16K，免费使用，解码速度20-25tokens/秒
-    "GLM-4-Flash-250414",   # GLM-4-Flash-250414 - 免费通用，128K/16K，免费
-    "GLM-Z1-Flash",         # GLM-Z1-Flash - 免费推理，128K/32K，免费
-
-    # GLM-4系列（高性价比收费模型）
-    "GLM-4-FlashX-250414",  # GLM-4-FlashX-250414 - 高速低价，128K/4K，0.1元/百万tokens
-    "GLM-4-Long",           # GLM-4-Long - 超长输入，1M/4K，1元/百万tokens
-    "GLM-4-Air",            # GLM-4-Air - 高性价比，128K/16K，0.5元/百万tokens
-    "GLM-4-Air-250414",     # GLM-4-Air-250414 - 高性价比，128K/16K，0.5元/百万tokens
-    "GLM-4-AirX",           # GLM-4-AirX - 极速推理，8K/4K，10元/百万tokens
-    "GLM-Z1-Air",           # GLM-Z1-Air - 轻量推理，128K/32K，0.5元/百万tokens
-    "GLM-Z1-AirX",          # GLM-Z1-AirX - 极速推理，32K/30K，5元/百万tokens
-    "GLM-Z1-FlashX-250414",  # GLM-Z1-FlashX-250414 - 低价推理，128K/32K，0.5元/百万tokens
-
-    # GLM-4.5系列（主流收费模型）
-    "glm-4.5",              # GLM-4.5 - 通用最强大模型，输入长度[0,32]/输出[0,0.2]：1元
-    "glm-4.5-x",            # GLM-4.5-X - 高性能大模型，输入长度[0,32]/输出[0,0.2]：4元
-    "glm-4.5-air",          # GLM-4.5-Air - 轻量级模型，输入长度[0,32]/输出[0,0.2]：0.4元
-    "glm-4.5-airx",         # GLM-4.5-AirX - 快速推理模型，输入长度[0,32]/输出[0,0.2]：2元
-
-    # GLM-4系列（专业收费模型）
-    "GLM-4-Plus",           # GLM-4-Plus - 旧智能旗舰，128K/4K，5元/百万tokens
-    "GLM-4-0520",           # GLM-4-0520 - 稳定版本，128K/4K，100元/百万tokens
-    "GLM-4-AllTools",       # GLM-4-AllTools - 全能工具，128K/32K，1元/百万tokens
-    "GLM-4-Assistant",      # GLM-4-Assistant - 全智能体，128K/4K，5元/百万tokens
-    "GLM-4-CodeGeex-4",     # GLM-4-CodeGeex - 代码生成，128K/32K，0.1元/百万Tokens
-
-    # 特殊模型
-    "CharGLM-4",            # CharGLM-4 - 拟人对话，8K/4K，1元/百万tokens
-    "glm-zero-preview",     # glm-zero-preview - （无官方定价说明/暂未公开）
+# SiliconFlow STT models
+SILICONFLOW_STT_MODELS: Final = [
+    "TeleAI/TeleSpeechASR",
+    "FunAudioLLM/SenseVoiceSmall",  # Recommended
 ]
 
-# Image generation models (智谱AI官方列表)
-AI_HUB_IMAGE_MODELS: Final = [
-    "cogview-3-flash",      # CogView-3 Flash (免费)
-    "cogview-3-plus",       # CogView-3 Plus (收费)
-    "cogview-3",            # CogView-3 (收费)
+# SiliconFlow audio formats
+SILICONFLOW_STT_AUDIO_FORMATS: Final = [
+    "mp3", "wav", "flac", "m4a", "ogg", "webm",
 ]
 
-# Vision models (支持图像分析) - 智谱AI官方列表
-VISION_MODELS: Final = [
-    "glm-4.6v-flash",       # GLM-4.6V-Flash - 免费视觉新模型（推荐）
-    "glm-4v-flash",       # GLM-4V-Flash - 免费视觉模型
-    "glm-4v",            # GLM-4V - 收费视觉模型
-    "glm-4v-plus",        # GLM-4V-Plus - 收费视觉模型
-]
+# Backwards compatibility aliases
+AI_HUB_STT_AUDIO_FORMATS: Final = SILICONFLOW_STT_AUDIO_FORMATS
+AI_HUB_STT_MODELS: Final = SILICONFLOW_STT_MODELS
 
-# Default Names
-DEFAULT_TITLE: Final = "AI Hub"
-DEFAULT_CONVERSATION_NAME: Final = "AI Hub对话助手"
-DEFAULT_AI_TASK_NAME: Final = "AI Hub AI任务"
-DEFAULT_TTS_NAME: Final = "AI Hub TTS语音"
-DEFAULT_TTS_NAME_EN: Final = "AI Hub TTS"
-DEFAULT_STT_NAME: Final = "AI Hub STT语音"
-DEFAULT_STT_NAME_EN: Final = "AI Hub STT"
-DEFAULT_WECHAT_NAME: Final = "AI Hub 微信通知"
-DEFAULT_WECHAT_NAME_EN: Final = "AI Hub WeChat"
-DEFAULT_TRANSLATION_NAME: Final = "AI Hub 汉化"
-DEFAULT_TRANSLATION_NAME_EN: Final = "AI Hub Localization"
-DEFAULT_CONVERSATION_NAME_EN: Final = "AI Hub Assistant"
-DEFAULT_AI_TASK_NAME_EN: Final = "AI Hub Task"
 
-# Configuration Keys (additional)
-CONF_BEMFA_UID: Final = "bemfa_uid"
-CONF_CUSTOM_COMPONENTS_PATH: Final = "custom_components_path"
-CONF_FORCE_TRANSLATION: Final = "force_translation"  # 仅用于集成汉化
-CONF_TARGET_COMPONENT: Final = "target_component"
-CONF_LIST_COMPONENTS: Final = "list_components"
-CONF_TARGET_BLUEPRINT: Final = "target_blueprint"
-CONF_LIST_BLUEPRINTS: Final = "list_blueprints"
-
+# =============================================================================
 # Error Messages
-ERROR_GETTING_RESPONSE: Final = "获取响应时出错"
-ERROR_INVALID_API_KEY: Final = "API密钥无效"
-ERROR_CANNOT_CONNECT: Final = "无法连接到AI Hub服务"
+# =============================================================================
 
-# Recommended Options
+ERRORS: Final = {
+    "getting_response": "Error getting response",
+    "invalid_api_key": "Invalid API key",
+    "cannot_connect": "Cannot connect to AI Hub service",
+}
+
+ERROR_GETTING_RESPONSE: Final = ERRORS["getting_response"]
+ERROR_INVALID_API_KEY: Final = ERRORS["invalid_api_key"]
+ERROR_CANNOT_CONNECT: Final = ERRORS["cannot_connect"]
+
+
+# =============================================================================
+# Services
+# =============================================================================
+
+SERVICES: Final = {
+    "generate_image": "generate_image",
+    "analyze_image": "analyze_image",
+    "tts_speech": "tts_speech",
+    "tts_stream": "tts_stream",
+    "stt_transcribe": "stt_transcribe",
+    "send_wechat_message": "send_wechat_message",
+    "translate_components": "translate_components",
+    "translate_blueprints": "translate_blueprints",
+}
+
+# Legacy service constants
+SERVICE_GENERATE_IMAGE: Final = SERVICES["generate_image"]
+SERVICE_ANALYZE_IMAGE: Final = SERVICES["analyze_image"]
+SERVICE_TTS_SPEECH: Final = SERVICES["tts_speech"]
+SERVICE_TTS_STREAM: Final = SERVICES["tts_stream"]
+SERVICE_STT_TRANSCRIBE: Final = SERVICES["stt_transcribe"]
+SERVICE_SEND_WECHAT_MESSAGE: Final = SERVICES["send_wechat_message"]
+SERVICE_TRANSLATE_COMPONENTS: Final = SERVICES["translate_components"]
+SERVICE_TRANSLATE_BLUEPRINTS: Final = SERVICES["translate_blueprints"]
+
+
+# =============================================================================
+# Recommended Options (Pre-built configurations)
+# =============================================================================
+
 RECOMMENDED_CONVERSATION_OPTIONS: Final = {
     CONF_RECOMMENDED: True,
     CONF_LLM_HASS_API: LLM_API_ASSIST,
@@ -565,20 +432,16 @@ RECOMMENDED_TTS_OPTIONS: Final = {
     CONF_TTS_LANG: TTS_DEFAULT_LANG,
 }
 
-
-# Recommended Options for WeChat (simplified)
-RECOMMENDED_WECHAT_OPTIONS: Final = {
-    CONF_RECOMMENDED: True,
-    CONF_BEMFA_UID: "",
-}
-
-# Recommended Options for STT (simplified)
 RECOMMENDED_STT_OPTIONS: Final = {
     CONF_RECOMMENDED: True,
     CONF_STT_MODEL: STT_DEFAULT_MODEL,
 }
 
-# Recommended Options for Translation (unified - both components and blueprints)
+RECOMMENDED_WECHAT_OPTIONS: Final = {
+    CONF_RECOMMENDED: True,
+    CONF_BEMFA_UID: "",
+}
+
 RECOMMENDED_TRANSLATION_OPTIONS: Final = {
     CONF_RECOMMENDED: True,
     CONF_FORCE_TRANSLATION: False,
@@ -588,15 +451,10 @@ RECOMMENDED_TRANSLATION_OPTIONS: Final = {
     CONF_LIST_BLUEPRINTS: False,
 }
 
-# Services
-SERVICE_GENERATE_IMAGE: Final = "generate_image"
-SERVICE_ANALYZE_IMAGE: Final = "analyze_image"
-SERVICE_TTS_SPEECH: Final = "tts_speech"
-SERVICE_TTS_STREAM: Final = "tts_stream"
-SERVICE_STT_TRANSCRIBE: Final = "stt_transcribe"
-SERVICE_SEND_WECHAT_MESSAGE: Final = "send_wechat_message"
-SERVICE_TRANSLATE_COMPONENTS: Final = "translate_components"
-SERVICE_TRANSLATE_BLUEPRINTS: Final = "translate_blueprints"
 
-# Bemfa WeChat Configuration
-BEMFA_API_URL: Final = "https://apis.bemfa.com/vb/wechat/v1/wechatAlertJson"
+# =============================================================================
+# Edge TTS Voices (moved to separate file for cleanliness)
+# =============================================================================
+
+# Import from separate file to keep this file manageable
+from .voices import EDGE_TTS_VOICES  # noqa: E402, F401

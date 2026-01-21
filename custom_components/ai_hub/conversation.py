@@ -116,11 +116,11 @@ class AIHubConversationEntity(
             intent_handler = get_global_intent_handler(self.hass)
 
             if intent_handler and intent_handler.should_handle(user_input.text):
-                _LOGGER.debug("本地意图处理: %s", user_input.text)
+                _LOGGER.debug("Local intent processing: %s", user_input.text)
                 intent_result = await intent_handler.handle(user_input.text, user_input.language)
 
                 if intent_result:
-                    _LOGGER.debug("本地意图完成")
+                    _LOGGER.debug("Local intent completed")
                     return conversation.ConversationResult(
                         response=intent_result["response"],
                         conversation_id=user_input.conversation_id
@@ -155,18 +155,18 @@ class AIHubConversationEntity(
         # ========== 步骤3: LLM 处理 ==========
 
         try:
-            # 🚀 高性能LLM API配置获取
+            # High-performance LLM API config retrieval
             llm_apis = options.get(CONF_LLM_HASS_API, [])
 
             if not llm_apis:
-                _LOGGER.warning("⚠️ 未找到LLM API配置，检查LLM_API_ASSIST")
-                # 尝试使用默认的LLM API ASSIST
+                _LOGGER.warning("LLM API config not found, checking LLM_API_ASSIST")
+                # Try using the default LLM API ASSIST
                 try:
                     default_llm_api = llm.LLM_API_ASSIST
                     llm_apis = [default_llm_api]
-                    _LOGGER.debug("使用默认LLM API")
+                    _LOGGER.debug("Using default LLM API")
                 except Exception as e:
-                    _LOGGER.error(f"❌ LLM_API_ASSIST获取失败: {e}")
+                    _LOGGER.error(f"LLM_API_ASSIST retrieval failed: {e}")
                     empty_response = intent.IntentResponse(language=user_input.language)
                     error_msg = self._config_cache.get_error_message("llm_config_error")
                     empty_response.async_set_speech(error_msg)
@@ -184,7 +184,7 @@ class AIHubConversationEntity(
                 user_input.extra_system_prompt,
             )
         except conversation.ConverseError as err:
-            _LOGGER.error(f"❌ LLM对话错误: {err}")
+            _LOGGER.error(f"LLM conversation error: {err}")
             return err.as_conversation_result()
 
         # Process the chat log with AI Hub
@@ -192,32 +192,32 @@ class AIHubConversationEntity(
         loop_count = 0
         while True:
             loop_count += 1
-            _LOGGER.debug("LLM处理循环 %d", loop_count)
+            _LOGGER.debug("LLM processing loop %d", loop_count)
 
-            # 检查chat_log状态
+            # Check chat_log status
             if hasattr(chat_log, 'tool_calls') and chat_log.tool_calls:
-                _LOGGER.debug("LLM发起了 %d 个工具调用", len(chat_log.tool_calls))
+                _LOGGER.debug("LLM initiated %d tool calls", len(chat_log.tool_calls))
             else:
-                _LOGGER.debug("LLM没有发起工具调用")
+                _LOGGER.debug("LLM did not initiate tool calls")
 
             await self._async_handle_chat_log(chat_log)
 
-            # 🔄 设备操作验证（可选，默认禁用以提高响应速度）
-            # 如果需要验证设备操作，可以在配置中启用
+            # Device operation verification (optional, disabled by default for faster response)
+            # Enable in config if device operation verification is needed
             # if hasattr(chat_log, 'tool_calls') and chat_log.tool_calls:
             #     device_operations = [
             #         call for call in chat_log.tool_calls
             #         if self._is_device_operation(call.tool_name)
             #     ]
             #     if device_operations:
-            #         _LOGGER.debug("验证 %d 个设备操作", len(device_operations))
+            #         _LOGGER.debug("Verifying %d device operations", len(device_operations))
             #         await self._verify_device_operations_with_retry(device_operations)
 
-            # 检查是否有工具调用结果
+            # Check if there are tool call results
             if hasattr(chat_log, 'unresponded_tool_results') and chat_log.unresponded_tool_results:
-                _LOGGER.debug("发现未处理的工具调用结果")
+                _LOGGER.debug("Found unprocessed tool call results")
             else:
-                _LOGGER.debug("没有更多工具调用，处理完成")
+                _LOGGER.debug("No more tool calls, processing completed")
 
             # If there are no unresponded tool results, continue the loop
             if not chat_log.unresponded_tool_results:
@@ -227,20 +227,20 @@ class AIHubConversationEntity(
         return conversation.async_get_result_from_chat_log(user_input, chat_log)
 
     def _is_device_operation(self, tool_name: str) -> bool:
-        """判断是否是设备控制操作"""
+        """Check if this is a device control operation"""
         try:
             from .intents import is_device_operation
             return is_device_operation(tool_name)
         except Exception as e:
-            _LOGGER.debug(f"设备操作判断失败: {e}")
+            _LOGGER.debug(f"Device operation check failed: {e}")
             return False
 
     async def _verify_device_operations_with_retry(self, device_operations):
-        """验证设备操作并重试，使用配置的时间限制"""
+        """Verify device operations with retry using configured time limits"""
         try:
             config = self._config_cache.get_verification_config()
         except Exception as e:
-            _LOGGER.debug(f"获取验证配置失败: {e}")
+            _LOGGER.debug(f"Failed to get verification config: {e}")
             # 使用硬编码的备用配置
             config = {
                 'total_timeout': 3,
@@ -255,7 +255,10 @@ class AIHubConversationEntity(
         max_retries = config.get('max_retries', 3)
         wait_times = config.get('wait_times', [0.5, 0.8, 1.1])
 
-        _LOGGER.debug("开始设备操作验证，总时间限制%ds，最多重试%d次", total_timeout, max_retries)
+        _LOGGER.debug(
+            "Starting device operation verification, timeout=%ds, retries=%d",
+            total_timeout, max_retries
+        )
 
         for attempt in range(max_retries):
             # 检查是否还有时间
@@ -263,7 +266,7 @@ class AIHubConversationEntity(
             remaining_time = total_timeout - elapsed
 
             if remaining_time <= 0:
-                _LOGGER.warning("⏰ 验证超时，停止重试")
+                _LOGGER.warning("Verification timeout, stopping retries")
                 break
 
             # 获取等待时间
@@ -287,32 +290,32 @@ class AIHubConversationEntity(
 
                 if all_successful:
                     total_time = time.time() - start_time
-                    _LOGGER.debug("所有设备操作验证成功 (耗时%.1fs)", total_time)
+                    _LOGGER.debug("All device operations verified successfully (took %.1fs)", total_time)
                     return True
                 else:
-                    _LOGGER.debug("第%d次验证未完全成功，继续等待", attempt + 1)
+                    _LOGGER.debug("Verification attempt %d not fully successful, continuing to wait", attempt + 1)
 
             except Exception as e:
-                _LOGGER.debug(f"验证过程出错: {e}")
+                _LOGGER.debug(f"Verification error: {e}")
 
         total_time = time.time() - start_time
-        _LOGGER.warning(f"⚠️ {total_timeout}秒内无法验证所有设备操作成功 (耗时{total_time:.1f}秒)")
+        _LOGGER.warning(f"Could not verify all device operations within {total_timeout}s (took {total_time:.1f}s)")
         return False
 
     async def _get_live_context(self):
-        """获取当前设备状态 (模拟GetLiveContext工具)"""
-        # 这里应该调用实际的GetLiveContext工具
-        # 从配置中读取模拟数据
+        """Get current device state (simulating GetLiveContext tool)"""
+        # Should call the actual GetLiveContext tool here
+        # Read simulated data from config
         return self._config_cache.get_device_state_simulation()
 
     def _is_operation_successful(self, operation, context):
-        """检查单个操作是否成功"""
+        """Check if a single operation was successful"""
         tool_name = operation.tool_name
         arguments = operation.arguments
 
         # 根据操作类型检查对应设备状态
         if tool_name == 'light.turn_on':
-            # 检查灯是否打开
+            # Check if light is on
             entity_id = arguments.get('entity_id', [])
             if isinstance(entity_id, str):
                 entity_id = [entity_id]
@@ -326,7 +329,7 @@ class AIHubConversationEntity(
             return True
 
         elif tool_name == 'light.turn_off':
-            # 检查灯是否关闭
+            # Check if light is off
             entity_id = arguments.get('entity_id', [])
             if isinstance(entity_id, str):
                 entity_id = [entity_id]
@@ -338,8 +341,8 @@ class AIHubConversationEntity(
                     return False
             return True
 
-        # 其他设备类型的检查可以在这里添加
-        # 暂时返回True，表示其他操作假设成功
+        # Checks for other device types can be added here
+        # Return True for now, assuming other operations succeeded
         return True
 
     async def _handle_automation_request(
@@ -349,7 +352,7 @@ class AIHubConversationEntity(
         """Handle automation creation requests."""
         user_text = user_input.text.lower()
 
-        # 使用配置缓存获取自动化关键词
+        # Use config cache to get automation keywords
         try:
             automation_keywords = self._config_cache.get_automation_config('automation_keywords', [])
 
@@ -368,22 +371,22 @@ class AIHubConversationEntity(
             from .ai_automation import get_automation_manager
             manager = get_automation_manager(self.hass)
 
-            # 提取自动化描述
+            # Extract automation description
             description = self._extract_automation_description(user_input.text)
             if not description:
                 return None
 
-            # 创建自动化
+            # Create automation
             result = await manager.create_automation_from_description(description)
 
-            # 创建响应
+            # Create response
             intent_response = intent.IntentResponse(language=user_input.language)
 
             if result.get("success", False):
                 config_data = result.get("config", {})
                 automation_name = config_data.get("alias", "新自动化")
 
-                # 使用配置化的成功消息
+                # Use configured success message
                 responses = self._config_cache.get_responses_config()
                 success_template = responses.get('automation', {}).get('creation_success')
                 if success_template:
@@ -394,7 +397,7 @@ class AIHubConversationEntity(
                 else:
                     message = f"我已经为您创建了自动化: {automation_name}"
 
-                # 可以添加更多配置详情
+                # Can add more configuration details
                 if config_data.get("trigger"):
                     unknown_platform = self._config_cache.get_error_message("automation_trigger_unknown")
                     triggers = [t.get("platform", unknown_platform) for t in config_data["trigger"]]
@@ -402,7 +405,7 @@ class AIHubConversationEntity(
 
                 intent_response.async_set_speech(message)
             else:
-                # 使用配置化的错误消息
+                # Use configured error message
                 responses = self._config_cache.get_responses_config()
                 error_template = responses.get('automation', {}).get('creation_error')
                 if error_template:
@@ -429,7 +432,7 @@ class AIHubConversationEntity(
 
     def _extract_automation_description(self, user_text: str) -> Optional[str]:
         """Extract automation description from user input."""
-        # 使用配置缓存获取自动化前缀
+        # Use config cache to get automation prefixes
         try:
             prefixes = self._config_cache.get_automation_config('automation_prefixes', [])
 
@@ -442,62 +445,62 @@ class AIHubConversationEntity(
             if prefix in description:
                 description = description.replace(prefix, "").strip()
 
-        # 如果描述太短或为空，返回None
+        # If description is too short or empty, return None
         if len(description) < 5:
             return None
 
         return description
 
     def _is_local_special_function(self, intent_type: str, intent_info: Dict[str, Any]) -> bool:
-        """判断是否是真正的本地特殊功能"""
-        # 检查是否是"所有设备"相关的操作（HA原生不支持）
+        """Check if this is a true local special function"""
+        # Check if this is an "all devices" operation (not natively supported by HA)
         if self._is_all_device_operation(intent_info):
             return True
 
-        # 检查是否是其他需要本地处理的特殊功能
-        # 这里可以根据配置或模式来动态判断
+        # Check for other special functions that need local processing
+        # Can dynamically determine based on configuration or patterns
         return self._has_local_intent_config(intent_type, intent_info)
 
     def _is_all_device_operation(self, intent_info: Dict[str, Any]) -> bool:
-        """判断是否是"所有设备"操作"""
+        """Check if this is an 'all devices' operation"""
         text = intent_info.get("text", "").lower()
 
-        # 使用配置缓存获取全局关键词，避免硬编码
+        # Use config cache to get global keywords, avoid hardcoding
         try:
             global_keywords = self._config_cache.get_global_keywords()
         except Exception as e:
-            _LOGGER.debug(f"读取global_keywords失败，使用默认值: {e}")
+            _LOGGER.debug(f"Failed to read global_keywords, using defaults: {e}")
             global_keywords = ["所有", "全部", "一切"]
 
         return any(keyword in text for keyword in global_keywords)
 
     def _has_local_intent_config(self, intent_type: str, intent_info: Dict[str, Any]) -> bool:
-        """检查意图是否在本地配置中定义为需要特殊处理"""
+        """Check if intent is defined in local config as needing special handling"""
         text = intent_info.get("text", "").lower()
 
-        # 使用配置缓存获取本地特征关键词，避免硬编码
+        # Use config cache to get local feature keywords, avoid hardcoding
         try:
             local_features = self._config_cache.get_local_features()
-            _LOGGER.debug(f"从配置缓存加载本地特征关键词: {len(local_features)}个")
+            _LOGGER.debug(f"Loaded local feature keywords from config cache: {len(local_features)} items")
         except Exception as e:
-            _LOGGER.debug(f"读取本地配置失败，使用默认值: {e}")
+            _LOGGER.debug(f"Failed to read local config, using defaults: {e}")
             local_features = ["所有设备", "全部设备", "所有灯", "全部灯"]
 
         return any(feature in text for feature in local_features)
 
     def _should_skip_ha_standard_processing(self, text: str) -> bool:
-        """判断是否应该跳过Home Assistant标准处理，直接进入本地意图
+        """Check whether to skip Home Assistant standard processing and go directly to local intent
 
-        只有非常明确的本地意图才跳过HA标准处理，如:
-        - "打开所有设备"
-        - "关闭所有灯"
+        Only very explicit local intents skip HA standard processing, such as:
+        - "Turn on all devices"
+        - "Turn off all lights"
         """
         try:
             config = self._config_cache.get_config()
             if not config:
                 return False
 
-            # 从 local_intents.GlobalDeviceControl 获取配置
+            # Get config from local_intents.GlobalDeviceControl
             local_intents = config.get('local_intents', {})
             global_config = local_intents.get('GlobalDeviceControl', {})
             if not global_config:
@@ -505,16 +508,16 @@ class AIHubConversationEntity(
 
             text_lower = text.lower().strip()
 
-            # 检查全局关键词
+            # Check global keywords
             global_keywords = global_config.get('global_keywords', [])
             has_global = any(keyword in text_lower for keyword in global_keywords)
 
-            # 检查明确的开关关键词
+            # Check explicit on/off keywords
             on_keywords = global_config.get('on_keywords', [])
             off_keywords = global_config.get('off_keywords', [])
             has_action = any(keyword in text_lower for keyword in on_keywords + off_keywords)
 
-            # 检查是否包含参数控制关键词（亮度、音量等）
+            # Check if contains parameter control keywords (brightness, volume, etc.)
             param_keywords = global_config.get('param_keywords', [])
             brightness_keywords = global_config.get('brightness_keywords', [])
             volume_keywords = global_config.get('volume_keywords', [])
@@ -525,16 +528,18 @@ class AIHubConversationEntity(
                                     param_keywords + brightness_keywords + volume_keywords +
                                     color_keywords + temperature_keywords)
 
-            # 跳过HA处理的情况：只有明确的全局指令才进行本地处理
-            # 要求必须同时包含全局关键词和明确的动作或参数控制
+            # Skip HA processing: only explicit global commands go to local processing
+            # Requires both global keywords and explicit action or parameter control
             should_skip = has_global and (has_action or has_param_control)
 
             if should_skip:
                 _LOGGER.debug(
-                    f"跳过HA标准处理: '{text}' (全局关键词: {has_global}, 动作关键词: {has_action}, 参数控制: {has_param_control})")
+                    "Skipping HA processing: '%s' (global=%s, action=%s, param=%s)",
+                    text, has_global, has_action, has_param_control
+                )
 
             return should_skip
 
         except Exception as e:
-            _LOGGER.debug(f"判断跳过HA处理时出错: {e}")
+            _LOGGER.debug(f"Error checking whether to skip HA processing: {e}")
             return False

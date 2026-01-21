@@ -1,7 +1,8 @@
-"""Text to speech support for AI Hub using Edge TTS - 支持流式输出和 prosody 参数."""
+"""Text to speech support for AI Hub using Edge TTS - with caching and prosody support."""
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from collections.abc import AsyncGenerator
@@ -37,10 +38,14 @@ from .const import (
     CONF_TTS_VOICE,
     DOMAIN,
     EDGE_TTS_VOICES,
+    TTS_CACHE_MAX_SIZE,
+    TTS_CACHE_TTL,
     TTS_DEFAULT_LANG,
     TTS_DEFAULT_VOICE,
+    TTS_DEFAULT_VOICES,
 )
 from .entity import AIHubEntityBase
+from .utils.tts_cache import TTSCache
 
 # Create supported languages dynamically
 SUPPORTED_LANGUAGES = {
@@ -50,8 +55,29 @@ SUPPORTED_LANGUAGES = {
 
 _LOGGER = logging.getLogger(__name__)
 
-# Prosody 参数选项
+# Prosody options
 PROSODY_OPTIONS = ['pitch', 'rate', 'volume']
+
+
+def _get_tts_cache(hass: HomeAssistant) -> TTSCache:
+    """Get or create TTS cache instance from hass.data."""
+    from . import get_or_create_ai_hub_data
+
+    ai_hub_data = get_or_create_ai_hub_data(hass)
+    if ai_hub_data.tts_cache is None:
+        ai_hub_data.tts_cache = TTSCache(
+            max_size=TTS_CACHE_MAX_SIZE,
+            ttl_seconds=TTS_CACHE_TTL
+        )
+    return ai_hub_data.tts_cache
+
+
+def _generate_cache_key(
+    message: str, voice: str, pitch: str, rate: str, volume: str
+) -> str:
+    """Generate cache key for TTS request."""
+    key_data = f"{message}|{voice}|{pitch}|{rate}|{volume}"
+    return hashlib.md5(key_data.encode()).hexdigest()
 
 
 async def async_setup_entry(
@@ -136,23 +162,8 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
         ]
 
     def _get_default_voice_for_language(self, language: str) -> str:
-        """Get default voice for a language."""
-        default_voices = {
-            "zh-CN": "zh-CN-XiaoxiaoNeural",
-            "zh-TW": "zh-TW-HsiaoChenNeural",
-            "zh-HK": "zh-HK-HiuMaanNeural",
-            "en-US": "en-US-JennyNeural",
-            "en-GB": "en-GB-LibbyNeural",
-            "ja-JP": "ja-JP-NanamiNeural",
-            "ko-KR": "ko-KR-SunHiNeural",
-            "fr-FR": "fr-FR-DeniseNeural",
-            "de-DE": "de-DE-KatjaNeural",
-            "es-ES": "es-ES-ElviraNeural",
-            "it-IT": "it-IT-ElsaNeural",
-            "pt-BR": "pt-BR-FranciscaNeural",
-            "ru-RU": "ru-RU-SvetlanaNeural",
-        }
-        return default_voices.get(language, TTS_DEFAULT_VOICE)
+        """Get default voice for a language from centralized config."""
+        return TTS_DEFAULT_VOICES.get(language, TTS_DEFAULT_VOICE)
 
     def _resolve_voice(self, language: str, options: dict[str, Any] | None) -> str:
         """Resolve voice from options, config, or language default."""
@@ -162,7 +173,7 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
         else:
             voice = self.subentry.data.get(CONF_TTS_VOICE, TTS_DEFAULT_VOICE)
 
-        # 如果 voice 是语言代码，转换为对应的默认语音
+        # If voice is a language code, convert to corresponding default voice
         if voice in SUPPORTED_LANGUAGES:
             voice = SUPPORTED_LANGUAGES[voice]
 
@@ -182,16 +193,24 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
     async def _process_tts_audio(
         self, message: str, language: str, options: dict[str, Any]
     ) -> bytes:
-        """Process TTS with prosody support."""
+        """Process TTS with prosody support and caching."""
         if not message or not message.strip():
-            raise HomeAssistantError("文本内容不能为空")
+            raise HomeAssistantError("Text content cannot be empty")
 
         voice = self._resolve_voice(language, options)
 
-        # Prosody 参数
+        # Prosody parameters
         pitch = options.get('pitch', '+0Hz')
         rate = options.get('rate', '+0%')
         volume = options.get('volume', '+0%')
+
+        # Check cache first
+        cache = _get_tts_cache(self.hass)
+        cache_key = _generate_cache_key(message, voice, pitch, rate, volume)
+        cached_audio = cache.get(cache_key)
+        if cached_audio is not None:
+            _LOGGER.debug("TTS cache hit for message: %s", message[:50])
+            return cached_audio
 
         _LOGGER.debug(
             'TTS: message="%s", voice="%s", pitch=%s, rate=%s, volume=%s',
@@ -215,21 +234,28 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
                     audio_bytes += chunk["data"]
 
             elapsed_ms = (time.perf_counter() - start_time) * 1000
-            _LOGGER.debug("TTS 生成耗时: %.1fms, 音频大小: %d bytes", elapsed_ms, len(audio_bytes))
+            _LOGGER.debug(
+                "TTS generation time: %.1fms, audio size: %d bytes",
+                elapsed_ms, len(audio_bytes)
+            )
 
             if not audio_bytes:
-                raise HomeAssistantError("未生成音频数据")
+                raise HomeAssistantError("No audio data generated")
+
+            # Store in cache
+            cache.set(cache_key, audio_bytes)
+            _LOGGER.debug("TTS audio cached for message: %s", message[:50])
 
             return audio_bytes
 
         except edge_tts.exceptions.NoAudioReceived as exc:
-            _LOGGER.warning("Edge TTS 未收到音频: %s", message[:50])
-            raise HomeAssistantError(f"TTS 未收到音频: {message[:50]}") from exc
+            _LOGGER.warning("Edge TTS received no audio: %s", message[:50])
+            raise HomeAssistantError(f"TTS received no audio: {message[:50]}") from exc
         except Exception as exc:
-            _LOGGER.error("Edge TTS 生成失败: %s", exc)
-            # 使用默认参数重试
+            _LOGGER.error("Edge TTS generation failed: %s", exc)
+            # Retry with default voice
             if voice != TTS_DEFAULT_VOICE:
-                _LOGGER.warning("尝试使用默认语音重试...")
+                _LOGGER.warning("Attempting retry with default voice...")
                 try:
                     communicate = edge_tts.Communicate(text=message, voice=TTS_DEFAULT_VOICE)
                     audio_bytes = b""
@@ -237,11 +263,16 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
                         if chunk["type"] == "audio":
                             audio_bytes += chunk["data"]
                     if audio_bytes:
-                        _LOGGER.info("使用默认语音成功")
+                        _LOGGER.info("Default voice retry successful")
+                        # Cache the retry result as well
+                        retry_cache_key = _generate_cache_key(
+                            message, TTS_DEFAULT_VOICE, pitch, rate, volume
+                        )
+                        cache.set(retry_cache_key, audio_bytes)
                         return audio_bytes
                 except Exception as retry_exc:
-                    _LOGGER.error("默认语音重试失败: %s", retry_exc)
-            raise HomeAssistantError(f"TTS 生成失败: {exc}") from exc
+                    _LOGGER.error("Default voice retry failed: %s", retry_exc)
+            raise HomeAssistantError(f"TTS generation failed: {exc}") from exc
 
     # ========== 流式输出支持 ==========
 
@@ -251,14 +282,14 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
 
     async def _stream_tts_audio(self, request: TTSAudioRequest) -> AsyncGenerator[bytes, None]:
         """Stream TTS audio generation."""
-        _LOGGER.debug("开始流式TTS, options: %s", request.options)
+        _LOGGER.debug("Starting streaming TTS, options: %s", request.options)
 
         separators = "\n。.，,；;！!？?、"
         buffer = ""
         count = 0
 
         async for message in request.message_gen:
-            _LOGGER.debug("流式TTS收到: %s", message)
+            _LOGGER.debug("Streaming TTS received: %s", message)
             count += 1
             min_len = 2 ** count * 10
 
@@ -305,8 +336,8 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
             return audio_bytes if audio_bytes else None
 
         except edge_tts.exceptions.NoAudioReceived:
-            _LOGGER.warning("流式TTS未收到音频: %s", message[:30])
+            _LOGGER.warning("Streaming TTS received no audio: %s", message[:30])
             return None
         except Exception as exc:
-            _LOGGER.error("流式TTS失败: %s", exc)
+            _LOGGER.error("Streaming TTS failed: %s", exc)
             return None

@@ -53,8 +53,8 @@ async def handle_send_wechat_message(
 
         device_title = f"{friendly_name}（状态：{state_value}）"
 
-        _LOGGER.debug("微信设备标题：%s", device_title)
-        _LOGGER.debug("微信消息内容：%s", message)
+        _LOGGER.debug("WeChat device title: %s", device_title)
+        _LOGGER.debug("WeChat message content: %s", message)
 
         payload = {
             "uid": bemfa_uid,
@@ -71,19 +71,19 @@ async def handle_send_wechat_message(
             async with session.post(BEMFA_API_URL, json=payload, headers=headers) as response:
                 resp_text = await response.text()
                 if response.status == 200:
-                    _LOGGER.info("微信消息发送成功")
+                    _LOGGER.info("WeChat message sent successfully")
                     return {
                         "success": True,
-                        "message": "微信消息发送成功",
+                        "message": "WeChat message sent successfully",
                         "device": device_entity
                     }
                 else:
-                    _LOGGER.error("发送失败 [%s]: %s", response.status, resp_text)
-                    return {"success": False, "error": f"发送失败 [{response.status}]: {resp_text}"}
+                    _LOGGER.error("Send failed [%s]: %s", response.status, resp_text)
+                    return {"success": False, "error": f"Send failed [{response.status}]: {resp_text}"}
 
     except aiohttp.ClientError as exc:
-        _LOGGER.error("网络请求错误: %s", exc)
-        return {"success": False, "error": f"网络请求错误: {exc}"}
+        _LOGGER.error("Network request error: %s", exc)
+        return {"success": False, "error": f"Network request error: {exc}"}
     except Exception as exc:
         _LOGGER.exception("发送微信消息异常: %s", exc)
         return {"success": False, "error": f"发送微信消息异常: {exc}"}

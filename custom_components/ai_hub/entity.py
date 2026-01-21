@@ -38,6 +38,26 @@ from .markdown_filter import filter_markdown_streaming
 _LOGGER = logging.getLogger(__name__)
 
 
+def _ensure_string(value: Any) -> str:
+    """Ensure a value is a valid string for API calls.
+
+    Args:
+        value: The value to convert to string
+
+    Returns:
+        A string representation of the value, or empty string if None/empty
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, dict)):
+        # Convert complex types to JSON string
+        return json.dumps(value, ensure_ascii=False)
+    # For other types, convert to string
+    return str(value)
+
+
 class AIHubBaseLLMEntity(Entity):
     """Base entity for AI Hub LLM."""
 
@@ -58,22 +78,39 @@ class AIHubBaseLLMEntity(Entity):
         self._attr_name = subentry.title
 
         # Get API key: use custom key if provided, otherwise use main key
-        custom_key = subentry.data.get(CONF_CUSTOM_API_KEY, "").strip()
-        self._api_key = custom_key if custom_key else entry.runtime_data
+        custom_key_raw = subentry.data.get(CONF_CUSTOM_API_KEY, "")
+        custom_key = str(custom_key_raw).strip() if custom_key_raw else ""
+        main_key = entry.runtime_data if entry.runtime_data else ""
+        # Ensure API key is always a string
+        if custom_key:
+            self._api_key = custom_key
+        elif isinstance(main_key, str) and main_key.strip():
+            self._api_key = main_key
+        else:
+            self._api_key = ""
+            _LOGGER.warning("No valid API key found for entity %s", subentry.title)
 
         # Device info
+        # Ensure model name is a valid string for device info
+        device_model = subentry.data.get(CONF_CHAT_MODEL) or default_model
+        if not isinstance(device_model, str) or not device_model.strip():
+            device_model = default_model
+
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
             manufacturer="老王杂谈说",
-            model=subentry.data.get(CONF_CHAT_MODEL, default_model),
+            model=device_model,
             entry_type=dr.DeviceEntryType.SERVICE,
         )
 
     def _get_model_config(self, chat_log: conversation.ChatLog | None = None) -> dict[str, Any]:
         """Get model configuration from options."""
         options = self.subentry.data
-        configured_model = options.get(CONF_CHAT_MODEL, self.default_model)
+        configured_model = options.get(CONF_CHAT_MODEL) or self.default_model
+        # Ensure configured_model is a valid string
+        if not isinstance(configured_model, str) or not configured_model.strip():
+            configured_model = self.default_model
 
         # Check if we need to switch to vision model
         final_model = configured_model
@@ -108,8 +145,13 @@ class AIHubBaseLLMEntity(Entity):
                         configured_model)
 
         # Only use parameters that the working service uses (top_p causes API error!)
+        # Ensure model is always a valid string
+        model_value = final_model or self.default_model
+        if not isinstance(model_value, str) or not model_value.strip():
+            model_value = self.default_model
+
         return {
-            "model": final_model,
+            "model": model_value,
             "temperature": options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
             "max_tokens": options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
         }
@@ -151,8 +193,14 @@ class AIHubBaseLLMEntity(Entity):
             ])
 
         # Build minimal request parameters using only essential parameters
+        # Ensure model is a valid non-empty string
+        model_name = model_config.get("model", "")
+        if not model_name or not isinstance(model_name, str):
+            model_name = self.default_model
+            _LOGGER.warning("Model name was invalid, using default: %s", model_name)
+
         request_params = {
-            "model": model_config.get("model"),
+            "model": model_name,
             "messages": messages,
             "stream": True,
         }
@@ -160,43 +208,40 @@ class AIHubBaseLLMEntity(Entity):
         if tools:
             request_params["tools"] = tools
 
+        # Validate all message contents before sending
+        for i, msg in enumerate(messages):
+            msg_content = msg.get("content")
+            if msg_content is None:
+                msg["content"] = ""
+                _LOGGER.warning("Message %d had None content, replaced with empty string", i)
+            elif isinstance(msg_content, list):
+                # Validate each part in content list
+                for j, part in enumerate(msg_content):
+                    if part.get("type") == "text" and not isinstance(part.get("text"), str):
+                        part["text"] = str(part.get("text", ""))
+                        _LOGGER.warning("Message %d part %d had non-string text, converted", i, j)
+
+        # Get API URL from config before the request
+        api_url = options.get(CONF_CHAT_URL) or AI_HUB_CHAT_URL
+        if not isinstance(api_url, str) or not api_url.strip():
+            api_url = AI_HUB_CHAT_URL
+            _LOGGER.warning("API URL was invalid, using default: %s", api_url)
+
         try:
-            # Debug: Log the request parameters and validate model
-            model_name = model_config.get("model", "unknown")
-            _LOGGER.debug("Sending request to AI Hub with model: %s", model_name)
+            # Validate API key before making request
+            if not self._api_key:
+                _LOGGER.error("Cannot make API request: API key is empty or not configured")
+                raise HomeAssistantError("API key is not configured")
 
-            # Note: Model vision capability check is not needed here since
-            # we auto-switch to vision models when media attachments are detected
-            # This warning is removed to avoid confusion during model switching
+            # Ensure API key is a string
+            if not isinstance(self._api_key, str):
+                self._api_key = str(self._api_key)
 
-            _LOGGER.debug("Number of messages: %d", len(messages))
-            for i, msg in enumerate(messages):
-                _LOGGER.debug("Message %d: role=%s, content_type=%s", i, msg.get("role"), type(msg.get("content")))
-                if isinstance(msg.get("content"), list):
-                    for j, part in enumerate(msg["content"]):
-                        _LOGGER.debug("  Part %d: type=%s", j, part.get("type"))
-                        if part.get("type") == "image_url":
-                            url = part.get("image_url", {}).get("url", "")
-                            _LOGGER.debug("    Image URL length: %d", len(url))
-
-            # Debug: Log the full request
-            _LOGGER.debug("Full API request parameters: %s", json.dumps(request_params, indent=2, ensure_ascii=False))
-
-            # Additional debugging: Check message structure specifically
-            if messages:
-                first_msg = messages[0]
-                if isinstance(first_msg.get("content"), list):
-                    _LOGGER.debug("Message content structure:")
-                    for i, part in enumerate(first_msg["content"]):
-                        _LOGGER.debug("  Part %d: %s", i, json.dumps(part, indent=2, ensure_ascii=False))
-                        if part.get("type") == "image_url":
-                            url = part.get("image_url", {}).get("url", "")
-                            if url.startswith("data:image/"):
-                                _LOGGER.debug("    Image URL format looks correct (data URI)")
-                            else:
-                                _LOGGER.error("    Image URL format incorrect: %s", url[:100])
-                else:
-                    _LOGGER.debug("Message content is simple string: %s", first_msg.get("content", "")[:100])
+            _LOGGER.debug(
+                "API Request: model=%s, messages_count=%d",
+                model_name,
+                len(messages)
+            )
 
             # Call AI Hub API with streaming via HTTP
             headers = {
@@ -204,9 +249,7 @@ class AIHubBaseLLMEntity(Entity):
                 "Content-Type": "application/json",
             }
 
-            # 使用 Home Assistant 的共享 session 提高性能
-            # Get chat URL from config (complete URL, no derivation needed)
-            api_url = options.get(CONF_CHAT_URL, AI_HUB_CHAT_URL)
+            # Use Home Assistant's shared session for better performance
             session = async_get_clientsession(self.hass)
             async with session.post(
                 api_url,
@@ -253,6 +296,12 @@ class AIHubBaseLLMEntity(Entity):
             # Only send the last user message with attachments, like the working service
             return [await self._convert_user_message(last_content)]
 
+        # Track tool_call IDs for matching with tool results
+        # Maps: original_id -> generated_id (if we had to generate one)
+        # Also tracks: index -> id for tool_calls without original ids
+        tool_call_id_map: dict[str, str] = {}
+        last_tool_call_ids: list[str] = []
+
         # Standard conversation handling for messages without attachments
         # First message is system message (index 0)
         # History is content[1:-1] (excluding first system and last user input)
@@ -261,20 +310,23 @@ class AIHubBaseLLMEntity(Entity):
         # Add system messages
         for content in chat_log.content:
             if content.role == "system":
-                messages.append({"role": "system", "content": content.content or ""})
+                messages.append({"role": "system", "content": _ensure_string(content.content)})
 
         # Process history messages (excluding system and last user input)
         history_content = chat_log.content[1:-1] if len(chat_log.content) > 1 else []
 
-        # Build history messages
+        # Build history messages with ID tracking
         history_messages = []
         for content in history_content:
             if content.role == "user":
                 history_messages.append(await self._convert_user_message(content))
             elif content.role == "assistant":
-                history_messages.append(self._convert_assistant_message(content))
+                msg, generated_ids = self._convert_assistant_message_with_id_tracking(content, tool_call_id_map)
+                history_messages.append(msg)
+                last_tool_call_ids = generated_ids
             elif content.role == "tool_result":
-                history_messages.append(self._convert_tool_message(content))
+                msg = self._convert_tool_message_with_id_matching(content, tool_call_id_map, last_tool_call_ids)
+                history_messages.append(msg)
 
         # Limit history: keep only the most recent conversation turns
         # Count user messages to determine conversation turns
@@ -296,13 +348,15 @@ class AIHubBaseLLMEntity(Entity):
         # Add history to messages
         messages.extend(history_messages)
 
-        # Add current user input
+        # Add current user input (with ID tracking for consistency)
         if last_content.role == "user":
             messages.append(await self._convert_user_message(last_content))
         elif last_content.role == "assistant":
-            messages.append(self._convert_assistant_message(last_content))
+            msg, _ = self._convert_assistant_message_with_id_tracking(last_content, tool_call_id_map)
+            messages.append(msg)
         elif last_content.role == "tool_result":
-            messages.append(self._convert_tool_message(last_content))
+            msg = self._convert_tool_message_with_id_matching(last_content, tool_call_id_map, last_tool_call_ids)
+            messages.append(msg)
 
         return messages
 
@@ -312,120 +366,159 @@ class AIHubBaseLLMEntity(Entity):
         """Convert user message to AI Hub format."""
         message: dict[str, Any] = {"role": "user"}
 
-        # Handle text and attachments
-        if content.attachments:
-            parts = []
-            successful_images = []
-            _LOGGER.debug("Processing %d attachments for user message", len(content.attachments))
+        if not content.attachments:
+            message["content"] = _ensure_string(content.content)
+            return message
 
-            # First, process all attachments and collect successful ones
-            for i, attachment in enumerate(content.attachments):
-                _LOGGER.debug("Processing attachment %d: %s", i, attachment)
+        # Process attachments
+        successful_images = await self._process_attachments(content.attachments)
 
-                if attachment.mime_type and attachment.mime_type.startswith("image/"):
-                    try:
-                        image_data = None
-                        mime_type = attachment.mime_type
-
-                        # Handle media_content_id - try direct file path first (more reliable)
-                        if hasattr(attachment, 'media_content_id'):
-                            _LOGGER.debug("Attachment has media_content_id: %s", attachment.media_content_id)
-                            _LOGGER.debug("Attachment attributes: %s", dir(attachment))
-                            # First check if we have a direct file path (most reliable)
-                            if hasattr(attachment, 'path') and attachment.path:
-                                try:
-                                    _LOGGER.debug("Reading file directly from path: %s", attachment.path)
-                                    import asyncio
-                                    image_bytes = await asyncio.to_thread(self._read_file_bytes, str(attachment.path))
-                                    image_data = base64.b64encode(image_bytes).decode()
-                                    _LOGGER.debug("Successfully read file directly, base64 length: %d", len(image_data))
-                                except Exception as err:
-                                    _LOGGER.error("Failed to read file %s: %s", attachment.path, err, exc_info=True)
-                            else:
-                                # Try media source resolution as fallback
-                                _LOGGER.debug(
-                                    "No file path, trying media source resolution for %s",
-                                    attachment.media_content_id)
-                                try:
-                                    image_bytes = await self._async_get_media_content(
-                                        attachment.media_content_id, mime_type
-                                    )
-                                    if image_bytes:
-                                        image_data = base64.b64encode(image_bytes).decode()
-                                        _LOGGER.debug(
-                                            "Successfully resolved media content, base64 length: %d", len(image_data))
-                                    else:
-                                        _LOGGER.warning(
-                                            "Failed to resolve media content for: %s", attachment.media_content_id)
-                                except Exception as err:
-                                    _LOGGER.error("Error resolving media content %s: %s",
-                                                  attachment.media_content_id, err, exc_info=True)
-                        # Check if attachment has resolved content
-                        elif hasattr(attachment, 'content'):
-                            _LOGGER.debug("Attachment has resolved content")
-                            # Direct content (bytes)
-                            if isinstance(attachment.content, bytes):
-                                image_data = base64.b64encode(attachment.content).decode()
-                                _LOGGER.debug("Converted bytes to base64, length: %d", len(image_data))
-                            elif isinstance(attachment.content, str):
-                                # Already base64 encoded
-                                image_data = attachment.content
-                                _LOGGER.debug("Using existing base64 content, length: %d", len(image_data))
-                        elif hasattr(attachment, 'path') and attachment.path:
-                            # Traditional file path (handle asynchronously)
-                            _LOGGER.debug("Reading image from path: %s", attachment.path)
-                            try:
-                                import asyncio
-                                image_bytes = await asyncio.to_thread(self._read_file_bytes, str(attachment.path))
-                                image_data = base64.b64encode(image_bytes).decode()
-                            except Exception as err:
-                                _LOGGER.error("Failed to read file %s: %s", attachment.path, err, exc_info=True)
-                        else:
-                            _LOGGER.warning("Attachment format not supported: %s", attachment)
-                            continue
-
-                        if image_data:
-                            # Use image/jpeg like official example (even for PNG images)
-                            successful_images.append({
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{image_data}"
-                                }
-                            })
-                            _LOGGER.debug(
-                                "Successfully added image to message parts using official example format (image/jpeg)")
-                        else:
-                            _LOGGER.warning("Could not get image data from attachment: %s", attachment)
-
-                    except Exception as err:
-                        _LOGGER.error("Failed to process image attachment %s: %s", attachment, err, exc_info=True)
-                else:
-                    _LOGGER.debug(
-                        "Skipping non-image attachment: %s (mime: %s)",
-                        attachment, getattr(attachment, 'mime_type', 'unknown')
-                    )
-
-            # Build content EXACTLY like our working services.py
-            if successful_images:
-                # Add images first (like working service)
-                parts.extend(successful_images)
-                # Add text part (like working service)
-                parts.append({
-                    "type": "text",
-                    "text": content.content or ""
-                })
-
-                message["content"] = parts
-                _LOGGER.debug(
-                    "Final message content has %d parts (%d images + text) - EXACTLY like working services.py",
-                    len(parts),
-                    len(successful_images))
-            else:
-                # No images processed successfully, fall back to text only
-                _LOGGER.warning("No images were processed successfully, falling back to text only")
-                message["content"] = content.content or ""
+        if successful_images:
+            # Build content with images first, then text (like working services.py)
+            parts = successful_images + [{"type": "text", "text": _ensure_string(content.content)}]
+            message["content"] = parts
+            _LOGGER.debug(
+                "Final message content has %d parts (%d images + text)",
+                len(parts), len(successful_images)
+            )
         else:
-            message["content"] = content.content or ""
+            _LOGGER.warning("No images were processed successfully, falling back to text only")
+            message["content"] = _ensure_string(content.content)
+
+        return message
+
+    async def _process_attachments(
+        self, attachments: list[Any]
+    ) -> list[dict[str, Any]]:
+        """Process attachments and return list of successful image parts."""
+        successful_images = []
+        _LOGGER.debug("Processing %d attachments for user message", len(attachments))
+
+        for i, attachment in enumerate(attachments):
+            _LOGGER.debug("Processing attachment %d: %s", i, attachment)
+
+            if not (attachment.mime_type and attachment.mime_type.startswith("image/")):
+                _LOGGER.debug(
+                    "Skipping non-image attachment: %s (mime: %s)",
+                    attachment, getattr(attachment, 'mime_type', 'unknown')
+                )
+                continue
+
+            image_data = await self._get_image_data_from_attachment(attachment)
+            if image_data:
+                successful_images.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}
+                })
+                _LOGGER.debug("Successfully added image to message parts")
+            else:
+                _LOGGER.warning("Could not get image data from attachment: %s", attachment)
+
+        return successful_images
+
+    async def _get_image_data_from_attachment(self, attachment: Any) -> str | None:
+        """Extract base64 image data from an attachment."""
+        try:
+            mime_type = attachment.mime_type
+
+            # Strategy 1: Direct file path (most reliable)
+            if hasattr(attachment, 'path') and attachment.path:
+                return await self._read_image_from_path(attachment.path)
+
+            # Strategy 2: Media content ID
+            if hasattr(attachment, 'media_content_id') and attachment.media_content_id:
+                _LOGGER.debug("Attachment has media_content_id: %s", attachment.media_content_id)
+                image_bytes = await self._async_get_media_content(
+                    attachment.media_content_id, mime_type
+                )
+                if image_bytes:
+                    image_data = base64.b64encode(image_bytes).decode()
+                    _LOGGER.debug("Successfully resolved media content, base64 length: %d", len(image_data))
+                    return image_data
+                _LOGGER.warning("Failed to resolve media content for: %s", attachment.media_content_id)
+                return None
+
+            # Strategy 3: Direct content
+            if hasattr(attachment, 'content') and attachment.content:
+                if isinstance(attachment.content, bytes):
+                    image_data = base64.b64encode(attachment.content).decode()
+                    _LOGGER.debug("Converted bytes to base64, length: %d", len(image_data))
+                    return image_data
+                elif isinstance(attachment.content, str):
+                    _LOGGER.debug("Using existing base64 content, length: %d", len(attachment.content))
+                    return attachment.content
+
+            _LOGGER.warning("Attachment format not supported: %s", attachment)
+            return None
+
+        except Exception as err:
+            _LOGGER.error("Failed to process image attachment %s: %s", attachment, err, exc_info=True)
+            return None
+
+    async def _read_image_from_path(self, path: str) -> str | None:
+        """Read image from file path and return base64 encoded data."""
+        import asyncio
+
+        try:
+            _LOGGER.debug("Reading file directly from path: %s", path)
+            image_bytes = await asyncio.to_thread(self._read_file_bytes, str(path))
+            image_data = base64.b64encode(image_bytes).decode()
+            _LOGGER.debug("Successfully read file directly, base64 length: %d", len(image_data))
+            return image_data
+        except Exception as err:
+            _LOGGER.error("Failed to read file %s: %s", path, err, exc_info=True)
+            return None
+
+    def _convert_assistant_message_with_id_tracking(
+        self, content: conversation.Content, id_map: dict[str, str]
+    ) -> tuple[dict[str, Any], list[str]]:
+        """Convert assistant message with ID tracking for tool calls.
+
+        Returns:
+            Tuple of (message dict, list of tool_call IDs used in this message)
+        """
+        generated_ids: list[str] = []
+
+        # Use base conversion
+        message = self._convert_assistant_message(content)
+
+        # Extract and track the IDs that were used
+        if content.tool_calls and "tool_calls" in message:
+            for i, tc in enumerate(message["tool_calls"]):
+                tool_id = tc["id"]
+                generated_ids.append(tool_id)
+                # Map original ID (if any) to the used ID
+                original_id = content.tool_calls[i].id if content.tool_calls[i].id else None
+                if original_id:
+                    id_map[original_id] = tool_id
+                else:
+                    id_map[f"_index_{i}"] = tool_id
+
+        return message, generated_ids
+
+    def _convert_tool_message_with_id_matching(
+        self, content: conversation.Content, id_map: dict[str, str], last_tool_call_ids: list[str]
+    ) -> dict[str, Any]:
+        """Convert tool result message with ID matching.
+
+        Tries to match the tool_call_id with IDs from the most recent assistant message.
+        """
+        original_id = content.tool_call_id
+
+        # First use base conversion
+        message = self._convert_tool_message(content)
+
+        # Then try to fix the ID if needed
+        if original_id and isinstance(original_id, str) and original_id.strip():
+            # Check if this ID needs remapping
+            if original_id in id_map:
+                message["tool_call_id"] = id_map[original_id]
+        elif last_tool_call_ids:
+            # No valid original ID - use the first available ID from last assistant's tool_calls
+            message["tool_call_id"] = last_tool_call_ids[0]
+            # Remove it so the next tool result uses the next ID
+            if len(last_tool_call_ids) > 1:
+                last_tool_call_ids.pop(0)
 
         return message
 
@@ -436,20 +529,25 @@ class AIHubBaseLLMEntity(Entity):
         message: dict[str, Any] = {"role": "assistant"}
 
         if content.tool_calls:
-            message["tool_calls"] = [
-                {
-                    "id": tool_call.id,
+            tool_calls_list = []
+            for tool_call in content.tool_calls:
+                # Ensure tool_call id is always a valid non-empty string
+                tool_id = tool_call.id if tool_call.id else None
+                if not tool_id or not isinstance(tool_id, str) or not tool_id.strip():
+                    tool_id = ulid.ulid_now()
+
+                tool_calls_list.append({
+                    "id": tool_id,
                     "type": "function",
                     "function": {
-                        "name": tool_call.tool_name,
-                        "arguments": json.dumps(tool_call.tool_args, ensure_ascii=False),
+                        "name": str(tool_call.tool_name) if tool_call.tool_name else "",
+                        "arguments": json.dumps(tool_call.tool_args, ensure_ascii=False) if tool_call.tool_args else "{}",
                     },
-                }
-                for tool_call in content.tool_calls
-            ]
-            message["content"] = content.content or ""
+                })
+            message["tool_calls"] = tool_calls_list
+            message["content"] = _ensure_string(content.content)
         else:
-            message["content"] = content.content or ""
+            message["content"] = _ensure_string(content.content)
 
         return message
 
@@ -457,21 +555,33 @@ class AIHubBaseLLMEntity(Entity):
         self, content: conversation.Content
     ) -> dict[str, Any]:
         """Convert tool result to AI Hub format."""
+        # Ensure tool_call_id is always a valid string
+        # API requires a non-empty tool_call_id
+        tool_call_id = content.tool_call_id
+        if not tool_call_id or not isinstance(tool_call_id, str) or not tool_call_id.strip():
+            # Generate a valid ID if missing - this maintains API compatibility
+            tool_call_id = ulid.ulid_now()
+            _LOGGER.debug("Generated tool_call_id for tool result: %s", tool_call_id)
+
         return {
             "role": "tool",
-            "tool_call_id": content.tool_call_id,
-            "content": json.dumps(content.tool_result, ensure_ascii=False, default=str),
+            "tool_call_id": tool_call_id,
+            "content": json.dumps(content.tool_result, ensure_ascii=False, default=str) if content.tool_result is not None else "{}",
         }
 
     def _format_tool(
         self, tool: llm.Tool, custom_serializer: Callable[[Any], Any] | None
     ) -> dict[str, Any]:
         """Format tool for AI Hub API."""
+        # Ensure tool name and description are valid strings
+        tool_name = str(tool.name) if tool.name else ""
+        tool_description = str(tool.description) if tool.description else ""
+
         return {
             "type": "function",
             "function": {
-                "name": tool.name,
-                "description": tool.description,
+                "name": tool_name,
+                "description": tool_description,
                 "parameters": self._convert_schema(tool.parameters, custom_serializer),
             },
         }
@@ -558,8 +668,12 @@ class AIHubBaseLLMEntity(Entity):
 
                             # Initialize tool call buffer if needed
                             if index not in tool_call_buffer:
+                                # Ensure we always have a valid id
+                                tool_id = tc_delta.get("id")
+                                if not tool_id or not isinstance(tool_id, str) or not tool_id.strip():
+                                    tool_id = ulid.ulid_now()
                                 tool_call_buffer[index] = {
-                                    "id": tc_delta.get("id", ulid.ulid_now()),
+                                    "id": tool_id,
                                     "type": "function",
                                     "function": {
                                         "name": "",
@@ -567,8 +681,8 @@ class AIHubBaseLLMEntity(Entity):
                                     },
                                 }
 
-                            # Update tool call data
-                            if "id" in tc_delta:
+                            # Update tool call data - only update id if it's a valid non-empty string
+                            if "id" in tc_delta and tc_delta["id"] and isinstance(tc_delta["id"], str) and tc_delta["id"].strip():
                                 tool_call_buffer[index]["id"] = tc_delta["id"]
                             if "function" in tc_delta:
                                 func = tc_delta["function"]
@@ -582,10 +696,15 @@ class AIHubBaseLLMEntity(Entity):
             tool_calls = []
             for tc in tool_call_buffer.values():
                 try:
+                    # Ensure id is valid before creating ToolInput
+                    tool_id = tc["id"]
+                    if not tool_id or not isinstance(tool_id, str) or not tool_id.strip():
+                        tool_id = ulid.ulid_now()
+
                     args = json.loads(tc["function"]["arguments"]) if tc["function"]["arguments"] else {}
                     tool_calls.append(
                         llm.ToolInput(
-                            id=tc["id"],
+                            id=tool_id,
                             tool_name=tc["function"]["name"],
                             tool_args=args,
                         )
@@ -595,12 +714,6 @@ class AIHubBaseLLMEntity(Entity):
 
             if tool_calls:
                 yield {"tool_calls": tool_calls}
-
-    async def _async_iterate_response(self, response: Any):
-        """Iterate over streaming response asynchronously."""
-        # This method is no longer needed with HTTP streaming
-        for chunk in response:
-            yield chunk
 
     async def _async_download_image_from_url(self, url: str) -> bytes | None:
         """Download image from URL."""
@@ -621,116 +734,91 @@ class AIHubBaseLLMEntity(Entity):
         _LOGGER.debug("Getting media content for ID: %s, mime_type: %s", media_content_id, mime_type)
 
         try:
-            # Handle media-source:// URLs
+            # Route to appropriate handler based on URL format
             if media_content_id.startswith("media-source://"):
-                _LOGGER.debug("Processing media-source URL: %s", media_content_id)
-
-                if not media_source.is_media_source_id(media_content_id):
-                    _LOGGER.warning("Invalid media source ID: %s", media_content_id)
-                    return None
-
-                # Resolve media source
-                try:
-                    media_item = await media_source.async_resolve_media(
-                        self.hass, media_content_id, self.entity_id
-                    )
-                    _LOGGER.debug("Resolved media item: %s", media_item)
-                except Exception as err:
-                    _LOGGER.error("Error resolving media source %s: %s", media_content_id, err, exc_info=True)
-                    return None
-
-                if media_item and hasattr(media_item, 'url') and media_item.url:
-                    # Build full URL if it's a relative path
-                    media_url = media_item.url
-                    if media_url.startswith('/'):
-                        # Get Home Assistant base URL from configuration
-                        try:
-                            if hasattr(self.hass.config, 'external_url') and self.hass.config.external_url:
-                                base_url = self.hass.config.external_url.rstrip('/')
-                                media_url = f"{base_url}{media_url}"
-                            elif hasattr(self.hass.config, 'internal_url') and self.hass.config.internal_url:
-                                base_url = self.hass.config.internal_url.rstrip('/')
-                                media_url = f"{base_url}{media_url}"
-                            else:
-                                # Default to localhost
-                                media_url = f"http://localhost:8123{media_url}"
-                        except Exception as err:
-                            # Fallback to localhost
-                            _LOGGER.warning("Could not get Home Assistant URL, using localhost: %s", err)
-                            media_url = f"http://localhost:8123{media_url}"
-
-                    _LOGGER.debug("Media item URL: %s", media_url)
-
-                    # Download the media content using Home Assistant's session
-                    try:
-                        from homeassistant.helpers.aiohttp_client import async_get_clientsession
-                        session = async_get_clientsession(self.hass)
-                        async with session.get(
-                            media_url,
-                            timeout=aiohttp.ClientTimeout(total=30)
-                        ) as response:
-                            _LOGGER.debug("Response status: %s", response.status)
-                            if response.status == 200:
-                                content = await response.read()
-                                _LOGGER.debug("Successfully downloaded media content, size: %d bytes", len(content))
-                                return content
-                            else:
-                                error_text = await response.text()
-                                _LOGGER.warning(
-                                    "Failed to download media content: %s, status: %s, error: %s",
-                                    media_item.url,
-                                    response.status,
-                                    error_text
-                                )
-                                return None
-                    except Exception as err:
-                        _LOGGER.error("Error downloading media content from %s: %s", media_item.url, err, exc_info=True)
-                        return None
-                else:
-                    _LOGGER.warning("Could not resolve media source or no URL: %s", media_content_id)
-                    _LOGGER.warning("Media item details: %s", media_item)
-                    return None
-
-            # Handle /api/image/serve URLs (Home Assistant image serving)
-            elif media_content_id.startswith("/api/image/serve/") or media_content_id.startswith("api/image/serve/"):
-                # Construct full URL if needed
-                if not media_content_id.startswith("/"):
-                    url = f"/{media_content_id}"
-                else:
-                    url = media_content_id
-
-                _LOGGER.debug("Processing serve URL: %s", url)
-
-                # Use Home Assistant's internal API client
-                try:
-                    from homeassistant.helpers.aiohttp_client import async_get_clientsession
-                    session = async_get_clientsession(self.hass)
-                    async with session.get(
-                        url,
-                        timeout=aiohttp.ClientTimeout(total=30)
-                    ) as response:
-                        if response.status == 200:
-                            content = await response.read()
-                            _LOGGER.debug("Successfully got served image, size: %d bytes", len(content))
-                            return content
-                        else:
-                            _LOGGER.warning("Failed to get served image: %s, status: %s", url, response.status)
-                            return None
-                except Exception as err:
-                    _LOGGER.error("Error getting served image %s: %s", url, err, exc_info=True)
-                    return None
-
-            # Handle direct URLs
+                return await self._resolve_media_source(media_content_id)
+            elif media_content_id.startswith(("/api/image/serve/", "api/image/serve/")):
+                return await self._fetch_served_image(media_content_id)
             elif media_content_id.startswith(("http://", "https://")):
                 _LOGGER.debug("Processing direct URL: %s", media_content_id)
                 return await self._async_download_image_from_url(media_content_id)
-
             else:
                 _LOGGER.warning("Unsupported media content ID format: %s", media_content_id)
                 return None
 
         except Exception as err:
             _LOGGER.error("Unexpected error getting media content %s: %s", media_content_id, err, exc_info=True)
+            return None
+
+    async def _resolve_media_source(self, media_content_id: str) -> bytes | None:
+        """Resolve and download content from a media-source:// URL."""
+        _LOGGER.debug("Processing media-source URL: %s", media_content_id)
+
+        if not media_source.is_media_source_id(media_content_id):
+            _LOGGER.warning("Invalid media source ID: %s", media_content_id)
+            return None
+
+        # Resolve media source
+        try:
+            media_item = await media_source.async_resolve_media(
+                self.hass, media_content_id, self.entity_id
+            )
+            _LOGGER.debug("Resolved media item: %s", media_item)
+        except Exception as err:
+            _LOGGER.error("Error resolving media source %s: %s", media_content_id, err, exc_info=True)
+            return None
+
+        if not (media_item and hasattr(media_item, 'url') and media_item.url):
+            _LOGGER.warning("Could not resolve media source or no URL: %s", media_content_id)
+            return None
+
+        # Build full URL if it's a relative path
+        media_url = self._build_full_url(media_item.url)
+        _LOGGER.debug("Media item URL: %s", media_url)
+
+        return await self._download_from_url(media_url)
+
+    def _build_full_url(self, url: str) -> str:
+        """Build full URL from a potentially relative path."""
+        if not url.startswith('/'):
+            return url
+
+        try:
+            if hasattr(self.hass.config, 'external_url') and self.hass.config.external_url:
+                base_url = self.hass.config.external_url.rstrip('/')
+            elif hasattr(self.hass.config, 'internal_url') and self.hass.config.internal_url:
+                base_url = self.hass.config.internal_url.rstrip('/')
+            else:
+                base_url = "http://localhost:8123"
+        except Exception as err:
+            _LOGGER.warning("Could not get Home Assistant URL, using localhost: %s", err)
+            base_url = "http://localhost:8123"
+
+        return f"{base_url}{url}"
+
+    async def _fetch_served_image(self, url: str) -> bytes | None:
+        """Fetch image from /api/image/serve/ endpoint."""
+        if not url.startswith("/"):
+            url = f"/{url}"
+
+        _LOGGER.debug("Processing serve URL: %s", url)
+        return await self._download_from_url(url)
+
+    async def _download_from_url(self, url: str) -> bytes | None:
+        """Download content from a URL using Home Assistant's session."""
+        try:
+            session = async_get_clientsession(self.hass)
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                _LOGGER.debug("Response status: %s", response.status)
+                if response.status == 200:
+                    content = await response.read()
+                    _LOGGER.debug("Successfully downloaded content, size: %d bytes", len(content))
+                    return content
+                else:
+                    _LOGGER.warning("Failed to download from %s, status: %s", url, response.status)
+                    return None
+        except Exception as err:
+            _LOGGER.error("Error downloading from %s: %s", url, err, exc_info=True)
             return None
 
     def _read_file_bytes(self, file_path: str) -> bytes:
@@ -762,8 +850,17 @@ class AIHubEntityBase(Entity):
         self._attr_name = subentry.title
 
         # Get API key: use custom key if provided, otherwise use main key
-        custom_key = subentry.data.get(CONF_CUSTOM_API_KEY, "").strip()
-        self._api_key = custom_key if custom_key else entry.runtime_data
+        custom_key_raw = subentry.data.get(CONF_CUSTOM_API_KEY, "")
+        custom_key = str(custom_key_raw).strip() if custom_key_raw else ""
+        main_key = entry.runtime_data if entry.runtime_data else ""
+        # Ensure API key is always a string
+        if custom_key:
+            self._api_key = custom_key
+        elif isinstance(main_key, str) and main_key.strip():
+            self._api_key = main_key
+        else:
+            self._api_key = ""
+            _LOGGER.warning("No valid API key found for entity %s", subentry.title)
 
         # Device info
         self._attr_device_info = dr.DeviceInfo(

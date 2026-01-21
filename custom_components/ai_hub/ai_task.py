@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 from json import JSONDecodeError
 from json import loads as json_loads
+from typing import Any
 
 import aiohttp
 from homeassistant.components import ai_task, conversation
@@ -28,6 +30,24 @@ from .const import (
 from .entity import AIHubBaseLLMEntity
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _ensure_string(value: Any) -> str:
+    """Ensure a value is a valid string.
+
+    Args:
+        value: The value to convert to string
+
+    Returns:
+        A string representation of the value, or empty string if None/empty
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, dict)):
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
 
 
 def _get_conversation_model(config_entry: ConfigEntry) -> str:
@@ -142,7 +162,7 @@ class AIHubTaskEntity(
             )
             raise HomeAssistantError(ERROR_GETTING_RESPONSE)
 
-        text = chat_log.content[-1].content or ""
+        text = _ensure_string(chat_log.content[-1].content)
 
         # If structure is requested, parse as JSON
         if task.structure:

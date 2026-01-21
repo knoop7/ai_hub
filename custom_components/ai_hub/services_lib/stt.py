@@ -96,13 +96,13 @@ async def handle_stt_transcribe(
             async with session.post(SILICONFLOW_ASR_URL, headers=headers, data=form_data) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    _LOGGER.error("STT API 错误: %s - %s", response.status, error_text)
+                    _LOGGER.error("STT API error: %s - %s", response.status, error_text)
                     return {"success": False, "error": f"STT API 请求失败: {response.status}"}
 
                 response_data = await response.json()
 
                 if "text" not in response_data:
-                    _LOGGER.error("STT API 响应格式错误: %s", response_data)
+                    _LOGGER.error("STT API response format error: %s", response_data)
                     return {"success": False, "error": "API 响应格式错误"}
 
                 return {

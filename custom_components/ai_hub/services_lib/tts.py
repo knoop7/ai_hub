@@ -110,10 +110,10 @@ async def handle_tts_speech(
                 }
 
             except Exception as exc:
-                _LOGGER.error("媒体播放失败: %s", exc)
+                _LOGGER.error("Media playback failed: %s", exc)
                 return {
                     "success": False,
-                    "error": f"媒体播放失败: {exc}",
+                    "error": f"Media playback failed: {exc}",
                     "audio_data": audio_base64,
                 }
 

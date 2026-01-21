@@ -30,7 +30,7 @@ class AIAutomationManager:
     ) -> Dict[str, Any]:
         """Create an automation from natural language description."""
         try:
-            # 使用对话引擎生成YAML配置
+            # Generate YAML config using conversation engine
             yaml_config = await self._generate_automation_yaml(description, name, area_id)
 
             if not yaml_config:
@@ -39,21 +39,24 @@ class AIAutomationManager:
                     "error": "Failed to generate automation YAML"
                 }
 
-            # 直接写入automations.yaml文件
+            # Write to automations.yaml file
             success = await self._write_yaml_to_config(yaml_config)
 
             if success:
-                # 重新加载自动化
+                # Reload automations
                 try:
                     await self.hass.services.async_call("automation", "reload", {}, blocking=True)
                     return {
                         "success": True,
-                        "message": "自动化创建成功！配置已写入automations.yaml并重新加载。你可以在自动化界面中找到它。"
+                        "message": "Automation created successfully! Config written to automations.yaml and reloaded."
                     }
                 except Exception as reload_error:
                     return {
                         "success": True,
-                        "message": f"自动化配置已写入，但重新加载失败: {reload_error}。请手动重新加载自动化或重启Home Assistant。"
+                        "message": (
+                            f"Automation config saved but reload failed: {reload_error}. "
+                            "Please reload automations manually or restart Home Assistant."
+                        )
                     }
             else:
                 return {
@@ -76,7 +79,7 @@ class AIAutomationManager:
     ) -> Optional[str]:
         """Generate automation YAML using the AI Hub conversation engine."""
         try:
-            # 构建专门的YAML生成请求
+            # Build YAML generation prompt (Chinese for Chinese LLM)
             yaml_prompt = f"""请根据以下描述生成一个标准的Home Assistant自动化YAML配置：
 
 描述: {description}"""
@@ -94,7 +97,7 @@ class AIAutomationManager:
 2. 只返回YAML代码，不要任何其他说明
 3. 确保YAML格式正确，可以直接写入automations.yaml文件
 4. 使用标准的Home Assistant自动化字段: alias, trigger, condition, action
-5. 不要包含id字段
+5. 不要包含id字段（系统会自动生成）
 
 示例格式:
 ```yaml
@@ -113,19 +116,19 @@ mode: single
 
 请直接返回YAML代码，不要包含任何其他文字："""
 
-            # 调用智谱AI对话引擎
+            # Call ZhipuAI conversation engine
             try:
-                # 调用智谱API生成YAML
+                # Call ZhipuAI API to generate YAML
                 yaml_result = await self._call_zhipuai_api_for_yaml(yaml_prompt)
 
                 if yaml_result:
-                    # 清理返回结果，提取纯YAML代码
+                    # Clean response and extract pure YAML code
                     return self._extract_yaml_from_response(yaml_result)
 
             except ImportError:
                 _LOGGER.warning("Could not import conversation agent, using fallback logic")
 
-            # 备选逻辑：如果无法访问对话引擎，使用简化逻辑
+            # Fallback logic if conversation engine is unavailable
             return self._generate_fallback_yaml(description, name, area_id)
 
         except Exception as e:
@@ -137,13 +140,13 @@ mode: single
         try:
             import aiohttp
 
-            # 获取API密钥 - 从HASS配置中获取
+            # Get API key from HASS configuration
             api_key = self._get_api_key()
             if not api_key:
                 _LOGGER.error("No AI Hub API key available")
                 return None
 
-            # 构建请求参数
+            # Build request parameters
             messages = [
                 {
                     "role": "user",
@@ -152,11 +155,11 @@ mode: single
             ]
 
             request_params = {
-                "model": "glm-4-flash",  # 使用默认模型
+                "model": "glm-4-flash",  # Use default model
                 "messages": messages,
-                "stream": False,  # 不使用流式响应
+                "stream": False,  # Non-streaming response
                 "max_tokens": 2000,
-                "temperature": 0.1  # 低温度以确保稳定的YAML输出
+                "temperature": 0.1  # Low temperature for stable YAML output
             }
 
             headers = {
@@ -164,7 +167,7 @@ mode: single
                 "Content-Type": "application/json",
             }
 
-            # 调用智谱AI API
+            # Call ZhipuAI API
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     "https://open.bigmodel.cn/api/paas/v4/chat/completions",
@@ -179,7 +182,7 @@ mode: single
 
                     response_data = await response.json()
 
-                    # 提取回复内容
+                    # Extract response content
                     if "choices" in response_data and len(response_data["choices"]) > 0:
                         content = response_data["choices"][0]["message"]["content"]
                         _LOGGER.info("AI Hub response received for YAML generation")
@@ -195,16 +198,16 @@ mode: single
     def _get_api_key(self) -> Optional[str]:
         """Get AI Hub API key from Home Assistant configuration."""
         try:
-            # 查找智谱AI的配置条目
             from homeassistant.config_entries import ConfigEntries
 
-            config_entries: ConfigEntries = self.hass.config_entries
-            zhipuai_entries = config_entries.async_entries_for_domain("zhipuai")
+            from .const import DOMAIN
 
-            if zhipuai_entries:
-                # 获取第一个智谱AI配置条目
-                entry = zhipuai_entries[0]
-                # API密钥存储在runtime_data中
+            config_entries: ConfigEntries = self.hass.config_entries
+            ai_hub_entries = config_entries.async_entries_for_domain(DOMAIN)
+
+            if ai_hub_entries:
+                entry = ai_hub_entries[0]
+                # API key is stored in runtime_data
                 api_key = entry.runtime_data
                 if api_key:
                     return api_key
@@ -308,40 +311,41 @@ mode: single'''
 
         description_lower = description.lower()
 
-        # 匹配 "X点Y分" 格式
+        # Match "X点Y分" format (Chinese time)
         match = re.search(r'(\d+)\s*点\s*(\d+)\s*分', description_lower)
         if match:
             hour = int(match.group(1))
             minute = int(match.group(2))
             return f"{hour:02d}:{minute:02d}:00"
 
-        # 匹配 "X点半" 格式
+        # Match "X点半" format (Chinese half hour)
         match = re.search(r'(\d+)\s*点半', description_lower)
         if match:
             hour = int(match.group(1))
             return f"{hour:02d}:30:00"
 
-        # 匹配 "X点" 格式
+        # Match "X点" format (Chinese hour)
         match = re.search(r'(\d+)\s*点', description_lower)
         if match:
             hour = int(match.group(1))
             return f"{hour:02d}:00:00"
 
-        # 默认时间
+        # Default time
         return "20:30:00"
 
     def _extract_name_from_description(self, description: str) -> str:
         """Extract a meaningful name from description."""
-        # 简单的名称提取逻辑
+        # Simple name extraction logic
         if len(description) > 50:
             return description[:47] + "..."
         return description
 
     async def _write_yaml_to_config(self, yaml_config: str) -> bool:
-        """Write YAML configuration to automations.yaml file."""
+        """Write YAML configuration to automations.yaml file with validation."""
         try:
             import os
             import shutil
+            import uuid
 
             import yaml
 
@@ -349,40 +353,62 @@ mode: single'''
             automations_file = os.path.join(config_dir, "automations.yaml")
 
             def _write_file():
-                """在执行器中执行文件操作"""
-                # 备份现有文件
+                """Execute file operations in executor."""
+                # Backup existing file
                 if os.path.exists(automations_file):
                     backup_file = f"{automations_file}.backup_{int(dt_util.now().timestamp())}"
                     shutil.copy2(automations_file, backup_file)
                     _LOGGER.info("Backed up existing automations.yaml")
 
-                # 读取现有配置
+                # Read existing config
                 existing_automations = []
                 if os.path.exists(automations_file):
                     with open(automations_file, 'r', encoding='utf-8') as f:
                         content = f.read()
                         if content.strip():
                             existing_automations = yaml.safe_load(content) or []
-                        else:
-                            # 如果文件为空，添加YAML头部
-                            existing_automations = []
 
-                # 解析新的YAML配置
+                # Parse new YAML config
                 try:
                     new_automation = yaml.safe_load(yaml_config)
                     if not isinstance(new_automation, list):
                         new_automation = [new_automation]
                 except yaml.YAMLError as e:
                     _LOGGER.error("Invalid YAML generated: %s", e)
-                    raise ValueError(f"生成的YAML格式无效: {e}")
+                    raise ValueError(f"Invalid YAML format: {e}")
 
-                # 添加新自动化
+                # Validate and enhance each automation
+                for automation in new_automation:
+                    # Validate required fields
+                    if not isinstance(automation, dict):
+                        raise ValueError("Automation must be a dictionary")
+
+                    if "trigger" not in automation:
+                        raise ValueError("Automation must have a 'trigger' field")
+
+                    if "action" not in automation:
+                        raise ValueError("Automation must have an 'action' field")
+
+                    # Generate unique ID if not present (required for UI editing)
+                    if "id" not in automation:
+                        automation["id"] = str(uuid.uuid4())
+                        _LOGGER.debug("Generated automation ID: %s", automation["id"])
+
+                    # Ensure alias exists
+                    if "alias" not in automation:
+                        automation["alias"] = f"AI Generated Automation {automation['id'][:8]}"
+
+                    # Ensure mode exists
+                    if "mode" not in automation:
+                        automation["mode"] = "single"
+
+                # Add new automations
                 existing_automations.extend(new_automation)
 
-                # 写入配置文件
+                # Write config file
                 with open(automations_file, 'w', encoding='utf-8') as f:
                     f.write("# Home Assistant Automations\n")
-                    f.write("# Generated by AI Hub Integration\n\n")
+                    f.write("# Generated/Modified by AI Hub Integration\n\n")
                     yaml.dump(existing_automations, f,
                               default_flow_style=False,
                               allow_unicode=True,
@@ -391,7 +417,7 @@ mode: single'''
 
                 return True
 
-            # 在执行器中运行文件操作
+            # Run file operations in executor
             await self.hass.async_add_executor_job(_write_file)
             _LOGGER.info("Automation written to config file")
             return True
@@ -401,23 +427,20 @@ mode: single'''
             return False
 
 
-# 全局管理器实例
-_automation_manager: Optional[AIAutomationManager] = None
-
-
 def get_automation_manager(hass: HomeAssistant) -> AIAutomationManager:
-    """Get the AI automation manager instance."""
-    global _automation_manager
-    if _automation_manager is None:
-        _automation_manager = AIAutomationManager(hass)
-    return _automation_manager
+    """Get the AI automation manager instance from hass.data."""
+    from . import get_or_create_ai_hub_data
+
+    ai_hub_data = get_or_create_ai_hub_data(hass)
+    if ai_hub_data.automation_manager is None:
+        ai_hub_data.automation_manager = AIAutomationManager(hass)
+    return ai_hub_data.automation_manager
 
 
 async def async_setup_ai_automation(hass: HomeAssistant) -> None:
     """Set up AI automation services."""
     manager = get_automation_manager(hass)
 
-    # 注册服务
     async def create_automation_service(call: ServiceCall) -> Dict[str, Any]:
         """Create automation from natural language."""
         description = call.data.get("description", "")

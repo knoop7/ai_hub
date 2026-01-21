@@ -158,8 +158,8 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             )
             return {"success": True, "result": result}
         except Exception as exc:
-            _LOGGER.error("翻译服务错误: %s", exc)
-            return {"success": False, "error": f"翻译服务错误: {exc}"}
+            _LOGGER.error("Translation service error: %s", exc)
+            return {"success": False, "error": f"Translation service error: {exc}"}
 
     # ========== 蓝图翻译服务 ==========
     async def _handle_translate_blueprints(call: ServiceCall) -> dict:
@@ -186,8 +186,8 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             )
             return {"success": True, "result": result}
         except Exception as exc:
-            _LOGGER.error("Blueprint翻译服务错误: %s", exc)
-            return {"success": False, "error": f"Blueprint翻译服务错误: {exc}"}
+            _LOGGER.error("Blueprint translation service error: %s", exc)
+            return {"success": False, "error": f"Blueprint translation service error: {exc}"}
 
     # ========== 注册所有服务 ==========
     hass.services.async_register(

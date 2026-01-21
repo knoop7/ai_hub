@@ -38,7 +38,7 @@ class ChineseIntentHandler(intent.IntentHandler):
             return response
 
         except Exception as e:
-            _LOGGER.error(f"意图处理失败 {self.intent_type}: {e}")
+            _LOGGER.error(f"Intent handling failed {self.intent_type}: {e}")
             response = intent.IntentResponse()
             response.async_set_error(
                 intent.IntentResponseErrorCode.UNKNOWN,
@@ -108,7 +108,7 @@ class LocalIntentHandler:
         if has_action_word and is_short_text and not has_global_keyword:
             should_handle = False
 
-        _LOGGER.debug(f"本地意图判断: '{text}' → {should_handle}")
+        _LOGGER.debug(f"Local intent check: '{text}' -> {should_handle}")
 
         return should_handle
 
@@ -212,7 +212,7 @@ class LocalIntentHandler:
                         devices = self.hass.states.async_entity_ids(domain)
                         all_devices.extend(devices)
                     except Exception as e:
-                        _LOGGER.debug(f"获取 {domain} 设备失败: {e}")
+                        _LOGGER.debug(f"Failed to get {domain} devices: {e}")
             else:
                 all_devices = await self._get_area_devices(area_names, device_types)
 
@@ -282,7 +282,7 @@ class LocalIntentHandler:
                     except Exception:
                         continue
         except Exception as e:
-            _LOGGER.debug(f"获取区域设备失败: {e}")
+            _LOGGER.debug(f"Failed to get area devices: {e}")
             # 回退到全局
             for domain in device_types:
                 all_devices.extend(self.hass.states.async_entity_ids(domain))
@@ -316,7 +316,7 @@ class LocalIntentHandler:
                 await self.hass.services.async_call(domain, service_name, data)
                 success_count += 1
             except Exception as e:
-                _LOGGER.debug(f"控制设备 {device_id} 失败: {e}")
+                _LOGGER.debug(f"Failed to control device {device_id}: {e}")
                 error_count += 1
                 failed_devices.append(self._get_device_friendly_name(device_id))
 
@@ -364,78 +364,148 @@ class LocalIntentHandler:
 
     async def _handle_parameter_control(self, text: str, text_lower: str, global_config: dict):
         """处理参数控制命令."""
-        param_keywords = global_config.get('param_keywords', [])
-        has_param_keyword = any(keyword in text_lower for keyword in param_keywords)
-
-        # 检查各种参数类型
-        brightness_keywords = global_config.get('brightness_keywords', [])
-        volume_keywords = global_config.get('volume_keywords', [])
-        temp_keywords = global_config.get('temperature_keywords', [])
-
-        has_direct_param = False
-        if any(kw in text_lower for kw in brightness_keywords) and re.search(r'(\d{1,3})\s*%?', text):
-            has_direct_param = True
-        elif any(kw in text_lower for kw in volume_keywords) and re.search(r'(\d{1,3})\s*%?', text):
-            has_direct_param = True
-        elif any(kw in text_lower for kw in temp_keywords) and re.search(r'(\d{1,2})\s*度', text_lower):
-            has_direct_param = True
-
-        # 检查亮度抱怨
-        brightness_complaint = global_config.get('brightness_complaint', {})
-        if brightness_complaint:
-            hot_kw = brightness_complaint.get('hot_keywords', [])
-            cold_kw = brightness_complaint.get('cold_keywords', [])
-            if any(kw in text_lower for kw in hot_kw + cold_kw):
-                has_direct_param = True
-
-        if not has_param_keyword and not has_direct_param:
+        if not self._has_parameter_command(text, text_lower, global_config):
             return None
 
-        # 解析区域
         area_names = self._parse_areas(text_lower)
         is_global = not area_names
 
-        # 亮度控制
-        if any(kw in text_lower for kw in brightness_keywords):
-            match = re.search(r'(\d{1,3})\s*%?', text)
-            if match:
-                brightness = int(match.group(1))
-                if 0 <= brightness <= 100:
-                    return await self._control_light_brightness(area_names, is_global, brightness)
+        # Try each parameter type in order
+        result = await self._try_brightness_control(text, text_lower, global_config, area_names, is_global)
+        if result:
+            return result
 
-        # 亮度抱怨
-        if brightness_complaint:
-            hot_kw = brightness_complaint.get('hot_keywords', [])
-            cold_kw = brightness_complaint.get('cold_keywords', [])
-            if any(kw in text_lower for kw in hot_kw):
-                default_brightness = brightness_complaint.get('default_brightness', {})
-                return await self._control_light_brightness(
-                    area_names, is_global,
-                    default_brightness.get('hot_recommendation', 30)
-                )
-            elif any(kw in text_lower for kw in cold_kw):
-                default_brightness = brightness_complaint.get('default_brightness', {})
-                return await self._control_light_brightness(
-                    area_names, is_global,
-                    default_brightness.get('cold_recommendation', 70)
-                )
+        result = await self._try_brightness_complaint(text_lower, global_config, area_names, is_global)
+        if result:
+            return result
 
-        # 温度控制
-        if any(kw in text_lower for kw in temp_keywords):
-            match = re.search(r'(\d{1,2})\s*度', text_lower)
-            if match:
-                temp = int(match.group(1))
-                if 16 <= temp <= 30:
-                    return await self._control_climate_temperature(area_names, is_global, temp)
+        result = await self._try_temperature_control(text_lower, global_config, area_names, is_global)
+        if result:
+            return result
 
-        # 音量控制
-        if any(kw in text_lower for kw in volume_keywords):
-            match = re.search(r'(\d{1,3})\s*%?', text)
-            if match:
-                volume = int(match.group(1))
-                if 0 <= volume <= 100:
-                    return await self._control_media_volume(area_names, is_global, volume)
+        result = await self._try_volume_control(text, text_lower, global_config, area_names, is_global)
+        if result:
+            return result
 
+        return None
+
+    def _has_parameter_command(self, text: str, text_lower: str, global_config: dict) -> bool:
+        """Check if the text contains a parameter control command."""
+        param_keywords = global_config.get('param_keywords', [])
+        if any(keyword in text_lower for keyword in param_keywords):
+            return True
+
+        # Check for direct parameter patterns
+        if self._has_brightness_param(text, text_lower, global_config):
+            return True
+        if self._has_volume_param(text, text_lower, global_config):
+            return True
+        if self._has_temperature_param(text_lower, global_config):
+            return True
+        if self._has_brightness_complaint(text_lower, global_config):
+            return True
+
+        return False
+
+    def _has_brightness_param(self, text: str, text_lower: str, global_config: dict) -> bool:
+        """Check if text contains brightness parameter."""
+        keywords = global_config.get('brightness_keywords', [])
+        return any(kw in text_lower for kw in keywords) and re.search(r'(\d{1,3})\s*%?', text)
+
+    def _has_volume_param(self, text: str, text_lower: str, global_config: dict) -> bool:
+        """Check if text contains volume parameter."""
+        keywords = global_config.get('volume_keywords', [])
+        return any(kw in text_lower for kw in keywords) and re.search(r'(\d{1,3})\s*%?', text)
+
+    def _has_temperature_param(self, text_lower: str, global_config: dict) -> bool:
+        """Check if text contains temperature parameter."""
+        keywords = global_config.get('temperature_keywords', [])
+        return any(kw in text_lower for kw in keywords) and re.search(r'(\d{1,2})\s*度', text_lower)
+
+    def _has_brightness_complaint(self, text_lower: str, global_config: dict) -> bool:
+        """Check if text contains brightness complaint keywords."""
+        complaint = global_config.get('brightness_complaint', {})
+        if not complaint:
+            return False
+        hot_kw = complaint.get('hot_keywords', [])
+        cold_kw = complaint.get('cold_keywords', [])
+        return any(kw in text_lower for kw in hot_kw + cold_kw)
+
+    async def _try_brightness_control(
+        self, text: str, text_lower: str, global_config: dict,
+        area_names: list, is_global: bool
+    ):
+        """Try to handle brightness control command."""
+        keywords = global_config.get('brightness_keywords', [])
+        if not any(kw in text_lower for kw in keywords):
+            return None
+
+        match = re.search(r'(\d{1,3})\s*%?', text)
+        if not match:
+            return None
+
+        brightness = int(match.group(1))
+        if 0 <= brightness <= 100:
+            return await self._control_light_brightness(area_names, is_global, brightness)
+        return None
+
+    async def _try_brightness_complaint(
+        self, text_lower: str, global_config: dict,
+        area_names: list, is_global: bool
+    ):
+        """Try to handle brightness complaint (too hot/cold)."""
+        complaint = global_config.get('brightness_complaint', {})
+        if not complaint:
+            return None
+
+        hot_kw = complaint.get('hot_keywords', [])
+        cold_kw = complaint.get('cold_keywords', [])
+        default_brightness = complaint.get('default_brightness', {})
+
+        if any(kw in text_lower for kw in hot_kw):
+            brightness = default_brightness.get('hot_recommendation', 30)
+            return await self._control_light_brightness(area_names, is_global, brightness)
+
+        if any(kw in text_lower for kw in cold_kw):
+            brightness = default_brightness.get('cold_recommendation', 70)
+            return await self._control_light_brightness(area_names, is_global, brightness)
+
+        return None
+
+    async def _try_temperature_control(
+        self, text_lower: str, global_config: dict,
+        area_names: list, is_global: bool
+    ):
+        """Try to handle temperature control command."""
+        keywords = global_config.get('temperature_keywords', [])
+        if not any(kw in text_lower for kw in keywords):
+            return None
+
+        match = re.search(r'(\d{1,2})\s*度', text_lower)
+        if not match:
+            return None
+
+        temp = int(match.group(1))
+        if 16 <= temp <= 30:
+            return await self._control_climate_temperature(area_names, is_global, temp)
+        return None
+
+    async def _try_volume_control(
+        self, text: str, text_lower: str, global_config: dict,
+        area_names: list, is_global: bool
+    ):
+        """Try to handle volume control command."""
+        keywords = global_config.get('volume_keywords', [])
+        if not any(kw in text_lower for kw in keywords):
+            return None
+
+        match = re.search(r'(\d{1,3})\s*%?', text)
+        if not match:
+            return None
+
+        volume = int(match.group(1))
+        if 0 <= volume <= 100:
+            return await self._control_media_volume(area_names, is_global, volume)
         return None
 
     def _parse_areas(self, text_lower: str) -> list:

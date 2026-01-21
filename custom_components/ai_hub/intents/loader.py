@@ -71,10 +71,10 @@ def _load_intents_config_sync() -> Dict[str, Any]:
                         merged_config = _deep_merge(merged_config, file_config)
                         loaded_files.append(filename)
                 except Exception as e:
-                    _LOGGER.warning(f"加载配置文件 {filename} 失败: {e}")
+                    _LOGGER.warning(f"Failed to load config file {filename}: {e}")
 
         if merged_config:
-            _LOGGER.debug(f"从多文件加载配置成功: {loaded_files}")
+            _LOGGER.debug(f"Successfully loaded config from multiple files: {loaded_files}")
             return merged_config
 
     # 回退到旧的单文件配置
@@ -83,12 +83,12 @@ def _load_intents_config_sync() -> Dict[str, Any]:
         try:
             with open(yaml_path, 'r', encoding='utf-8') as file:
                 config = yaml.safe_load(file) or {}
-                _LOGGER.debug("从单文件 intents.yaml 加载配置")
+                _LOGGER.debug("Loading config from single file intents.yaml")
                 return config
         except Exception as e:
-            _LOGGER.error(f"加载 intents.yaml 失败: {e}")
+            _LOGGER.error(f"Failed to load intents.yaml: {e}")
 
-    _LOGGER.warning("未找到任何配置文件")
+    _LOGGER.warning("No config files found")
     return {}
 
 
@@ -107,7 +107,7 @@ async def _load_intents_config_once() -> Optional[Dict[str, Any]]:
         config = await loop.run_in_executor(None, _load_intents_config_sync)
 
         if not config:
-            _LOGGER.error("配置为空")
+            _LOGGER.error("Config is empty")
             return None
 
         # 保存到全局变量
@@ -117,14 +117,14 @@ async def _load_intents_config_once() -> Optional[Dict[str, Any]]:
         # 验证关键配置
         local_intents = config.get('local_intents', {})
         if local_intents and local_intents.get('GlobalDeviceControl'):
-            _LOGGER.info("意图配置已加载 - 包含 GlobalDeviceControl")
+            _LOGGER.info("Intent config loaded - contains GlobalDeviceControl")
         else:
-            _LOGGER.warning("意图配置已加载 - 但缺少 GlobalDeviceControl 配置")
+            _LOGGER.warning("Intent config loaded - missing GlobalDeviceControl config")
 
         return config
 
     except Exception as e:
-        _LOGGER.error(f"加载配置失败: {e}")
+        _LOGGER.error(f"Failed to load config: {e}")
         return None
 
 
@@ -135,7 +135,7 @@ async def async_setup_intents(hass: HomeAssistant) -> None:
     try:
         config = await _load_intents_config_once()
         if not config:
-            _LOGGER.warning("无法加载中文意图配置")
+            _LOGGER.warning("Cannot load Chinese intent config")
             return
 
         _INTENTS_CONFIG = config
@@ -143,7 +143,7 @@ async def async_setup_intents(hass: HomeAssistant) -> None:
         # 验证配置
         from .validator import validate_config
         if not validate_config(config):
-            _LOGGER.warning("意图配置验证未通过，部分功能可能受限")
+            _LOGGER.warning("Intent config validation failed, some features may be limited")
 
         # 统计句子数量
         intents = config.get('intents', {})
@@ -153,10 +153,10 @@ async def async_setup_intents(hass: HomeAssistant) -> None:
             for item in intent_data.get('data', [])
         )
 
-        _LOGGER.info(f"中文意图配置已加载 ({registered_count} 个句子)")
+        _LOGGER.info(f"Chinese intent config loaded ({registered_count} sentences)")
 
     except Exception as e:
-        _LOGGER.error(f"本地意图初始化失败: {e}")
+        _LOGGER.error(f"Local intent initialization failed: {e}")
 
 
 def get_intents_config() -> Optional[Dict[str, Any]]:

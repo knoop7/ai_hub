@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import TypeAlias
+from dataclasses import dataclass, field
+from typing import Any, TypeAlias
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
@@ -11,13 +12,75 @@ from homeassistant.const import CONF_API_KEY, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
-from .const import AI_HUB_CHAT_URL
+from .const import AI_HUB_CHAT_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.CONVERSATION, Platform.AI_TASK, Platform.TTS, Platform.STT, Platform.BUTTON]
+PLATFORMS = [
+    Platform.CONVERSATION,
+    Platform.AI_TASK,
+    Platform.TTS,
+    Platform.STT,
+    Platform.BUTTON,
+    Platform.SENSOR,
+]
 
 AIHubConfigEntry: TypeAlias = ConfigEntry  # Store API key
+
+
+@dataclass
+class AIHubData:
+    """Runtime data for AI Hub integration.
+
+    This class holds all runtime state for the integration,
+    avoiding global variables and ensuring proper cleanup on reload.
+    """
+
+    api_key: str | None = None
+    tts_cache: Any = None
+    automation_manager: Any = None
+    provider_registry: Any = None
+    diagnostics_collector: Any = None
+    stats: dict[str, Any] = field(default_factory=dict)
+
+    def cleanup(self) -> None:
+        """Clean up resources."""
+        if self.tts_cache is not None:
+            self.tts_cache.clear()
+        self.automation_manager = None
+        self.provider_registry = None
+
+
+def get_ai_hub_data(hass: HomeAssistant) -> AIHubData | None:
+    """Get AI Hub runtime data."""
+    return hass.data.get(DOMAIN)
+
+
+def get_or_create_ai_hub_data(hass: HomeAssistant) -> AIHubData:
+    """Get or create AI Hub runtime data."""
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = AIHubData()
+    return hass.data[DOMAIN]
+
+
+def get_provider_registry(hass: HomeAssistant):
+    """Get or create the provider registry for this Home Assistant instance.
+
+    This ensures proper lifecycle management - the registry is cleaned up
+    when the integration is unloaded.
+
+    Args:
+        hass: Home Assistant instance
+
+    Returns:
+        UnifiedProviderRegistry instance
+    """
+    from .providers import get_registry
+
+    ai_hub_data = get_or_create_ai_hub_data(hass)
+    if ai_hub_data.provider_registry is None:
+        ai_hub_data.provider_registry = get_registry()
+    return ai_hub_data.provider_registry
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
@@ -53,15 +116,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
                         error_text = await response.text()
                         raise ConfigEntryNotReady(f"API test failed: {error_text}")
         except aiohttp.ClientError as err:
-            _LOGGER.error(f"Failed to connect to API: {err}")
+            _LOGGER.error("Failed to connect to API: %s", err)
             raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
         except ConfigEntryAuthFailed:
             raise
         except Exception as err:
-            _LOGGER.error(f"API validation failed: {err}")
+            _LOGGER.error("API validation failed: %s", err)
             raise ConfigEntryNotReady(f"API validation failed: {err}") from err
 
-    # Store API key in runtime data
+    # Initialize runtime data in hass.data
+    ai_hub_data = get_or_create_ai_hub_data(hass)
+    ai_hub_data.api_key = api_key
+
+    # Also store in entry.runtime_data for backwards compatibility
     entry.runtime_data = api_key
 
     # Forward setup to platforms
@@ -95,11 +162,14 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
     """Unload a config entry."""
-    # Unload all platforms including BUTTON
-    all_platforms = PLATFORMS.copy()
-    if Platform.BUTTON not in all_platforms:
-        all_platforms.append(Platform.BUTTON)
-    return await hass.config_entries.async_unload_platforms(entry, all_platforms)
+    # Clean up runtime data
+    ai_hub_data = get_ai_hub_data(hass)
+    if ai_hub_data is not None:
+        ai_hub_data.cleanup()
+        hass.data.pop(DOMAIN, None)
+
+    # Unload all platforms
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

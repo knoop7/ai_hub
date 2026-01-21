@@ -78,14 +78,14 @@ class ConfigValidator:
 
         if self.errors:
             for error in self.errors:
-                _LOGGER.error(f"配置验证错误: {error}")
+                _LOGGER.error(f"Config validation error: {error}")
             return False
 
         if self.warnings:
             for warning in self.warnings:
-                _LOGGER.warning(f"配置验证警告: {warning}")
+                _LOGGER.warning(f"Config validation warning: {warning}")
 
-        _LOGGER.info("配置验证通过")
+        _LOGGER.info("Config validation passed")
         return True
 
     def _validate_required_keys(self) -> None:
