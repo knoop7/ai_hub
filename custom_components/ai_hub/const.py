@@ -186,20 +186,20 @@ CONF_LIST_BLUEPRINTS: Final = "list_blueprints"
 
 RECOMMENDED: Final[dict[str, Any]] = {
     # Conversation
-    "chat_model": "glm-4.7-flash",
+    "chat_model": "glm-4-flash",
     "temperature": 0.3,
     "top_p": 0.5,
     "top_k": 1,
     "max_tokens": 250,
     "max_history_messages": 30,
     # AI Task
-    "ai_task_model": "glm-4.7-flash",
+    "ai_task_model": "glm-4-flash",
     "ai_task_temperature": 0.95,
     "ai_task_top_p": 0.7,
     "ai_task_max_tokens": 2000,
     # Image
     "image_model": "cogview-3-flash",
-    "image_analysis_model": "glm-4.6v-flash",
+    "image_analysis_model": "glm-4v-flash",
     # TTS
     "tts_voice": "zh-CN-XiaoxiaoNeural",
     # STT
