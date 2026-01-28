@@ -223,6 +223,19 @@ class AIHubConversationEntity(
             if not chat_log.unresponded_tool_results:
                 break
 
+        # Apply markdown filtering to the final assistant message before returning
+        from .markdown_filter import filter_markdown_content
+        if chat_log.content and len(chat_log.content) > 0:
+            last_content = chat_log.content[-1]
+            if last_content.role == "assistant" and last_content.content:
+                original_content = str(last_content.content)
+                filtered_content = filter_markdown_content(original_content)
+                if filtered_content != original_content:
+                    _LOGGER.debug("Filtered markdown from chat_log before returning: '%s' -> '%s'", 
+                                original_content[:50] if len(original_content) > 50 else original_content,
+                                filtered_content[:50] if len(filtered_content) > 50 else filtered_content)
+                    last_content.content = filtered_content
+
         # Return result from chat log
         return conversation.async_get_result_from_chat_log(user_input, chat_log)
 
