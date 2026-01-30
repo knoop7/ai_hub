@@ -23,12 +23,12 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 
 from ..const import (
-    AI_HUB_STT_AUDIO_FORMATS,
-    AI_HUB_STT_MODELS,
     CONF_STT_FILE,
     DEFAULT_REQUEST_TIMEOUT,
     RECOMMENDED_STT_MODEL,
     SILICONFLOW_ASR_URL,
+    SILICONFLOW_STT_AUDIO_FORMATS,
+    SILICONFLOW_STT_MODELS,
     STT_MAX_FILE_SIZE_MB,
 )
 
@@ -54,7 +54,7 @@ async def handle_stt_transcribe(
         if not audio_file or not audio_file.strip():
             raise ServiceValidationError("音频文件路径不能为空")
 
-        if model not in AI_HUB_STT_MODELS:
+        if model not in SILICONFLOW_STT_MODELS:
             raise ServiceValidationError(f"不支持的模型: {model}")
 
         # 处理相对路径
@@ -72,9 +72,9 @@ async def handle_stt_transcribe(
             raise ServiceValidationError(f"音频文件过大，最大支持 {STT_MAX_FILE_SIZE_MB}MB")
 
         file_ext = os.path.splitext(audio_file)[1].lower().lstrip('.')
-        if file_ext not in AI_HUB_STT_AUDIO_FORMATS:
+        if file_ext not in SILICONFLOW_STT_AUDIO_FORMATS:
             raise ServiceValidationError(
-                f"不支持的音频格式: {file_ext}，支持的格式: {', '.join(AI_HUB_STT_AUDIO_FORMATS)}"
+                f"不支持的音频格式: {file_ext}，支持的格式: {', '.join(SILICONFLOW_STT_AUDIO_FORMATS)}"
             )
 
         with open(audio_file, "rb") as f:

@@ -17,7 +17,6 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
 from ..const import (
-    AI_HUB_STT_MODELS,
     CONF_STT_FILE,
     EDGE_TTS_VOICES,
     IMAGE_SIZES,
@@ -26,6 +25,7 @@ from ..const import (
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_STT_MODEL,
     RECOMMENDED_TEMPERATURE,
+    SILICONFLOW_STT_MODELS,
     TTS_DEFAULT_VOICE,
 )
 
@@ -64,7 +64,7 @@ TTS_STREAM_SCHEMA = {
 # Schema for Silicon Flow STT service
 STT_SCHEMA = {
     vol.Required(CONF_STT_FILE): cv.string,
-    vol.Optional("model", default=RECOMMENDED_STT_MODEL): vol.In(AI_HUB_STT_MODELS),
+    vol.Optional("model", default=RECOMMENDED_STT_MODEL): vol.In(SILICONFLOW_STT_MODELS),
 }
 
 # Schema for Bemfa WeChat service
