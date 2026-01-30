@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import time
@@ -307,6 +308,33 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
             if audio:
                 yield audio
 
+    def _generate_stream_audio_sync(
+        self, message: str, voice: str, pitch: str, rate: str, volume: str
+    ) -> bytes | None:
+        """Synchronous helper to generate audio (runs in thread pool)."""
+        try:
+            communicate = edge_tts.Communicate(
+                text=message,
+                voice=voice,
+                pitch=pitch,
+                rate=rate,
+                volume=volume,
+            )
+
+            audio_bytes = b""
+            for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_bytes += chunk["data"]
+
+            return audio_bytes if audio_bytes else None
+
+        except edge_tts.exceptions.NoAudioReceived:
+            _LOGGER.warning("Streaming TTS received no audio: %s", message[:30])
+            return None
+        except Exception as exc:
+            _LOGGER.error("Streaming TTS failed: %s", exc)
+            return None
+
     async def _generate_stream_audio(
         self, message: str, language: str, options: dict[str, Any] | None
     ) -> bytes | None:
@@ -319,25 +347,8 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
         rate = options.get('rate', '+0%') if options else '+0%'
         volume = options.get('volume', '+0%') if options else '+0%'
 
-        try:
-            communicate = edge_tts.Communicate(
-                text=message,
-                voice=voice,
-                pitch=pitch,
-                rate=rate,
-                volume=volume,
-            )
-
-            audio_bytes = b""
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    audio_bytes += chunk["data"]
-
-            return audio_bytes if audio_bytes else None
-
-        except edge_tts.exceptions.NoAudioReceived:
-            _LOGGER.warning("Streaming TTS received no audio: %s", message[:30])
-            return None
-        except Exception as exc:
-            _LOGGER.error("Streaming TTS failed: %s", exc)
-            return None
+        # Run blocking TTS generation in thread pool to avoid blocking event loop
+        return await asyncio.to_thread(
+            self._generate_stream_audio_sync,
+            message, voice, pitch, rate, volume
+        )
