@@ -240,17 +240,11 @@ DEFAULT_NAMES: Final = {
 # Legacy default name constants
 DEFAULT_TITLE: Final = DEFAULT_NAMES["title"]
 DEFAULT_CONVERSATION_NAME: Final = DEFAULT_NAMES["conversation"]["zh"]
-DEFAULT_CONVERSATION_NAME_EN: Final = DEFAULT_NAMES["conversation"]["en"]
 DEFAULT_AI_TASK_NAME: Final = DEFAULT_NAMES["ai_task"]["zh"]
-DEFAULT_AI_TASK_NAME_EN: Final = DEFAULT_NAMES["ai_task"]["en"]
 DEFAULT_TTS_NAME: Final = DEFAULT_NAMES["tts"]["zh"]
-DEFAULT_TTS_NAME_EN: Final = DEFAULT_NAMES["tts"]["en"]
 DEFAULT_STT_NAME: Final = DEFAULT_NAMES["stt"]["zh"]
-DEFAULT_STT_NAME_EN: Final = DEFAULT_NAMES["stt"]["en"]
 DEFAULT_WECHAT_NAME: Final = DEFAULT_NAMES["wechat"]["zh"]
-DEFAULT_WECHAT_NAME_EN: Final = DEFAULT_NAMES["wechat"]["en"]
 DEFAULT_TRANSLATION_NAME: Final = DEFAULT_NAMES["translation"]["zh"]
-DEFAULT_TRANSLATION_NAME_EN: Final = DEFAULT_NAMES["translation"]["en"]
 
 
 # =============================================================================
