@@ -5,8 +5,8 @@
         "title": "连接到AI Hub",
         "description": "请输入你需要对应服务的API-KEY，如果需要全服务，请输入所有的API-KEY，如果有任何问题，可以点击问号图标查看帮助文档。",
         "data": {
-          "api_key": "智谱AI API密钥（建议，用户对话，AI 任务，汉化等）",
-          "siliconflow_api_key": "硅基流动API密钥（可选，用于语音识别）",
+          "api_key": "SiliconFlow API密钥（建议，用户对话，AI 任务，汉化等）",
+          "siliconflow_api_key": "旧版API密钥名称（可选，用于语音识别）",
           "bemfa_uid": "巴法云私钥（可选，用于微信通知）"
         }
       }
@@ -93,7 +93,7 @@
           "data_description": {
             "recommended": "使用推荐设置",
             "image_model": "选择或输入自定义图像生成模型",
-            "image_url": "完整的图像生成API地址（默认智谱AI）",
+            "image_url": "完整的图像生成API地址（默认SiliconFlow）",
             "custom_api_key": "自定义API密钥（留空使用主密钥）",
             "temperature": "控制创造性（0-2）",
             "top_p": "采样参数（0-1）",
@@ -185,7 +185,7 @@
       "step": {
         "init": {
           "title": "配置汉化",
-          "description": "配置汉化功能。使用智谱AI自动将英文文件翻译为中文。"
+          "description": "配置汉化功能。使用SiliconFlow AI自动将英文文件翻译为中文。"
         }
       },
       "abort": {

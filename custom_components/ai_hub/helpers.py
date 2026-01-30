@@ -1,4 +1,4 @@
-"""Helper functions for 智谱清言 integration."""
+"""Helper functions for AI Hub integration."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def decode_base64_audio(base64_data: str, sample_rate: int = 24000) -> bytes:
 
     Args:
         base64_data: Base64 encoded audio data
-        sample_rate: Audio sample rate (default: 24000 Hz for 智谱AI TTS)
+        sample_rate: Audio sample rate (default: 24000 Hz)
 
     Returns:
         WAV format audio data as bytes

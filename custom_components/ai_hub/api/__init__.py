@@ -23,9 +23,6 @@ from .base import (
 )
 from .siliconflow import SiliconFlowClient
 
-# Backwards compatibility alias
-ZhipuAIClient = SiliconFlowClient
-
 __all__ = [
     # Base classes
     "APIClient",
@@ -36,5 +33,4 @@ __all__ = [
     "TimeoutError",
     # Specific clients
     "SiliconFlowClient",
-    "ZhipuAIClient",  # Backwards compatibility
 ]

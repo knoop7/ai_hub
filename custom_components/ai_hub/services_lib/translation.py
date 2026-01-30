@@ -1,6 +1,6 @@
 """Translation services for AI Hub - 组件翻译功能.
 
-本模块提供 Home Assistant 自定义组件的翻译服务，使用智谱 AI 进行翻译。
+本模块提供 Home Assistant 自定义组件的翻译服务，使用 SiliconFlow AI 进行翻译。
 
 主要函数:
 - async_translate_text: 异步翻译单个文本

@@ -236,6 +236,3 @@ class SiliconFlowProvider(LLMProvider):
 
 # Register the provider
 register_provider("siliconflow", SiliconFlowProvider)
-
-# Backwards compatibility alias
-ZhipuAIProvider = SiliconFlowProvider

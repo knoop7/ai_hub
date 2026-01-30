@@ -132,7 +132,6 @@ class _AIHubServiceButton(ButtonEntity):
             )
 
 
-# Legacy aliases for backward compatibility
 class AIHubWeChatButton(_AIHubServiceButton):
     """AI Hub WeChat test button - legacy wrapper."""
 

@@ -195,7 +195,6 @@ async def _get_api_status_diagnostics(
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
     status: dict[str, Any] = {
-        "zhipuai": {"status": "unknown", "latency_ms": None},
         "siliconflow": {"status": "unknown", "latency_ms": None},
         "edge_tts": {"status": "unknown", "latency_ms": None},
         "bemfa_wechat": {"status": "unknown", "latency_ms": None},
@@ -204,30 +203,6 @@ async def _get_api_status_diagnostics(
     session = async_get_clientsession(hass)
 
     # Test SiliconFlow API (just connectivity, not authentication)
-    try:
-        start_time = datetime.now()
-        async with session.get(
-            "https://api.siliconflow.cn",
-            timeout=aiohttp.ClientTimeout(total=10),
-        ) as response:
-            latency = (datetime.now() - start_time).total_seconds() * 1000
-            status["siliconflow"] = {
-                "status": "reachable",
-                "http_status": response.status,
-                "latency_ms": round(latency, 2),
-            }
-    except aiohttp.ClientError as e:
-        status["siliconflow"] = {
-            "status": "unreachable",
-            "error": str(e),
-        }
-    except Exception as e:
-        status["siliconflow"] = {
-            "status": "error",
-            "error": str(e),
-        }
-
-    # Test SiliconFlow API
     try:
         start_time = datetime.now()
         async with session.get(

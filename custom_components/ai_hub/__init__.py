@@ -128,7 +128,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     ai_hub_data = get_or_create_ai_hub_data(hass)
     ai_hub_data.api_key = api_key
 
-    # Also store in entry.runtime_data for backwards compatibility
+    # Store in entry.runtime_data
     entry.runtime_data = api_key
 
     # Forward setup to platforms
@@ -258,7 +258,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if entry.version == 2 and entry.minor_version == 1:
         # Migrate from version 2.1 to 2.2
-        # Update subentry titles to include "智谱"
+        # Update subentry titles
         from .const import DEFAULT_AI_TASK_NAME, DEFAULT_CONVERSATION_NAME
 
         for subentry in entry.subentries.values():

@@ -1,8 +1,8 @@
 """Image services for AI Hub - 图像分析和生成功能.
 
 本模块提供图像相关的服务功能：
-- 图像分析：使用智谱 AI 视觉模型分析图像内容
-- 图像生成：使用 CogView 模型生成图像
+- 图像分析：使用 SiliconFlow 视觉模型分析图像内容
+- 图像生成：使用 SiliconFlow 模型生成图像
 
 主要函数:
 - handle_analyze_image: 处理图像分析服务调用
@@ -160,7 +160,7 @@ async def handle_analyze_image(
         if not api_key or not api_key.strip():
             return {
                 "success": False,
-                "error": "智谱AI API密钥未配置，请先在集成配置中设置API密钥"
+                "error": "SiliconFlow API密钥未配置，请先在集成配置中设置API密钥"
             }
 
         image_data = None
@@ -239,7 +239,7 @@ async def handle_generate_image(
         if not api_key or not api_key.strip():
             return {
                 "success": False,
-                "error": "智谱AI API密钥未配置，请先在集成配置中设置API密钥"
+                "error": "SiliconFlow API密钥未配置，请先在集成配置中设置API密钥"
             }
 
         prompt = call.data["prompt"]

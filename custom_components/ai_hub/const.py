@@ -54,7 +54,6 @@ API_URLS: Final = {
     "bemfa_wechat": "https://apis.bemfa.com/vb/wechat/v1/wechatAlertJson",
 }
 
-# Keep legacy constants for backwards compatibility
 AI_HUB_CHAT_URL: Final = API_URLS["chat"]
 AI_HUB_IMAGE_GEN_URL: Final = API_URLS["image"]
 SILICONFLOW_API_BASE: Final = API_URLS["siliconflow_base"]
@@ -78,7 +77,6 @@ TIMEOUTS: Final = {
     "health_check": 10.0,
 }
 
-# Legacy timeout constants for backwards compatibility
 DEFAULT_REQUEST_TIMEOUT: Final = 30000  # milliseconds
 TIMEOUT_DEFAULT: Final = TIMEOUTS["default"]
 TIMEOUT_CHAT_API: Final = TIMEOUTS["chat_api"]
@@ -144,9 +142,9 @@ STT_MAX_FILE_SIZE_MB: Final = AUDIO_LIMITS["stt_max_file_size_mb"]
 # =============================================================================
 
 # API Keys
-CONF_API_KEY: Final = "api_key"  # SiliconFlow API key (primary)
+CONF_API_KEY: Final = "api_key"
 CONF_CUSTOM_API_KEY: Final = "custom_api_key"
-CONF_SILICONFLOW_API_KEY: Final = "siliconflow_api_key"  # Alias for backwards compatibility
+CONF_SILICONFLOW_API_KEY: Final = "siliconflow_api_key"
 
 # Model Configuration
 CONF_CHAT_MODEL: Final = "chat_model"
@@ -206,7 +204,6 @@ RECOMMENDED: Final[dict[str, Any]] = {
     "stt_model": "FunAudioLLM/SenseVoiceSmall",
 }
 
-# Legacy recommended constants for backwards compatibility
 RECOMMENDED_CHAT_MODEL: Final = RECOMMENDED["chat_model"]
 RECOMMENDED_TEMPERATURE: Final = RECOMMENDED["temperature"]
 RECOMMENDED_TOP_P: Final = RECOMMENDED["top_p"]
@@ -342,10 +339,6 @@ SILICONFLOW_STT_MODELS: Final = [
 SILICONFLOW_STT_AUDIO_FORMATS: Final = [
     "mp3", "wav", "flac", "m4a", "ogg", "webm",
 ]
-
-# Backwards compatibility aliases
-AI_HUB_STT_AUDIO_FORMATS: Final = SILICONFLOW_STT_AUDIO_FORMATS
-AI_HUB_STT_MODELS: Final = SILICONFLOW_STT_MODELS
 
 
 # =============================================================================

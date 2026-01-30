@@ -61,9 +61,6 @@ _REMOVE_PATTERNS = [
     re.compile(r'^`[a-zA-Z0-9_-]*$', re.MULTILINE)   # Language identifiers
 ]
 
-# Legacy patterns for backward compatibility
-_BASE_FILTER_PATTERNS = []
-
 
 def _apply_markdown_filters(content: str) -> str:
     """Apply all markdown filter patterns to content.
@@ -137,25 +134,3 @@ def filter_markdown_streaming(content: str) -> str:
     # Don't strip to preserve chunk spacing
 
     return content
-
-
-def filter_markdown_content_legacy(content: str, filter_enabled: bool = False) -> str:
-    """Legacy function for backward compatibility.
-
-    Args:
-        content: The content to filter
-        filter_enabled: Whether to apply the new filter
-
-    Returns:
-        Filtered content
-    """
-    if not content:
-        return ""
-
-    for pattern in _BASE_FILTER_PATTERNS:
-        content = pattern.sub('', content)
-
-    if filter_enabled:
-        return filter_markdown_content(content)
-
-    return content.strip()

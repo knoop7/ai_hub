@@ -50,7 +50,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 # ============================================================================
-# LLM Provider Classes (kept for backwards compatibility)
+# LLM Provider Classes
 # ============================================================================
 
 
