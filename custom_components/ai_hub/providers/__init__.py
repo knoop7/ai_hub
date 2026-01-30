@@ -216,16 +216,16 @@ def _register_builtin_providers(registry: UnifiedProviderRegistry) -> None:
     """Register all built-in providers."""
     # Import and register LLM providers
     try:
-        from .zhipuai import ZhipuAIProvider
+        from .siliconflow import SiliconFlowProvider
 
         registry.register(
-            ZhipuAIProvider,
+            SiliconFlowProvider,
             is_default=True,
             requires_api_key=True,
-            description="ZhipuAI (智谱AI) - Free tier available",
+            description="SiliconFlow (硅基流动) - Free tier available",
         )
     except ImportError as e:
-        _LOGGER.debug("ZhipuAI provider not available: %s", e)
+        _LOGGER.debug("SiliconFlow provider not available: %s", e)
 
     try:
         from .openai_compatible import OpenAICompatibleProvider

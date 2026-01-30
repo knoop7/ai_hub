@@ -105,7 +105,7 @@ async def process_image(image_data: bytes, max_size: int = 1024, quality: int = 
 
 async def handle_stream_response(hass: HomeAssistant, response: aiohttp.ClientResponse) -> dict:
     """Handle streaming response from API."""
-    event_id = f"zhipuai_image_analysis_{int(time.time())}"
+    event_id = f"siliconflow_image_analysis_{int(time.time())}"
 
     try:
         hass.bus.async_fire(f"{DOMAIN}_image_analysis_start", {"event_id": event_id})

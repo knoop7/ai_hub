@@ -116,10 +116,10 @@ mode: single
 
 请直接返回YAML代码，不要包含任何其他文字："""
 
-            # Call ZhipuAI conversation engine
+            # Call SiliconFlow conversation engine
             try:
-                # Call ZhipuAI API to generate YAML
-                yaml_result = await self._call_zhipuai_api_for_yaml(yaml_prompt)
+                # Call SiliconFlow API to generate YAML
+                yaml_result = await self._call_siliconflow_api_for_yaml(yaml_prompt)
 
                 if yaml_result:
                     # Clean response and extract pure YAML code
@@ -135,7 +135,7 @@ mode: single
             _LOGGER.error("Error generating automation YAML: %s", e)
             return None
 
-    async def _call_zhipuai_api_for_yaml(self, prompt: str) -> str | None:
+    async def _call_siliconflow_api_for_yaml(self, prompt: str) -> str | None:
         """Call AI Hub API directly for YAML generation."""
         try:
             import aiohttp
@@ -155,7 +155,7 @@ mode: single
             ]
 
             request_params = {
-                "model": "glm-4-flash",  # Use default model
+                "model": "Qwen/Qwen2.5-7B-Instruct",  # Use default model
                 "messages": messages,
                 "stream": False,  # Non-streaming response
                 "max_tokens": 2000,
@@ -167,10 +167,10 @@ mode: single
                 "Content-Type": "application/json",
             }
 
-            # Call ZhipuAI API
+            # Call SiliconFlow API
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+                    "https://api.siliconflow.cn/v1/chat/completions",
                     json=request_params,
                     headers=headers,
                     timeout=aiohttp.ClientTimeout(total=30),

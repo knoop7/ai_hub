@@ -5,8 +5,8 @@
         "title": "Connect to AI Hub",
         "description": "Please enter the API key(s) required for the corresponding service. For all services, please enter all API keys. If you have any questions, you can click the question mark icon to view the help documentation.",
         "data": {
-          "api_key": "ZhipuAI API Key (recommended, for conversation agent, AI tasks, translation, etc.)",
-          "siliconflow_api_key": "Silicon Flow API Key (optional, for speech recognition)",
+          "api_key": "SiliconFlow API Key (recommended, for conversation agent, AI tasks, translation, etc.)",
+          "siliconflow_api_key": "Legacy API Key name (optional, for speech recognition)",
           "bemfa_uid": "Bemfa UID (optional, for WeChat notification)"
         }
       }
@@ -191,7 +191,7 @@
       "step": {
         "init": {
           "title": "Configure Blueprint Translation",
-          "description": "Configure blueprint translation function. Use Zhipu AI to automatically translate English blueprint files to Chinese.",
+          "description": "Configure blueprint translation function. Use SiliconFlow AI to automatically translate English blueprint files to Chinese.",
           "data": {
             "name": "Name",
             "recommended": "Recommended Mode",
@@ -211,7 +211,7 @@
   "services": {
     "generate_image": {
       "name": "Generate Image",
-      "description": "Generate image using AI Hub CogView model",
+      "description": "Generate image using AI Hub SiliconFlow model",
       "fields": {
         "prompt": {
           "name": "Prompt",

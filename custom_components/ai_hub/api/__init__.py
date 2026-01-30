@@ -1,7 +1,7 @@
 """API client module for AI Hub integration.
 
 This module provides a unified API client layer for all external API calls,
-including ZhipuAI, SiliconFlow, Edge TTS, and Bemfa.
+including SiliconFlow, Edge TTS, and Bemfa.
 
 Features:
 - Unified error handling
@@ -22,7 +22,9 @@ from .base import (
     TimeoutError,
 )
 from .siliconflow import SiliconFlowClient
-from .zhipuai import ZhipuAIClient
+
+# Backwards compatibility alias
+ZhipuAIClient = SiliconFlowClient
 
 __all__ = [
     # Base classes
@@ -33,6 +35,6 @@ __all__ = [
     "RateLimitError",
     "TimeoutError",
     # Specific clients
-    "ZhipuAIClient",
     "SiliconFlowClient",
+    "ZhipuAIClient",  # Backwards compatibility
 ]

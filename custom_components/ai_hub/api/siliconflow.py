@@ -1,25 +1,23 @@
 """SiliconFlow API client for AI Hub integration.
 
 This module provides a client for interacting with SiliconFlow's API,
-primarily for speech-to-text (STT/ASR) functionality.
+including chat completions and image generation.
 """
 
 from __future__ import annotations
 
+import json
 import logging
-import os
+from collections.abc import AsyncGenerator
 from typing import Any
 
 import aiohttp
 
 from ..const import (
-    AI_HUB_STT_AUDIO_FORMATS,
-    RECOMMENDED_STT_MODEL,
-    SILICONFLOW_API_BASE,
-    STT_MAX_FILE_SIZE_MB,
-    TIMEOUT_STT_API,
+    TIMEOUT_CHAT_API,
+    TIMEOUT_IMAGE_API,
 )
-from .base import APIClient, APIResponse, ValidationError
+from .base import APIClient, APIResponse
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,13 +26,14 @@ class SiliconFlowClient(APIClient):
     """Client for SiliconFlow API.
 
     Provides methods for:
-    - Speech-to-text transcription
+    - Chat completions (streaming and non-streaming)
+    - Image generation
 
     Example:
         async with SiliconFlowClient(api_key) as client:
-            result = await client.transcribe_audio(
-                audio_file="/path/to/audio.wav",
-                model="FunAudioLLM/SenseVoiceSmall"
+            response = await client.chat_completion(
+                model="Qwen/Qwen2.5-7B-Instruct",
+                messages=[{"role": "user", "content": "Hello!"}]
             )
     """
 
@@ -51,8 +50,8 @@ class SiliconFlowClient(APIClient):
             base_url: Optional custom base URL
             **kwargs: Additional arguments for APIClient
         """
-        super().__init__(api_key, timeout=TIMEOUT_STT_API, **kwargs)
-        self._base_url = base_url or SILICONFLOW_API_BASE
+        super().__init__(api_key, timeout=TIMEOUT_CHAT_API, **kwargs)
+        self._base_url = base_url or "https://api.siliconflow.cn"
 
     @property
     def api_name(self) -> str:
@@ -63,104 +62,180 @@ class SiliconFlowClient(APIClient):
         """Return the base URL for the API."""
         return self._base_url
 
-    def _get_default_headers(self) -> dict[str, str]:
-        """Return default headers for requests."""
-        return {
-            "Authorization": f"Bearer {self._api_key}",
-            # Don't set Content-Type for multipart form data
-        }
-
-    async def transcribe_audio(
+    async def chat_completion(
         self,
-        audio_file: str | bytes,
-        model: str = RECOMMENDED_STT_MODEL,
-        filename: str | None = None,
-        validate: bool = True,
-    ) -> APIResponse:
-        """Transcribe audio to text.
+        model: str,
+        messages: list[dict[str, Any]],
+        *,
+        temperature: float = 0.3,
+        max_tokens: int = 250,
+        tools: list[dict[str, Any]] | None = None,
+        stream: bool = False,
+        **kwargs: Any,
+    ) -> APIResponse | AsyncGenerator[dict[str, Any], None]:
+        """Create a chat completion.
 
         Args:
-            audio_file: Path to audio file or raw audio bytes
-            model: STT model to use (default: SenseVoiceSmall)
-            filename: Optional filename for raw bytes
-            validate: Whether to validate the file before upload
+            model: Model to use (e.g., "Qwen/Qwen2.5-7B-Instruct")
+            messages: List of messages in the conversation
+            temperature: Sampling temperature (0-1)
+            max_tokens: Maximum tokens to generate
+            tools: Optional list of tools for function calling
+            stream: Whether to stream the response
+            **kwargs: Additional parameters for the API
 
         Returns:
-            APIResponse containing transcription text
-
-        Raises:
-            ValidationError: If file validation fails
+            APIResponse for non-streaming, AsyncGenerator for streaming
         """
-        # Handle file path
-        if isinstance(audio_file, str):
-            if validate:
-                self._validate_audio_file(audio_file)
+        request_data: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "stream": stream,
+        }
 
-            with open(audio_file, "rb") as f:
-                audio_data = f.read()
-            filename = filename or os.path.basename(audio_file)
+        # Only add optional parameters if they have non-default values
+        if temperature != 0.3:
+            request_data["temperature"] = temperature
+        if max_tokens != 250:
+            request_data["max_tokens"] = max_tokens
+        if tools:
+            request_data["tools"] = tools
+
+        # Add any additional parameters
+        request_data.update(kwargs)
+
+        if stream:
+            return self._stream_chat_completion(request_data)
         else:
-            audio_data = audio_file
-            filename = filename or "audio.wav"
+            return await self.post(
+                "/v1/chat/completions",
+                json_data=request_data,
+                timeout=TIMEOUT_CHAT_API,
+            )
 
-        # Determine content type from filename
-        file_ext = os.path.splitext(filename)[1].lower().lstrip(".")
-        content_type = f"audio/{file_ext}" if file_ext else "audio/wav"
-
-        # Build form data
-        form_data = aiohttp.FormData()
-        form_data.add_field(
-            "file",
-            audio_data,
-            filename=filename,
-            content_type=content_type,
-        )
-        form_data.add_field("model", model)
-
-        response = await self.post(
-            "/audio/transcriptions",
-            form_data=form_data,
-            timeout=TIMEOUT_STT_API,
-        )
-
-        # Extract text from response
-        if response.success and isinstance(response.data, dict):
-            text = response.data.get("text", "")
-            response.data["text"] = text
-
-        return response
-
-    def _validate_audio_file(self, file_path: str) -> None:
-        """Validate audio file before upload.
+    async def _stream_chat_completion(
+        self,
+        request_data: dict[str, Any],
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Stream chat completion response.
 
         Args:
-            file_path: Path to the audio file
+            request_data: Request data for the API
 
-        Raises:
-            ValidationError: If validation fails
+        Yields:
+            Parsed SSE data chunks
         """
-        if not os.path.exists(file_path):
-            raise ValidationError(f"Audio file not found: {file_path}")
+        url = f"{self._get_base_url()}/v1/chat/completions"
+        headers = self._get_default_headers()
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_CHAT_API)
 
-        if os.path.isdir(file_path):
-            raise ValidationError(f"Path is a directory, not a file: {file_path}")
+        session = await self._ensure_session()
 
-        # Check file size
-        file_size = os.path.getsize(file_path)
-        max_size = STT_MAX_FILE_SIZE_MB * 1024 * 1024
-        if file_size > max_size:
-            raise ValidationError(
-                f"Audio file too large: {file_size / (1024*1024):.1f}MB "
-                f"(max: {STT_MAX_FILE_SIZE_MB}MB)"
-            )
+        async with session.post(
+            url,
+            json=request_data,
+            headers=headers,
+            timeout=timeout,
+        ) as response:
+            if response.status != 200:
+                error_text = await response.text()
+                _LOGGER.error("SiliconFlow streaming error: %s", error_text)
+                raise Exception(f"Streaming request failed: {error_text}")
 
-        # Check file extension
-        file_ext = os.path.splitext(file_path)[1].lower().lstrip(".")
-        if file_ext not in AI_HUB_STT_AUDIO_FORMATS:
-            raise ValidationError(
-                f"Unsupported audio format: {file_ext}. "
-                f"Supported formats: {', '.join(AI_HUB_STT_AUDIO_FORMATS)}"
-            )
+            buffer = ""
+            async for chunk in response.content:
+                if not chunk:
+                    continue
+
+                chunk_text = chunk.decode("utf-8", errors="ignore")
+                buffer += chunk_text
+
+                # Process complete lines
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    line = line.strip()
+
+                    # Skip empty lines and end markers
+                    if not line or line == "data: [DONE]":
+                        continue
+
+                    # Process SSE data lines
+                    if line.startswith("data: "):
+                        data_str = line[6:]  # Remove "data: " prefix
+                        if not data_str.strip():
+                            continue
+
+                        try:
+                            data = json.loads(data_str)
+                            yield data
+                        except json.JSONDecodeError:
+                            _LOGGER.debug("SSE data parse failed: %s", data_str)
+                            continue
+
+    async def generate_image(
+        self,
+        prompt: str,
+        model: str = "black-forest-labs/FLUX.1-schnell",
+        size: str = "1024x1024",
+        **kwargs: Any,
+    ) -> APIResponse:
+        """Generate an image using SiliconFlow.
+
+        Args:
+            prompt: Image description
+            model: Model to use (default: black-forest-labs/FLUX.1-schnell)
+            size: Image size (default: 1024x1024)
+            **kwargs: Additional parameters
+
+        Returns:
+            APIResponse containing image URL(s)
+        """
+        request_data: dict[str, Any] = {
+            "model": model,
+            "prompt": prompt,
+            "size": size,
+        }
+        request_data.update(kwargs)
+
+        return await self.post(
+            "/v1/images/generations",
+            json_data=request_data,
+            timeout=TIMEOUT_IMAGE_API,
+        )
+
+    async def analyze_image(
+        self,
+        image_url: str,
+        prompt: str,
+        model: str = "Qwen/Qwen2-VL-72B-Instruct",
+        **kwargs: Any,
+    ) -> APIResponse:
+        """Analyze an image using vision model.
+
+        Args:
+            image_url: URL or base64 data URL of the image
+            prompt: Analysis prompt
+            model: Vision model to use
+            **kwargs: Additional parameters
+
+        Returns:
+            APIResponse containing analysis results
+        """
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+
+        return await self.chat_completion(
+            model=model,
+            messages=messages,
+            **kwargs,
+        )
 
     async def health_check(self) -> bool:
         """Check if SiliconFlow API is reachable."""

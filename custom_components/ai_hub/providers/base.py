@@ -138,14 +138,14 @@ class UnifiedProviderRegistry:
         registry = UnifiedProviderRegistry()
 
         # Register providers
-        registry.register(ZhipuAIProvider, is_default=True)
+        registry.register(SiliconFlowProvider, is_default=True)
         registry.register(EdgeTTSProvider, is_default=True)
 
         # Get providers by type
         llm_providers = registry.get_by_type(ProviderType.LLM)
 
         # Create provider instance
-        provider = registry.create("zhipuai", config)
+        provider = registry.create("siliconflow", config)
     """
 
     def __init__(self) -> None:

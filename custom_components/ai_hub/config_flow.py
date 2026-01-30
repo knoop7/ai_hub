@@ -106,7 +106,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
             "Content-Type": "application/json",
         }
         payload = {
-            "model": "GLM-4-Flash",
+            "model": "Qwen/Qwen2.5-7B-Instruct",
             "messages": [{"role": "user", "content": "Hi"}],
             "max_tokens": 10,
         }
@@ -139,7 +139,7 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
                 step_id="user",
                 data_schema=STEP_USER_DATA_SCHEMA,
                 description_placeholders={
-                    "api_key_url": "https://open.bigmodel.cn/usercenter/apikeys"
+                    "api_key_url": "https://cloud.siliconflow.cn/account/ak"
                 },
             )
 
@@ -208,7 +208,7 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
             description_placeholders={
-                "api_key_url": "https://open.bigmodel.cn/usercenter/apikeys"
+                "api_key_url": "https://cloud.siliconflow.cn/account/ak"
             },
         )
 

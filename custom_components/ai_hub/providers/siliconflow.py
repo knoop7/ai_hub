@@ -1,6 +1,6 @@
-"""ZhipuAI LLM provider for AI Hub integration.
+"""SiliconFlow LLM provider for AI Hub integration.
 
-This module provides the ZhipuAI implementation of the LLM provider interface.
+This module provides the SiliconFlow implementation of the LLM provider interface.
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ from . import LLMMessage, LLMProvider, LLMResponse, register_provider
 _LOGGER = logging.getLogger(__name__)
 
 
-class ZhipuAIProvider(LLMProvider):
-    """ZhipuAI LLM provider implementation.
+class SiliconFlowProvider(LLMProvider):
+    """SiliconFlow LLM provider implementation.
 
     Supports:
     - Chat completions (streaming and non-streaming)
@@ -33,9 +33,9 @@ class ZhipuAIProvider(LLMProvider):
     Example:
         config = LLMConfig(
             api_key="your-api-key",
-            model="glm-4-flash",
+            model="Qwen/Qwen2.5-7B-Instruct",
         )
-        provider = ZhipuAIProvider(config)
+        provider = SiliconFlowProvider(config)
 
         response = await provider.complete([
             LLMMessage(role="user", content="Hello!")
@@ -43,12 +43,12 @@ class ZhipuAIProvider(LLMProvider):
     """
 
     # Class-level attributes for registration
-    _name = "zhipuai"
+    _name = "siliconflow"
 
     @property
     def name(self) -> str:
         """Return the provider name."""
-        return "zhipuai"
+        return "siliconflow"
 
     @property
     def supported_models(self) -> list[str]:
@@ -142,7 +142,7 @@ class ZhipuAIProvider(LLMProvider):
             async with session.post(url, json=request, headers=headers) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    _LOGGER.error("ZhipuAI API error: %s", error_text)
+                    _LOGGER.error("SiliconFlow API error: %s", error_text)
                     raise Exception(f"API error: {error_text}")
 
                 data = await response.json()
@@ -186,7 +186,7 @@ class ZhipuAIProvider(LLMProvider):
             async with session.post(url, json=request, headers=headers) as response:
                 if response.status != 200:
                     error_text = await response.text()
-                    _LOGGER.error("ZhipuAI streaming error: %s", error_text)
+                    _LOGGER.error("SiliconFlow streaming error: %s", error_text)
                     raise Exception(f"API error: {error_text}")
 
                 buffer = ""
@@ -223,16 +223,19 @@ class ZhipuAIProvider(LLMProvider):
                                 continue
 
     async def health_check(self) -> bool:
-        """Check if the ZhipuAI API is reachable."""
+        """Check if the SiliconFlow API is reachable."""
         try:
             timeout = aiohttp.ClientTimeout(total=10)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get("https://open.bigmodel.cn") as response:
+                async with session.get("https://api.siliconflow.cn") as response:
                     return response.status < 500
         except Exception as e:
-            _LOGGER.debug("ZhipuAI health check failed: %s", e)
+            _LOGGER.debug("SiliconFlow health check failed: %s", e)
             return False
 
 
 # Register the provider
-register_provider("zhipuai", ZhipuAIProvider)
+register_provider("siliconflow", SiliconFlowProvider)
+
+# Backwards compatibility alias
+ZhipuAIProvider = SiliconFlowProvider

@@ -47,8 +47,8 @@ DOMAIN: Final = "ai_hub"
 
 # API Endpoints
 API_URLS: Final = {
-    "chat": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-    "image": "https://open.bigmodel.cn/api/paas/v4/images/generations",
+    "chat": "https://api.siliconflow.cn/v1/chat/completions",
+    "image": "https://api.siliconflow.cn/v1/images/generations",
     "siliconflow_base": "https://api.siliconflow.cn/v1",
     "siliconflow_asr": "https://api.siliconflow.cn/v1/audio/transcriptions",
     "bemfa_wechat": "https://apis.bemfa.com/vb/wechat/v1/wechatAlertJson",
@@ -144,9 +144,9 @@ STT_MAX_FILE_SIZE_MB: Final = AUDIO_LIMITS["stt_max_file_size_mb"]
 # =============================================================================
 
 # API Keys
-CONF_API_KEY: Final = "api_key"
+CONF_API_KEY: Final = "api_key"  # SiliconFlow API key (primary)
 CONF_CUSTOM_API_KEY: Final = "custom_api_key"
-CONF_SILICONFLOW_API_KEY: Final = "siliconflow_api_key"
+CONF_SILICONFLOW_API_KEY: Final = "siliconflow_api_key"  # Alias for backwards compatibility
 
 # Model Configuration
 CONF_CHAT_MODEL: Final = "chat_model"
@@ -186,20 +186,20 @@ CONF_LIST_BLUEPRINTS: Final = "list_blueprints"
 
 RECOMMENDED: Final[dict[str, Any]] = {
     # Conversation
-    "chat_model": "glm-4-flash",
+    "chat_model": "Qwen/Qwen2.5-7B-Instruct",
     "temperature": 0.3,
     "top_p": 0.5,
     "top_k": 1,
     "max_tokens": 250,
     "max_history_messages": 30,
     # AI Task
-    "ai_task_model": "glm-4-flash",
+    "ai_task_model": "Qwen/Qwen2.5-7B-Instruct",
     "ai_task_temperature": 0.95,
     "ai_task_top_p": 0.7,
     "ai_task_max_tokens": 2000,
     # Image
-    "image_model": "cogview-3-flash",
-    "image_analysis_model": "glm-4v-flash",
+    "image_model": "black-forest-labs/FLUX.1-schnell",
+    "image_analysis_model": "Qwen/Qwen2-VL-72B-Instruct",
     # TTS
     "tts_voice": "zh-CN-XiaoxiaoNeural",
     # STT
@@ -278,52 +278,44 @@ TTS_DEFAULT_VOICES: Final = {
 # Model Lists
 # =============================================================================
 
-# Chat models (ZhipuAI)
+# Chat models (SiliconFlow)
 AI_HUB_CHAT_MODELS: Final = [
-    # Free models
-    "glm-4.7-flash",
-    "GLM-4-Flash",
-    "glm-4.5-flash",
-    "GLM-4-Flash-250414",
-    "GLM-Z1-Flash",
-    # Cost-effective models
-    "GLM-4-FlashX-250414",
-    "GLM-4-Long",
-    "GLM-4-Air",
-    "GLM-4-Air-250414",
-    "GLM-4-AirX",
-    "GLM-Z1-Air",
-    "GLM-Z1-AirX",
-    "GLM-Z1-FlashX-250414",
-    # GLM-4.5 series
-    "glm-4.5",
-    "glm-4.5-x",
-    "glm-4.5-air",
-    "glm-4.5-airx",
-    # Professional models
-    "GLM-4-Plus",
-    "GLM-4-0520",
-    "GLM-4-AllTools",
-    "GLM-4-Assistant",
-    "GLM-4-CodeGeex-4",
-    # Special models
-    "CharGLM-4",
-    "glm-zero-preview",
+    # Qwen series (recommended)
+    "Qwen/Qwen2.5-7B-Instruct",
+    "Qwen/Qwen2.5-72B-Instruct",
+    "Qwen/Qwen2.5-32B-Instruct",
+    "Qwen/Qwen2.5-14B-Instruct",
+    "Qwen/Qwen2.5-3B-Instruct",
+    "Qwen/Qwen2.5-1.5B-Instruct",
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "Qwen/Qwen2-VL-72B-Instruct",
+    "Qwen/Qwen2-VL-7B-Instruct",
+    # DeepSeek series
+    "deepseek-ai/DeepSeek-V3",
+    "deepseek-ai/DeepSeek-R1",
+    "deepseek-ai/DeepSeek-V2.5",
+    # Other popular models
+    "meta-llama/Llama-3.1-8B-Instruct",
+    "meta-llama/Llama-3.1-70B-Instruct",
+    "01-ai/Yi-1.5-34B-Chat",
+    "mistralai/Mistral-7B-Instruct-v0.3",
+    "THUDM/glm-4-9b-chat",
 ]
 
 # Image generation models
 AI_HUB_IMAGE_MODELS: Final = [
-    "cogview-3-flash",  # Free
-    "cogview-3-plus",
-    "cogview-3",
+    "black-forest-labs/FLUX.1-schnell",  # Free (recommended)
+    "black-forest-labs/FLUX.1-dev",
+    "black-forest-labs/FLUX-pro",
+    "stabilityai/stable-diffusion-3-5-large",
+    "stabilityai/stable-diffusion-3-medium",
 ]
 
 # Vision models (support image analysis)
 VISION_MODELS: Final = [
-    "glm-4.6v-flash",  # Free (recommended)
-    "glm-4v-flash",
-    "glm-4v",
-    "glm-4v-plus",
+    "Qwen/Qwen2-VL-72B-Instruct",  # Recommended
+    "Qwen/Qwen2-VL-7B-Instruct",
+    "meta-llama/Llama-3.2-11B-Vision-Instruct",
 ]
 
 # Image sizes

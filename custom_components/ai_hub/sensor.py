@@ -75,12 +75,8 @@ async def async_setup_entry(
     # Bemfa health sensor (always check availability)
     entities.append(BemfaHealthSensor(hass, entry))
 
-    # ZhipuAI health sensor (if API key configured)
+    # SiliconFlow health sensor (if main API key configured)
     if entry.data.get(CONF_API_KEY):
-        entities.append(ZhipuAIHealthSensor(hass, entry))
-
-    # SiliconFlow health sensor (if API key configured)
-    if entry.data.get(CONF_SILICONFLOW_API_KEY):
         entities.append(SiliconFlowHealthSensor(hass, entry))
 
     async_add_entities(entities)
@@ -165,16 +161,8 @@ class AIHubHealthSensor(SensorEntity):
         """Update the health status."""
         session = async_get_clientsession(self.hass)
 
-        # Check ZhipuAI
-        if self._entry.data.get(CONF_API_KEY):
-            self._api_statuses["zhipuai"] = await self._check_api(
-                session,
-                "https://open.bigmodel.cn",
-                "ZhipuAI",
-            )
-
         # Check SiliconFlow
-        if self._entry.data.get(CONF_SILICONFLOW_API_KEY):
+        if self._entry.data.get(CONF_API_KEY):
             self._api_statuses["siliconflow"] = await self._check_api(
                 session,
                 "https://api.siliconflow.cn",
@@ -321,13 +309,6 @@ class _BaseHealthSensor(SensorEntity):
             self._status = "unreachable"
 
         self._last_check = datetime.now()
-
-
-class ZhipuAIHealthSensor(_BaseHealthSensor):
-    """Sensor for ZhipuAI API health and latency."""
-
-    _check_url = "https://open.bigmodel.cn"
-    _name_suffix = "zhipuai"
 
 
 class SiliconFlowHealthSensor(_BaseHealthSensor):

@@ -203,26 +203,26 @@ async def _get_api_status_diagnostics(
 
     session = async_get_clientsession(hass)
 
-    # Test ZhipuAI API (just connectivity, not authentication)
+    # Test SiliconFlow API (just connectivity, not authentication)
     try:
         start_time = datetime.now()
         async with session.get(
-            "https://open.bigmodel.cn",
+            "https://api.siliconflow.cn",
             timeout=aiohttp.ClientTimeout(total=10),
         ) as response:
             latency = (datetime.now() - start_time).total_seconds() * 1000
-            status["zhipuai"] = {
+            status["siliconflow"] = {
                 "status": "reachable",
                 "http_status": response.status,
                 "latency_ms": round(latency, 2),
             }
     except aiohttp.ClientError as e:
-        status["zhipuai"] = {
+        status["siliconflow"] = {
             "status": "unreachable",
             "error": str(e),
         }
     except Exception as e:
-        status["zhipuai"] = {
+        status["siliconflow"] = {
             "status": "error",
             "error": str(e),
         }
