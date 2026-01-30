@@ -245,277 +245,109 @@ class AIHubHealthSensor(SensorEntity):
             }
 
 
-class ZhipuAIHealthSensor(SensorEntity):
+class _BaseHealthSensor(SensorEntity):
+    """Base class for API health check sensors.
+
+    This class provides common functionality for all health sensors that check
+    API endpoints and measure latency. Subclasses only need to define the
+    check URL and optional customizations.
+    """
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "ms"
+    _attr_icon = "mdi:api"
+    _attr_should_poll = True
+
+    # Subclasses should override these
+    _check_url: str
+    _name_suffix: str
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+    ) -> None:
+        """Initialize the sensor."""
+        self.hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_{self._name_suffix}_latency"
+        self._attr_name = f"{self._name_suffix.replace('_', ' ').title()} Latency"
+        self._attr_device_info = _get_diagnostic_device_info(entry)
+
+        self._latency: float | None = None
+        self._status: str = "unknown"
+        self._last_check: datetime | None = None
+
+    async def async_added_to_hass(self) -> None:
+        """Run initial update when entity is added."""
+        await super().async_added_to_hass()
+        await self.async_update()
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the latency in milliseconds."""
+        return self._latency
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional state attributes."""
+        return {
+            "status": self._status,
+            "last_check": self._last_check.isoformat() if self._last_check else None,
+        }
+
+    async def async_update(self) -> None:
+        """Update the sensor."""
+        session = async_get_clientsession(self.hass)
+
+        try:
+            start_time = datetime.now()
+            async with session.get(
+                self._check_url,
+                timeout=aiohttp.ClientTimeout(total=TIMEOUT_HEALTH_CHECK),
+            ) as response:
+                self._latency = round(
+                    (datetime.now() - start_time).total_seconds() * 1000,
+                    2,
+                )
+                self._status = "healthy" if response.status < 500 else "degraded"
+
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.debug("%s latency check failed: %s", self._name_suffix, err)
+            self._latency = None
+            self._status = "unreachable"
+
+        self._last_check = datetime.now()
+
+
+class ZhipuAIHealthSensor(_BaseHealthSensor):
     """Sensor for ZhipuAI API health and latency."""
 
-    _attr_has_entity_name = True
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_device_class = SensorDeviceClass.DURATION
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = "ms"
-    _attr_icon = "mdi:api"
-    _attr_should_poll = True
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry: ConfigEntry,
-    ) -> None:
-        """Initialize the sensor."""
-        self.hass = hass
-        self._entry = entry
-        self._attr_unique_id = f"{entry.entry_id}_zhipuai_latency"
-        self._attr_name = "ZhipuAI Latency"
-        self._attr_device_info = _get_diagnostic_device_info(entry)
-
-        self._latency: float | None = None
-        self._status: str = "unknown"
-        self._last_check: datetime | None = None
-
-    async def async_added_to_hass(self) -> None:
-        """Run initial update when entity is added."""
-        await super().async_added_to_hass()
-        await self.async_update()
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the latency in milliseconds."""
-        return self._latency
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return additional state attributes."""
-        return {
-            "status": self._status,
-            "last_check": self._last_check.isoformat() if self._last_check else None,
-        }
-
-    async def async_update(self) -> None:
-        """Update the sensor."""
-        session = async_get_clientsession(self.hass)
-
-        try:
-            start_time = datetime.now()
-            async with session.get(
-                "https://open.bigmodel.cn",
-                timeout=aiohttp.ClientTimeout(total=TIMEOUT_HEALTH_CHECK),
-            ) as response:
-                self._latency = round(
-                    (datetime.now() - start_time).total_seconds() * 1000,
-                    2,
-                )
-                self._status = "healthy" if response.status < 500 else "degraded"
-
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            _LOGGER.debug("ZhipuAI latency check failed: %s", err)
-            self._latency = None
-            self._status = "unreachable"
-
-        self._last_check = datetime.now()
+    _check_url = "https://open.bigmodel.cn"
+    _name_suffix = "zhipuai"
 
 
-class SiliconFlowHealthSensor(SensorEntity):
+class SiliconFlowHealthSensor(_BaseHealthSensor):
     """Sensor for SiliconFlow API health and latency."""
 
-    _attr_has_entity_name = True
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_device_class = SensorDeviceClass.DURATION
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = "ms"
-    _attr_icon = "mdi:api"
-    _attr_should_poll = True
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry: ConfigEntry,
-    ) -> None:
-        """Initialize the sensor."""
-        self.hass = hass
-        self._entry = entry
-        self._attr_unique_id = f"{entry.entry_id}_siliconflow_latency"
-        self._attr_name = "SiliconFlow Latency"
-        self._attr_device_info = _get_diagnostic_device_info(entry)
-
-        self._latency: float | None = None
-        self._status: str = "unknown"
-        self._last_check: datetime | None = None
-
-    async def async_added_to_hass(self) -> None:
-        """Run initial update when entity is added."""
-        await super().async_added_to_hass()
-        await self.async_update()
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the latency in milliseconds."""
-        return self._latency
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return additional state attributes."""
-        return {
-            "status": self._status,
-            "last_check": self._last_check.isoformat() if self._last_check else None,
-        }
-
-    async def async_update(self) -> None:
-        """Update the sensor."""
-        session = async_get_clientsession(self.hass)
-
-        try:
-            start_time = datetime.now()
-            async with session.get(
-                "https://api.siliconflow.cn",
-                timeout=aiohttp.ClientTimeout(total=TIMEOUT_HEALTH_CHECK),
-            ) as response:
-                self._latency = round(
-                    (datetime.now() - start_time).total_seconds() * 1000,
-                    2,
-                )
-                self._status = "healthy" if response.status < 500 else "degraded"
-
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            _LOGGER.debug("SiliconFlow latency check failed: %s", err)
-            self._latency = None
-            self._status = "unreachable"
-
-        self._last_check = datetime.now()
+    _check_url = "https://api.siliconflow.cn"
+    _name_suffix = "siliconflow"
 
 
-class EdgeTTSHealthSensor(SensorEntity):
+class EdgeTTSHealthSensor(_BaseHealthSensor):
     """Sensor for Edge TTS API health and latency."""
 
-    _attr_has_entity_name = True
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_device_class = SensorDeviceClass.DURATION
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = "ms"
+    _check_url = "https://speech.platform.bing.com"
+    _name_suffix = "edge_tts"
     _attr_icon = "mdi:text-to-speech"
-    _attr_should_poll = True
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry: ConfigEntry,
-    ) -> None:
-        """Initialize the sensor."""
-        self.hass = hass
-        self._entry = entry
-        self._attr_unique_id = f"{entry.entry_id}_edge_tts_latency"
-        self._attr_name = "Edge TTS Latency"
-        self._attr_device_info = _get_diagnostic_device_info(entry)
-
-        self._latency: float | None = None
-        self._status: str = "unknown"
-        self._last_check: datetime | None = None
-
-    async def async_added_to_hass(self) -> None:
-        """Run initial update when entity is added."""
-        await super().async_added_to_hass()
-        await self.async_update()
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the latency in milliseconds."""
-        return self._latency
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return additional state attributes."""
-        return {
-            "status": self._status,
-            "last_check": self._last_check.isoformat() if self._last_check else None,
-        }
-
-    async def async_update(self) -> None:
-        """Update the sensor."""
-        session = async_get_clientsession(self.hass)
-
-        try:
-            start_time = datetime.now()
-            async with session.get(
-                "https://speech.platform.bing.com",
-                timeout=aiohttp.ClientTimeout(total=TIMEOUT_HEALTH_CHECK),
-            ) as response:
-                self._latency = round(
-                    (datetime.now() - start_time).total_seconds() * 1000,
-                    2,
-                )
-                self._status = "healthy" if response.status < 500 else "degraded"
-
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            _LOGGER.debug("Edge TTS latency check failed: %s", err)
-            self._latency = None
-            self._status = "unreachable"
-
-        self._last_check = datetime.now()
 
 
-class BemfaHealthSensor(SensorEntity):
+class BemfaHealthSensor(_BaseHealthSensor):
     """Sensor for Bemfa API health and latency."""
 
-    _attr_has_entity_name = True
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_device_class = SensorDeviceClass.DURATION
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = "ms"
+    _check_url = "https://apis.bemfa.com"
+    _name_suffix = "bemfa"
     _attr_icon = "mdi:message-text"
-    _attr_should_poll = True
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry: ConfigEntry,
-    ) -> None:
-        """Initialize the sensor."""
-        self.hass = hass
-        self._entry = entry
-        self._attr_unique_id = f"{entry.entry_id}_bemfa_latency"
-        self._attr_name = "Bemfa Latency"
-        self._attr_device_info = _get_diagnostic_device_info(entry)
-
-        self._latency: float | None = None
-        self._status: str = "unknown"
-        self._last_check: datetime | None = None
-
-    async def async_added_to_hass(self) -> None:
-        """Run initial update when entity is added."""
-        await super().async_added_to_hass()
-        await self.async_update()
-
-    @property
-    def native_value(self) -> float | None:
-        """Return the latency in milliseconds."""
-        return self._latency
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return additional state attributes."""
-        return {
-            "status": self._status,
-            "last_check": self._last_check.isoformat() if self._last_check else None,
-        }
-
-    async def async_update(self) -> None:
-        """Update the sensor."""
-        session = async_get_clientsession(self.hass)
-
-        try:
-            start_time = datetime.now()
-            async with session.get(
-                "https://apis.bemfa.com",
-                timeout=aiohttp.ClientTimeout(total=TIMEOUT_HEALTH_CHECK),
-            ) as response:
-                self._latency = round(
-                    (datetime.now() - start_time).total_seconds() * 1000,
-                    2,
-                )
-                self._status = "healthy" if response.status < 500 else "degraded"
-
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            _LOGGER.debug("Bemfa latency check failed: %s", err)
-            self._latency = None
-            self._status = "unreachable"
-
-        self._last_check = datetime.now()
