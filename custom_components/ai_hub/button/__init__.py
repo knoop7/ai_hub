@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import Any
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
@@ -18,13 +19,122 @@ from ..const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-class AIHubWeChatButton(ButtonEntity):
-    """AI Hub WeChat test button."""
+# Button configuration registry
+_BUTTON_CONFIGS: dict[str, dict[str, Any]] = {
+    "wechat_test": {
+        "name": "微信消息测试",
+        "unique_id_suffix": "wechat_test",
+        "icon": "mdi:wechat",
+        "model": "WeChat Notification",
+        "service": "send_wechat_message",
+        "service_data": {
+            "device_entity": "sun.sun",
+            "message": "",
+            "url": ""
+        },
+        "message_template": "🤖 AI Hub 微信测试 - 时间: {time}",
+    },
+    "translate": {
+        "name": "一键汉化",
+        "unique_id_suffix": "translate",
+        "icon": "mdi:translate",
+        "model": "Integration Localization",
+        "service": "translate_components",
+        "service_data": {
+            "list_components": False,
+            "target_component": "",
+            "force_translation": False
+        },
+    },
+    "blueprint_translate": {
+        "name": "蓝图汉化",
+        "unique_id_suffix": "blueprint_translate",
+        "icon": "mdi:file-document-outline",
+        "model": "Blueprint Translation",
+        "service": "translate_blueprints",
+        "service_data": {
+            "list_blueprints": False,
+            "target_blueprint": ""
+        },
+    },
+}
+
+
+class _AIHubServiceButton(ButtonEntity):
+    """Base class for AI Hub service buttons.
+
+    This class provides common functionality for all buttons that trigger
+    AI Hub services. Button behavior is driven by configuration from
+    _BUTTON_CONFIGS.
+    """
 
     _attr_has_entity_name = False
     _attr_should_poll = False
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_icon = "mdi:wechat"
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        subentry: config_entry_flow.ConfigSubentry,
+        button_type: str,
+    ) -> None:
+        """Initialize the button."""
+        self._hass = hass
+        self._subentry = subentry
+        self._button_type = button_type
+
+        # Get configuration for this button type
+        config = _BUTTON_CONFIGS[button_type]
+
+        # Set attributes from configuration
+        self._attr_unique_id = f"{subentry.subentry_id}_{config['unique_id_suffix']}"
+        self._attr_name = config["name"]
+        self._attr_icon = config["icon"]
+        self._service = config["service"]
+        self._service_data = config["service_data"].copy()
+        self._model = config["model"]
+        self._message_template = config.get("message_template")
+
+        # Create device info
+        self._attr_device_info = dr.DeviceInfo(
+            identifiers={(DOMAIN, subentry.subentry_id)},
+            name=subentry.title,
+            manufacturer="老王杂谈说",
+            model=self._model,
+            entry_type=dr.DeviceEntryType.SERVICE,
+        )
+
+    async def async_press(self) -> None:
+        """Press the button - trigger the configured service."""
+        try:
+            # Prepare service data
+            service_data = self._service_data.copy()
+
+            # Apply message template if configured
+            if self._message_template:
+                time_str = datetime.now().strftime('%H:%M:%S')
+                service_data["message"] = self._message_template.format(time=time_str)
+
+            await self._hass.services.async_call(
+                "ai_hub",
+                self._service,
+                service_data,
+                blocking=True,
+                return_response=True,
+            )
+        except Exception as e:
+            _LOGGER.error(
+                "Failed to execute service %s for button %s: %s",
+                self._service,
+                self._button_type,
+                e
+            )
+
+
+# Legacy aliases for backward compatibility
+class AIHubWeChatButton(_AIHubServiceButton):
+    """AI Hub WeChat test button - legacy wrapper."""
 
     def __init__(
         self,
@@ -32,45 +142,11 @@ class AIHubWeChatButton(ButtonEntity):
         entry: ConfigEntry,
         subentry: config_entry_flow.ConfigSubentry,
     ) -> None:
-        """Initialize the button."""
-        super().__init__()
-        self._hass = hass
-        self._subentry = subentry
-        self._attr_unique_id = f"{subentry.subentry_id}_wechat_test"
-        self._attr_name = "微信消息测试"
-        self._attr_device_info = dr.DeviceInfo(
-            identifiers={(DOMAIN, subentry.subentry_id)},
-            name=subentry.title,
-            manufacturer="老王杂谈说",
-            model="WeChat Notification",
-            entry_type=dr.DeviceEntryType.SERVICE,
-        )
-
-    async def async_press(self) -> None:
-        """Press the button - send a test message."""
-        try:
-            await self._hass.services.async_call(
-                "ai_hub",
-                "send_wechat_message",
-                {
-                    "device_entity": "sun.sun",
-                    "message": f"🤖 AI Hub 微信测试 - 时间: {datetime.now().strftime('%H:%M:%S')}",
-                    "url": ""
-                },
-                blocking=True,
-                return_response=True,
-            )
-        except Exception as e:
-            _LOGGER.error("Failed to send test WeChat message: %s", e)
+        super().__init__(hass, entry, subentry, "wechat_test")
 
 
-class AIHubTranslationButton(ButtonEntity):
-    """AI Hub Translation button."""
-
-    _attr_has_entity_name = False
-    _attr_should_poll = False
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_icon = "mdi:translate"
+class AIHubTranslationButton(_AIHubServiceButton):
+    """AI Hub Translation button - legacy wrapper."""
 
     def __init__(
         self,
@@ -78,45 +154,11 @@ class AIHubTranslationButton(ButtonEntity):
         entry: ConfigEntry,
         subentry: config_entry_flow.ConfigSubentry,
     ) -> None:
-        """Initialize the button."""
-        super().__init__()
-        self._hass = hass
-        self._subentry = subentry
-        self._attr_unique_id = f"{subentry.subentry_id}_translate"
-        self._attr_name = "一键汉化"
-        self._attr_device_info = dr.DeviceInfo(
-            identifiers={(DOMAIN, subentry.subentry_id)},
-            name=subentry.title,
-            manufacturer="老王杂谈说",
-            model="Integration Localization",
-            entry_type=dr.DeviceEntryType.SERVICE,
-        )
-
-    async def async_press(self) -> None:
-        """Press the button - trigger translation."""
-        try:
-            await self._hass.services.async_call(
-                "ai_hub",
-                "translate_components",
-                {
-                    "list_components": False,
-                    "target_component": "",
-                    "force_translation": False
-                },
-                blocking=True,
-                return_response=True,
-            )
-        except Exception as e:
-            _LOGGER.error("Failed to run translation process: %s", e)
+        super().__init__(hass, entry, subentry, "translate")
 
 
-class AIHubBlueprintTranslationButton(ButtonEntity):
-    """AI Hub Blueprint Translation button."""
-
-    _attr_has_entity_name = False
-    _attr_should_poll = False
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_icon = "mdi:file-document-outline"
+class AIHubBlueprintTranslationButton(_AIHubServiceButton):
+    """AI Hub Blueprint Translation button - legacy wrapper."""
 
     def __init__(
         self,
@@ -124,35 +166,7 @@ class AIHubBlueprintTranslationButton(ButtonEntity):
         entry: ConfigEntry,
         subentry: config_entry_flow.ConfigSubentry,
     ) -> None:
-        """Initialize the button."""
-        super().__init__()
-        self._hass = hass
-        self._subentry = subentry
-        self._attr_unique_id = f"{subentry.subentry_id}_blueprint_translate"
-        self._attr_name = "蓝图汉化"
-        self._attr_device_info = dr.DeviceInfo(
-            identifiers={(DOMAIN, subentry.subentry_id)},
-            name=subentry.title,
-            manufacturer="老王杂谈说",
-            model="Blueprint Translation",
-            entry_type=dr.DeviceEntryType.SERVICE,
-        )
-
-    async def async_press(self) -> None:
-        """Press the button - trigger blueprint translation."""
-        try:
-            await self._hass.services.async_call(
-                "ai_hub",
-                "translate_blueprints",
-                {
-                    "list_blueprints": False,
-                    "target_blueprint": ""
-                },
-                blocking=True,
-                return_response=True,
-            )
-        except Exception as e:
-            _LOGGER.error("Failed to run blueprint translation process: %s", e)
+        super().__init__(hass, entry, subentry, "blueprint_translate")
 
 
 async def async_setup_entry(
