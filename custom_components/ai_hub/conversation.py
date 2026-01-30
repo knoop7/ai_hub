@@ -130,7 +130,6 @@ class AIHubConversationEntity(
 
         # ========== 步骤2: 尝试 HA 内置意图处理 ==========
         # timer、shopping list、设备控制等 HA 原生支持的意图
-        # 注意：这个步骤可能会增加延迟，只在必要时启用
         try:
             from homeassistant.components.conversation import default_agent
 
@@ -141,13 +140,17 @@ class AIHubConversationEntity(
                 result = await agent.async_process(user_input)
                 if result and result.response:
                     response_type = result.response.response_type
-                    # 如果成功处理（不是错误且不是 "no intent matched"）
-                    if response_type == intent.IntentResponseType.ACTION_DONE:
-                        _LOGGER.debug("HA 内置意图处理成功: %s", user_input.text)
+                    # 检查是否有错误
+                    has_error = hasattr(result.response, 'error') and result.response.error
+                    # 检查是否是 "no intent matched" 情况
+                    is_no_match = (response_type == intent.IntentResponseType.NO_INTENT_MATCHED
+                                   if hasattr(intent.IntentResponseType, 'NO_INTENT_MATCHED') else False)
+
+                    if not has_error and not is_no_match:
+                        _LOGGER.debug("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
                         return result
-                    elif response_type == intent.IntentResponseType.QUERY_ANSWER:
-                        _LOGGER.debug("HA 内置意图查询成功: %s", user_input.text)
-                        return result
+                    else:
+                        _LOGGER.debug("HA 内置意图未匹配，交给 LLM 处理: %s", user_input.text)
 
         except Exception as e:
             _LOGGER.debug("HA 内置意图处理跳过: %s", e)
