@@ -32,7 +32,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_API_KEY,
-    CONF_SILICONFLOW_API_KEY,
     DOMAIN,
     TIMEOUT_HEALTH_CHECK,
 )

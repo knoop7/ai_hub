@@ -5,8 +5,7 @@
         "title": "Connect to AI Hub",
         "description": "Please enter the API key(s) required for the corresponding service. For all services, please enter all API keys. If you have any questions, you can click the question mark icon to view the help documentation.",
         "data": {
-          "api_key": "SiliconFlow API Key (recommended, for conversation agent, AI tasks, translation, etc.)",
-          "siliconflow_api_key": "Legacy API Key name (optional, for speech recognition)",
+          "api_key": "SiliconFlow API Key (required for all services: conversation, AI tasks, translation, STT, etc.)",
           "bemfa_uid": "Bemfa UID (optional, for WeChat notification)"
         }
       }

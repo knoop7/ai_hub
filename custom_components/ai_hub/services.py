@@ -13,7 +13,6 @@ from .const import (
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
     CONF_IMAGE_URL,
-    CONF_SILICONFLOW_API_KEY,
     DOMAIN,
     RECOMMENDED_CHAT_MODEL,
     SERVICE_ANALYZE_IMAGE,
@@ -124,10 +123,10 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
 
     # ========== STT 语音转文字服务 ==========
     async def _handle_stt_transcribe(call: ServiceCall) -> dict:
-        siliconflow_api_key = config_entry.data.get(CONF_SILICONFLOW_API_KEY) if hasattr(config_entry, 'data') else None
-        if not siliconflow_api_key or not siliconflow_api_key.strip():
-            return {"success": False, "error": "硅基流动API密钥未配置"}
-        return await handle_stt_transcribe(hass, call, siliconflow_api_key)
+        api_key = config_entry.data.get(CONF_API_KEY) if hasattr(config_entry, 'data') else None
+        if not api_key or not api_key.strip():
+            return {"success": False, "error": "API密钥未配置"}
+        return await handle_stt_transcribe(hass, call, api_key)
 
     # ========== 微信消息服务 ==========
     async def _handle_send_wechat_message(call: ServiceCall) -> dict:

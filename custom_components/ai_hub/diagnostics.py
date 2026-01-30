@@ -26,7 +26,6 @@ from .const import (
     CONF_API_KEY,
     CONF_BEMFA_UID,
     CONF_CUSTOM_API_KEY,
-    CONF_SILICONFLOW_API_KEY,
     DOMAIN,
     RETRY_BASE_DELAY,
     RETRY_MAX_ATTEMPTS,
@@ -42,7 +41,6 @@ _LOGGER = logging.getLogger(__name__)
 TO_REDACT = {
     CONF_API_KEY,
     CONF_CUSTOM_API_KEY,
-    CONF_SILICONFLOW_API_KEY,
     CONF_BEMFA_UID,
     "api_key",
     "token",

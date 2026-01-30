@@ -51,7 +51,6 @@ from .const import (
     CONF_MAX_TOKENS,
     CONF_PROMPT,
     CONF_RECOMMENDED,
-    CONF_SILICONFLOW_API_KEY,
     CONF_STT_MODEL,
     CONF_TARGET_BLUEPRINT,
     CONF_TARGET_COMPONENT,
@@ -91,8 +90,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema({
-    vol.Optional(CONF_API_KEY): str,
-    vol.Optional(CONF_SILICONFLOW_API_KEY): str,
+    vol.Required(CONF_API_KEY): str,
     vol.Optional(CONF_BEMFA_UID): str,
 })
 

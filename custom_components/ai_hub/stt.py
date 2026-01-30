@@ -17,7 +17,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    CONF_SILICONFLOW_API_KEY,
+    CONF_API_KEY,
     DOMAIN,
     SILICONFLOW_ASR_URL,
     SILICONFLOW_STT_MODELS,
@@ -194,7 +194,7 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
             entry_type=dr.DeviceEntryType.SERVICE,
         )
 
-        self._api_key = config_entry.data.get(CONF_SILICONFLOW_API_KEY)
+        self._api_key = config_entry.data.get(CONF_API_KEY)
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""

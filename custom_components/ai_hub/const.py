@@ -144,7 +144,6 @@ STT_MAX_FILE_SIZE_MB: Final = AUDIO_LIMITS["stt_max_file_size_mb"]
 # API Keys
 CONF_API_KEY: Final = "api_key"
 CONF_CUSTOM_API_KEY: Final = "custom_api_key"
-CONF_SILICONFLOW_API_KEY: Final = "siliconflow_api_key"
 
 # Model Configuration
 CONF_CHAT_MODEL: Final = "chat_model"
