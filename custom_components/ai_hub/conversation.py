@@ -136,24 +136,39 @@ class AIHubConversationEntity(
             # 获取 HA 默认的 conversation agent
             agent = await default_agent.async_get_agent(self.hass)
             if agent:
+                _LOGGER.debug("调用 HA 默认 agent 处理: %s", user_input.text)
                 # 让默认 agent 处理
                 result = await agent.async_process(user_input)
+                _LOGGER.debug("HA agent 返回结果: %s", result)
                 if result and result.response:
                     response_type = result.response.response_type
+                    _LOGGER.debug("HA agent response_type: %s", response_type)
+
                     # 检查是否有错误
                     has_error = hasattr(result.response, 'error') and result.response.error
                     # 检查是否是 "no intent matched" 情况
                     is_no_match = (response_type == intent.IntentResponseType.NO_INTENT_MATCHED
                                    if hasattr(intent.IntentResponseType, 'NO_INTENT_MATCHED') else False)
 
-                    if not has_error and not is_no_match:
-                        _LOGGER.debug("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
+                    # 只要有响应内容就认为成功（不管是什么类型）
+                    # 除非明确是 NO_INTENT_MATCHED 或有错误
+                    response_has_content = (
+                        hasattr(result.response, 'speech') and result.response.speech.get('plain')
+                    ) or (
+                        hasattr(result.response, 'response_type')
+                    )
+
+                    if not has_error and not is_no_match and response_has_content:
+                        _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
                         return result
                     else:
-                        _LOGGER.debug("HA 内置意图未匹配，交给 LLM 处理: %s", user_input.text)
+                        _LOGGER.debug("HA 内置意图未匹配(has_error=%s, is_no_match=%s)，交给 LLM 处理",
+                                    has_error, is_no_match)
+            else:
+                _LOGGER.warning("HA 默认 agent 不可用")
 
         except Exception as e:
-            _LOGGER.debug("HA 内置意图处理跳过: %s", e)
+            _LOGGER.warning("HA 内置意图处理异常: %s", e, exc_info=True)
 
         # ========== 步骤3: LLM 处理 ==========
 
