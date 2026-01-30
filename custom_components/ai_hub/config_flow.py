@@ -57,7 +57,6 @@ from .const import (
     CONF_TARGET_COMPONENT,
     CONF_TEMPERATURE,
     CONF_TOP_K,
-    CONF_TOP_P,
     CONF_TTS_LANG,
     CONF_TTS_VOICE,
     DEFAULT_AI_TASK_NAME,
@@ -72,7 +71,6 @@ from .const import (
     RECOMMENDED_AI_TASK_MAX_TOKENS,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_AI_TASK_TEMPERATURE,
-    RECOMMENDED_AI_TASK_TOP_P,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_IMAGE_MODEL,
@@ -82,7 +80,6 @@ from .const import (
     RECOMMENDED_STT_OPTIONS,
     RECOMMENDED_TEMPERATURE,
     RECOMMENDED_TOP_K,
-    RECOMMENDED_TOP_P,
     RECOMMENDED_TRANSLATION_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
     RECOMMENDED_WECHAT_OPTIONS,
@@ -435,15 +432,6 @@ async def ai_hub_config_option_schema(
                 )
             ),
             vol.Optional(
-                CONF_TOP_P,
-                default=options.get(CONF_TOP_P, RECOMMENDED_TOP_P),
-                description={"suggested_value": options.get(CONF_TOP_P)},
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=0, max=1, step=0.01, mode=NumberSelectorMode.SLIDER
-                )
-            ),
-            vol.Optional(
                 CONF_TOP_K,
                 default=options.get(CONF_TOP_K, RECOMMENDED_TOP_K),
                 description={"suggested_value": options.get(CONF_TOP_K)},
@@ -491,15 +479,6 @@ async def ai_hub_config_option_schema(
             ): NumberSelector(
                 NumberSelectorConfig(
                     min=0, max=2, step=0.01, mode=NumberSelectorMode.SLIDER
-                )
-            ),
-            vol.Optional(
-                CONF_TOP_P,
-                default=options.get(CONF_TOP_P, RECOMMENDED_AI_TASK_TOP_P),
-                description={"suggested_value": options.get(CONF_TOP_P)},
-            ): NumberSelector(
-                NumberSelectorConfig(
-                    min=0, max=1, step=0.01, mode=NumberSelectorMode.SLIDER
                 )
             ),
             vol.Optional(

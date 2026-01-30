@@ -58,19 +58,39 @@ def _ensure_string(value: Any) -> str:
     return str(value)
 
 
-class AIHubBaseLLMEntity(Entity):
-    """Base entity for AI Hub LLM."""
+class _AIHubEntityMixin:
+    """Mixin class providing common initialization logic for AI Hub entities.
+
+    This mixin provides shared initialization behavior for all AI Hub entity types:
+    - LLM conversation entities
+    - TTS entities
+    - STT entities
+
+    Attributes:
+        entry: The config entry
+        subentry: The subentry for this entity instance
+        default_model: The default model to use
+        _api_key: The API key for this entity
+    """
 
     _attr_has_entity_name = False
     _attr_should_poll = False
 
-    def __init__(
+    def _initialize_aihub_entity(
         self,
         entry: config_entry_flow.ConfigEntry,
         subentry: config_entry_flow.ConfigSubentry,
         default_model: str,
     ) -> None:
-        """Initialize the entity."""
+        """Initialize common AI Hub entity attributes.
+
+        This method should be called from the entity's __init__ method.
+
+        Args:
+            entry: The config entry
+            subentry: The subentry for this entity instance
+            default_model: The default model to use
+        """
         self.entry = entry
         self.subentry = subentry
         self.default_model = default_model
@@ -90,19 +110,65 @@ class AIHubBaseLLMEntity(Entity):
             self._api_key = ""
             _LOGGER.warning("No valid API key found for entity %s", subentry.title)
 
-        # Device info
-        # Ensure model name is a valid string for device info
-        device_model = subentry.data.get(CONF_CHAT_MODEL) or default_model
-        if not isinstance(device_model, str) or not device_model.strip():
-            device_model = default_model
+    def _get_device_model(self, default_model: str) -> str:
+        """Get the device model for device info.
 
-        self._attr_device_info = dr.DeviceInfo(
-            identifiers={(DOMAIN, subentry.subentry_id)},
-            name=subentry.title,
+        Can be overridden by subclasses to provide custom model validation.
+
+        Args:
+            default_model: The default model to use if no model is configured
+
+        Returns:
+            The model name to use for device info
+        """
+        return self.subentry.data.get(CONF_CHAT_MODEL, default_model)
+
+    def _create_device_info(self, domain: str) -> dr.DeviceInfo:
+        """Create device info for this entity.
+
+        Args:
+            domain: The domain for this integration
+
+        Returns:
+            DeviceInfo object
+        """
+        return dr.DeviceInfo(
+            identifiers={(domain, self.subentry.subentry_id)},
+            name=self.subentry.title,
             manufacturer="老王杂谈说",
-            model=device_model,
+            model=self._get_device_model(self.default_model),
             entry_type=dr.DeviceEntryType.SERVICE,
         )
+
+
+class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
+    """Base entity for AI Hub LLM."""
+
+    def __init__(
+        self,
+        entry: config_entry_flow.ConfigEntry,
+        subentry: config_entry_flow.ConfigSubentry,
+        default_model: str,
+    ) -> None:
+        """Initialize the entity."""
+        # Use mixin initialization
+        self._initialize_aihub_entity(entry, subentry, default_model)
+        # Create device info using mixin method
+        self._attr_device_info = self._create_device_info(DOMAIN)
+
+    def _get_device_model(self, default_model: str) -> str:
+        """Get the device model with validation for LLM entities.
+
+        Args:
+            default_model: The default model to use if no model is configured
+
+        Returns:
+            The validated model name to use for device info
+        """
+        device_model = self.subentry.data.get(CONF_CHAT_MODEL) or default_model
+        if not isinstance(device_model, str) or not device_model.strip():
+            device_model = default_model
+        return device_model
 
     def _get_model_config(self, chat_log: conversation.ChatLog | None = None) -> dict[str, Any]:
         """Get model configuration from options."""
@@ -830,11 +896,12 @@ class AIHubBaseLLMEntity(Entity):
             raise Exception(f"Failed to read file {file_path}: {err}")
 
 
-class AIHubEntityBase(Entity):
-    """Base entity for AI Hub integration."""
+class AIHubEntityBase(Entity, _AIHubEntityMixin):
+    """Base entity for AI Hub integration.
 
-    _attr_has_entity_name = False
-    _attr_should_poll = False
+    This class is used by TTS and STT entities which don't need the full
+    LLM functionality but require the same initialization logic.
+    """
 
     def __init__(
         self,
@@ -843,30 +910,7 @@ class AIHubEntityBase(Entity):
         default_model: str,
     ) -> None:
         """Initialize the entity."""
-        self.entry = entry
-        self.subentry = subentry
-        self.default_model = default_model
-        self._attr_unique_id = subentry.subentry_id
-        self._attr_name = subentry.title
-
-        # Get API key: use custom key if provided, otherwise use main key
-        custom_key_raw = subentry.data.get(CONF_CUSTOM_API_KEY, "")
-        custom_key = str(custom_key_raw).strip() if custom_key_raw else ""
-        main_key = entry.runtime_data if entry.runtime_data else ""
-        # Ensure API key is always a string
-        if custom_key:
-            self._api_key = custom_key
-        elif isinstance(main_key, str) and main_key.strip():
-            self._api_key = main_key
-        else:
-            self._api_key = ""
-            _LOGGER.warning("No valid API key found for entity %s", subentry.title)
-
-        # Device info
-        self._attr_device_info = dr.DeviceInfo(
-            identifiers={(DOMAIN, subentry.subentry_id)},
-            name=subentry.title,
-            manufacturer="老王杂谈说",
-            model=subentry.data.get(CONF_CHAT_MODEL, default_model),
-            entry_type=dr.DeviceEntryType.SERVICE,
-        )
+        # Use mixin initialization
+        self._initialize_aihub_entity(entry, subentry, default_model)
+        # Create device info using mixin method
+        self._attr_device_info = self._create_device_info(DOMAIN)

@@ -162,6 +162,10 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
     """Unload a config entry."""
+    # Unload services first
+    from .services import async_unload_services
+    await async_unload_services(hass)
+
     # Clean up runtime data
     ai_hub_data = get_ai_hub_data(hass)
     if ai_hub_data is not None:

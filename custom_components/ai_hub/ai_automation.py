@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -25,9 +25,9 @@ class AIAutomationManager:
     async def create_automation_from_description(
         self,
         description: str,
-        name: Optional[str] = None,
-        area_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        area_id: str | None = None
+    ) -> dict[str, Any]:
         """Create an automation from natural language description."""
         try:
             # Generate YAML config using conversation engine
@@ -74,9 +74,9 @@ class AIAutomationManager:
     async def _generate_automation_yaml(
         self,
         description: str,
-        name: Optional[str] = None,
-        area_id: Optional[str] = None
-    ) -> Optional[str]:
+        name: str | None = None,
+        area_id: str | None = None
+    ) -> str | None:
         """Generate automation YAML using the AI Hub conversation engine."""
         try:
             # Build YAML generation prompt (Chinese for Chinese LLM)
@@ -135,7 +135,7 @@ mode: single
             _LOGGER.error("Error generating automation YAML: %s", e)
             return None
 
-    async def _call_zhipuai_api_for_yaml(self, prompt: str) -> Optional[str]:
+    async def _call_zhipuai_api_for_yaml(self, prompt: str) -> str | None:
         """Call AI Hub API directly for YAML generation."""
         try:
             import aiohttp
@@ -195,7 +195,7 @@ mode: single
             _LOGGER.error("Error calling AI Hub API: %s", e)
             return None
 
-    def _get_api_key(self) -> Optional[str]:
+    def _get_api_key(self) -> str | None:
         """Get AI Hub API key from Home Assistant configuration."""
         try:
             from homeassistant.config_entries import ConfigEntries
@@ -219,7 +219,7 @@ mode: single
             _LOGGER.error("Error getting API key: %s", e)
             return None
 
-    def _extract_yaml_from_response(self, response: str) -> Optional[str]:
+    def _extract_yaml_from_response(self, response: str) -> str | None:
         """Extract pure YAML code from AI response."""
         try:
             import re
@@ -259,9 +259,9 @@ mode: single
     def _generate_fallback_yaml(
         self,
         description: str,
-        name: Optional[str] = None,
-        area_id: Optional[str] = None
-    ) -> Optional[str]:
+        name: str | None = None,
+        area_id: str | None = None
+    ) -> str | None:
         """Fallback YAML generation when AI is not available."""
         if "提醒" in description or "通知" in description or "记得" in description or "记住" in description:
             time_str = self._extract_time_from_description(description)
@@ -422,8 +422,8 @@ mode: single'''
             _LOGGER.info("Automation written to config file")
             return True
 
-        except Exception as e:
-            _LOGGER.error("Could not write automation to config file: %s", e)
+        except OSError as err:
+            _LOGGER.error("Could not write automation to config file: %s", err)
             return False
 
 
@@ -441,7 +441,7 @@ async def async_setup_ai_automation(hass: HomeAssistant) -> None:
     """Set up AI automation services."""
     manager = get_automation_manager(hass)
 
-    async def create_automation_service(call: ServiceCall) -> Dict[str, Any]:
+    async def create_automation_service(call: ServiceCall) -> dict[str, Any]:
         """Create automation from natural language."""
         description = call.data.get("description", "")
         name = call.data.get("name")

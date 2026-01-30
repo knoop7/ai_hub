@@ -5,14 +5,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
 # 全局配置缓存
-_INTENTS_CONFIG: Optional[Dict[str, Any]] = None
+_INTENTS_CONFIG: dict[str, Any] | None = None
 _CONFIG_LOADED = False
 
 # 配置文件列表（按加载顺序）
@@ -25,7 +25,7 @@ CONFIG_FILES = [
 ]
 
 
-def _get_fallback_config() -> Dict[str, Any]:
+def _get_fallback_config() -> dict[str, Any]:
     """获取备用配置（仅当配置读取失败时使用）."""
     return {
         'light': ['light.turn_on', 'light.turn_off', 'light.toggle'],
@@ -51,7 +51,7 @@ def _deep_merge(base: Dict, override: Dict) -> Dict:
     return result
 
 
-def _load_intents_config_sync() -> Dict[str, Any]:
+def _load_intents_config_sync() -> dict[str, Any]:
     """同步加载配置 - 支持多文件合并."""
     import yaml
 
@@ -92,7 +92,7 @@ def _load_intents_config_sync() -> Dict[str, Any]:
     return {}
 
 
-async def _load_intents_config_once() -> Optional[Dict[str, Any]]:
+async def _load_intents_config_once() -> dict[str, Any] | None:
     """一次性加载配置 - 异步版本，支持多文件合并."""
     global _INTENTS_CONFIG, _CONFIG_LOADED
 
@@ -159,12 +159,12 @@ async def async_setup_intents(hass: HomeAssistant) -> None:
         _LOGGER.error(f"Local intent initialization failed: {e}")
 
 
-def get_intents_config() -> Optional[Dict[str, Any]]:
+def get_intents_config() -> dict[str, Any] | None:
     """获取意图配置（供其他模块使用）."""
     return _INTENTS_CONFIG if _CONFIG_LOADED else None
 
 
-def get_device_operations_config() -> Dict[str, Any]:
+def get_device_operations_config() -> dict[str, Any]:
     """从缓存获取设备操作配置."""
     global _INTENTS_CONFIG
 
@@ -180,7 +180,7 @@ def get_device_operations_config() -> Dict[str, Any]:
     return config.get('control_operations', _get_fallback_config())
 
 
-def get_device_verification_config() -> Dict[str, Any]:
+def get_device_verification_config() -> dict[str, Any]:
     """从缓存获取设备验证配置."""
     global _INTENTS_CONFIG
 
@@ -211,7 +211,7 @@ def is_device_operation(tool_name: str) -> bool:
     return False
 
 
-def get_global_config() -> Optional[Dict[str, Any]]:
+def get_global_config() -> dict[str, Any] | None:
     """获取全局配置（使用缓存）."""
     global _INTENTS_CONFIG, _CONFIG_LOADED
     if _CONFIG_LOADED and _INTENTS_CONFIG:
@@ -223,7 +223,7 @@ def get_global_config() -> Optional[Dict[str, Any]]:
     return _INTENTS_CONFIG
 
 
-def reload_config() -> Dict[str, Any]:
+def reload_config() -> dict[str, Any]:
     """强制重新加载配置（用于调试）."""
     global _INTENTS_CONFIG, _CONFIG_LOADED
     _CONFIG_LOADED = False

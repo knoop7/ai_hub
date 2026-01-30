@@ -236,11 +236,11 @@ class AIHubHealthSensor(SensorEntity):
                 "checked_at": datetime.now().isoformat(),
             }
 
-        except Exception as e:
-            _LOGGER.warning("%s health check error: %s", name, e)
+        except aiohttp.ClientError as err:
+            _LOGGER.warning("%s health check error: %s", name, err)
             return {
                 "status": "error",
-                "error": str(e),
+                "error": str(err),
                 "checked_at": datetime.now().isoformat(),
             }
 
@@ -306,8 +306,8 @@ class ZhipuAIHealthSensor(SensorEntity):
                 )
                 self._status = "healthy" if response.status < 500 else "degraded"
 
-        except Exception as e:
-            _LOGGER.debug("ZhipuAI latency check failed: %s", e)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.debug("ZhipuAI latency check failed: %s", err)
             self._latency = None
             self._status = "unreachable"
 
@@ -375,8 +375,8 @@ class SiliconFlowHealthSensor(SensorEntity):
                 )
                 self._status = "healthy" if response.status < 500 else "degraded"
 
-        except Exception as e:
-            _LOGGER.debug("SiliconFlow latency check failed: %s", e)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.debug("SiliconFlow latency check failed: %s", err)
             self._latency = None
             self._status = "unreachable"
 
@@ -444,8 +444,8 @@ class EdgeTTSHealthSensor(SensorEntity):
                 )
                 self._status = "healthy" if response.status < 500 else "degraded"
 
-        except Exception as e:
-            _LOGGER.debug("Edge TTS latency check failed: %s", e)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.debug("Edge TTS latency check failed: %s", err)
             self._latency = None
             self._status = "unreachable"
 
@@ -513,8 +513,8 @@ class BemfaHealthSensor(SensorEntity):
                 )
                 self._status = "healthy" if response.status < 500 else "degraded"
 
-        except Exception as e:
-            _LOGGER.debug("Bemfa latency check failed: %s", e)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            _LOGGER.debug("Bemfa latency check failed: %s", err)
             self._latency = None
             self._status = "unreachable"
 

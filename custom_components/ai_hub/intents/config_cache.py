@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -11,7 +11,7 @@ _LOGGER = logging.getLogger(__name__)
 class ConfigCache:
     """配置缓存管理器，使用 loader 模块的全局缓存."""
 
-    def get_config(self, force_reload: bool = False) -> Optional[Dict[str, Any]]:
+    def get_config(self, force_reload: bool = False) -> dict[str, Any] | None:
         """获取配置，使用 loader 的缓存."""
         from .loader import get_global_config, reload_config
 
@@ -19,14 +19,14 @@ class ConfigCache:
             return reload_config()
         return get_global_config()
 
-    def _get_defaults(self) -> Dict[str, Any]:
+    def _get_defaults(self) -> dict[str, Any]:
         """获取默认配置."""
         config = self.get_config()
         if config and 'intents' in config and 'ai_hub' in config['intents']:
             return config['intents']['ai_hub'].get('defaults', {})
         return {}
 
-    def get_global_keywords(self) -> List[str]:
+    def get_global_keywords(self) -> list[str]:
         """获取全局关键词."""
         # 首先尝试从GlobalDeviceControl获取
         config = self.get_config()
@@ -39,7 +39,7 @@ class ConfigCache:
         defaults = self._get_defaults()
         return defaults.get('global_keywords', ["所有", "全部", "一切"])
 
-    def get_local_features(self) -> List[str]:
+    def get_local_features(self) -> list[str]:
         """获取本地特征关键词."""
         # 首先尝试从expansion_rules中提取
         config = self.get_config()
@@ -71,7 +71,7 @@ class ConfigCache:
         # 如果都没有，返回传入的默认值
         return default_value
 
-    def get_responses_config(self) -> Dict[str, Any]:
+    def get_responses_config(self) -> dict[str, Any]:
         """获取响应配置."""
         config = self.get_config()
         if config and 'intents' in config:
@@ -86,7 +86,7 @@ class ConfigCache:
 
         return {}
 
-    def get_verification_config(self) -> Dict[str, Any]:
+    def get_verification_config(self) -> dict[str, Any]:
         """获取验证配置."""
         config = self.get_config()
         if config and 'intents' in config:
@@ -106,7 +106,7 @@ class ConfigCache:
             'wait_times': [0.5, 0.8, 1.1]
         }
 
-    def get_device_state_simulation(self) -> Dict[str, Any]:
+    def get_device_state_simulation(self) -> dict[str, Any]:
         """获取设备状态模拟配置."""
         defaults = self._get_defaults()
         return defaults.get('device_state_simulation', {

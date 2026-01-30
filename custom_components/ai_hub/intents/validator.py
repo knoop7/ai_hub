@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Set
+from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,15 +47,15 @@ class ConfigValidator:
         'control_domains',
     ]
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """初始化验证器.
 
         Args:
             config: 要验证的配置字典
         """
         self.config = config
-        self.errors: List[str] = []
-        self.warnings: List[str] = []
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
 
     def validate(self) -> bool:
         """执行完整验证.
@@ -110,7 +110,7 @@ class ConfigValidator:
         if global_control:
             self._validate_global_device_control(global_control)
 
-    def _validate_global_device_control(self, config: Dict[str, Any]) -> None:
+    def _validate_global_device_control(self, config: dict[str, Any]) -> None:
         """验证 GlobalDeviceControl 配置."""
         for key in self.REQUIRED_GLOBAL_DEVICE_CONTROL_KEYS:
             if key not in config:
@@ -167,7 +167,7 @@ class ConfigValidator:
             return
 
         # 提取 expansion_rules 中的关键词
-        expansion_keywords: Set[str] = set()
+        expansion_keywords: set[str] = set()
         for rule_name, rule_value in expansion_rules.items():
             if isinstance(rule_value, str):
                 keywords = rule_value.split('|')
@@ -182,16 +182,16 @@ class ConfigValidator:
                     f"global_keywords 与 expansion_rules 存在重复定义: {', '.join(list(duplicates)[:5])}"
                 )
 
-    def get_errors(self) -> List[str]:
+    def get_errors(self) -> list[str]:
         """获取错误列表."""
         return self.errors
 
-    def get_warnings(self) -> List[str]:
+    def get_warnings(self) -> list[str]:
         """获取警告列表."""
         return self.warnings
 
 
-def validate_config(config: Dict[str, Any]) -> bool:
+def validate_config(config: dict[str, Any]) -> bool:
     """验证配置的便捷函数.
 
     Args:

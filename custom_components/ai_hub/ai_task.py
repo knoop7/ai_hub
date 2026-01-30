@@ -277,30 +277,35 @@ class AIHubTaskEntity(
                         else:
                             raise HomeAssistantError("No image URL or base64 data in response")
 
-            # Convert to PNG for better compatibility
+            # Convert to PNG for better compatibility (requires Pillow, optional)
             try:
                 from PIL import Image
-                image = Image.open(io.BytesIO(image_bytes))
-
-                # Convert to RGB if needed
-                if image.mode in ("RGBA", "LA", "P"):
-                    background = Image.new("RGB", image.size, (255, 255, 255))
-                    if image.mode == "P":
-                        image = image.convert("RGBA")
-                    if image.mode == "RGBA":
-                        background.paste(image, mask=image.split()[-1])
-                    else:
-                        background.paste(image)
-                    image = background
-
-                png_buffer = io.BytesIO()
-                image.save(png_buffer, format="PNG", optimize=True)
-                png_bytes = png_buffer.getvalue()
-                _LOGGER.info("Successfully converted image to PNG, size: %d bytes", len(png_bytes))
-
-            except Exception as img_err:
-                _LOGGER.warning("Failed to convert image to PNG, using original: %s", img_err)
+            except ImportError:
+                _LOGGER.debug("Pillow not available, using original image format")
                 png_bytes = image_bytes
+            else:
+                try:
+                    image = Image.open(io.BytesIO(image_bytes))
+
+                    # Convert to RGB if needed
+                    if image.mode in ("RGBA", "LA", "P"):
+                        background = Image.new("RGB", image.size, (255, 255, 255))
+                        if image.mode == "P":
+                            image = image.convert("RGBA")
+                        if image.mode == "RGBA":
+                            background.paste(image, mask=image.split()[-1])
+                        else:
+                            background.paste(image)
+                        image = background
+
+                    png_buffer = io.BytesIO()
+                    image.save(png_buffer, format="PNG", optimize=True)
+                    png_bytes = png_buffer.getvalue()
+                    _LOGGER.info("Successfully converted image to PNG, size: %d bytes", len(png_bytes))
+
+                except Exception as img_err:
+                    _LOGGER.warning("Failed to convert image to PNG, using original: %s", img_err)
+                    png_bytes = image_bytes
 
             # Add assistant content to chat log
             chat_log.async_add_assistant_content_without_tools(

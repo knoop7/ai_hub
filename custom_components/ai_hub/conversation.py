@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
@@ -202,17 +202,6 @@ class AIHubConversationEntity(
 
             await self._async_handle_chat_log(chat_log)
 
-            # Device operation verification (optional, disabled by default for faster response)
-            # Enable in config if device operation verification is needed
-            # if hasattr(chat_log, 'tool_calls') and chat_log.tool_calls:
-            #     device_operations = [
-            #         call for call in chat_log.tool_calls
-            #         if self._is_device_operation(call.tool_name)
-            #     ]
-            #     if device_operations:
-            #         _LOGGER.debug("Verifying %d device operations", len(device_operations))
-            #         await self._verify_device_operations_with_retry(device_operations)
-
             # Check if there are tool call results
             if hasattr(chat_log, 'unresponded_tool_results') and chat_log.unresponded_tool_results:
                 _LOGGER.debug("Found unprocessed tool call results")
@@ -248,120 +237,10 @@ class AIHubConversationEntity(
             _LOGGER.debug(f"Device operation check failed: {e}")
             return False
 
-    async def _verify_device_operations_with_retry(self, device_operations):
-        """Verify device operations with retry using configured time limits"""
-        try:
-            config = self._config_cache.get_verification_config()
-        except Exception as e:
-            _LOGGER.debug(f"Failed to get verification config: {e}")
-            # 使用硬编码的备用配置
-            config = {
-                'total_timeout': 3,
-                'max_retries': 3,
-                'wait_times': [0.5, 0.8, 1.1]
-            }
-
-        import asyncio
-
-        start_time = time.time()
-        total_timeout = config.get('total_timeout', 3)
-        max_retries = config.get('max_retries', 3)
-        wait_times = config.get('wait_times', [0.5, 0.8, 1.1])
-
-        _LOGGER.debug(
-            "Starting device operation verification, timeout=%ds, retries=%d",
-            total_timeout, max_retries
-        )
-
-        for attempt in range(max_retries):
-            # 检查是否还有时间
-            elapsed = time.time() - start_time
-            remaining_time = total_timeout - elapsed
-
-            if remaining_time <= 0:
-                _LOGGER.warning("Verification timeout, stopping retries")
-                break
-
-            # 获取等待时间
-            wait_time = wait_times[attempt] if attempt < len(wait_times) else wait_times[-1]
-            # 确保不超过剩余时间
-            wait_time = min(wait_time, remaining_time * 0.3)
-
-            await asyncio.sleep(wait_time)
-
-            # 使用GetLiveContext验证
-            try:
-                # 模拟调用GetLiveContext工具
-                current_context = await self._get_live_context()
-
-                # 检查操作是否成功
-                all_successful = True
-                for operation in device_operations:
-                    if not self._is_operation_successful(operation, current_context):
-                        all_successful = False
-                        break
-
-                if all_successful:
-                    total_time = time.time() - start_time
-                    _LOGGER.debug("All device operations verified successfully (took %.1fs)", total_time)
-                    return True
-                else:
-                    _LOGGER.debug("Verification attempt %d not fully successful, continuing to wait", attempt + 1)
-
-            except Exception as e:
-                _LOGGER.debug(f"Verification error: {e}")
-
-        total_time = time.time() - start_time
-        _LOGGER.warning(f"Could not verify all device operations within {total_timeout}s (took {total_time:.1f}s)")
-        return False
-
-    async def _get_live_context(self):
-        """Get current device state (simulating GetLiveContext tool)"""
-        # Should call the actual GetLiveContext tool here
-        # Read simulated data from config
-        return self._config_cache.get_device_state_simulation()
-
-    def _is_operation_successful(self, operation, context):
-        """Check if a single operation was successful"""
-        tool_name = operation.tool_name
-        arguments = operation.arguments
-
-        # 根据操作类型检查对应设备状态
-        if tool_name == 'light.turn_on':
-            # Check if light is on
-            entity_id = arguments.get('entity_id', [])
-            if isinstance(entity_id, str):
-                entity_id = [entity_id]
-
-            for eid in entity_id:
-                # 从context中检查状态
-                if 'living_room_main' in eid and context.get('lights', {}).get('living_room_main') != 'on':
-                    return False
-                if 'living_room_ambient' in eid and context.get('lights', {}).get('living_room_ambient') != 'on':
-                    return False
-            return True
-
-        elif tool_name == 'light.turn_off':
-            # Check if light is off
-            entity_id = arguments.get('entity_id', [])
-            if isinstance(entity_id, str):
-                entity_id = [entity_id]
-
-            for eid in entity_id:
-                if 'living_room_main' in eid and context.get('lights', {}).get('living_room_main') != 'off':
-                    return False
-                if 'living_room_ambient' in eid and context.get('lights', {}).get('living_room_ambient') != 'off':
-                    return False
-            return True
-
-        # Checks for other device types can be added here
-        # Return True for now, assuming other operations succeeded
-        return True
-
     async def _handle_automation_request(
         self,
         user_input: conversation.ConversationInput
-    ) -> Optional[conversation.ConversationResult]:
+    ) -> conversation.ConversationResult | None:
         """Handle automation creation requests."""
         user_text = user_input.text.lower()
 
@@ -443,7 +322,7 @@ class AIHubConversationEntity(
             _LOGGER.error("Error handling automation request: %s", e)
             return None
 
-    def _extract_automation_description(self, user_text: str) -> Optional[str]:
+    def _extract_automation_description(self, user_text: str) -> str | None:
         """Extract automation description from user input."""
         # Use config cache to get automation prefixes
         try:
@@ -464,7 +343,7 @@ class AIHubConversationEntity(
 
         return description
 
-    def _is_local_special_function(self, intent_type: str, intent_info: Dict[str, Any]) -> bool:
+    def _is_local_special_function(self, intent_type: str, intent_info: dict[str, Any]) -> bool:
         """Check if this is a true local special function"""
         # Check if this is an "all devices" operation (not natively supported by HA)
         if self._is_all_device_operation(intent_info):
@@ -474,7 +353,7 @@ class AIHubConversationEntity(
         # Can dynamically determine based on configuration or patterns
         return self._has_local_intent_config(intent_type, intent_info)
 
-    def _is_all_device_operation(self, intent_info: Dict[str, Any]) -> bool:
+    def _is_all_device_operation(self, intent_info: dict[str, Any]) -> bool:
         """Check if this is an 'all devices' operation"""
         text = intent_info.get("text", "").lower()
 
@@ -487,7 +366,7 @@ class AIHubConversationEntity(
 
         return any(keyword in text for keyword in global_keywords)
 
-    def _has_local_intent_config(self, intent_type: str, intent_info: Dict[str, Any]) -> bool:
+    def _has_local_intent_config(self, intent_type: str, intent_info: dict[str, Any]) -> bool:
         """Check if intent is defined in local config as needing special handling"""
         text = intent_info.get("text", "").lower()
 

@@ -231,3 +231,21 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     )
 
     _LOGGER.info("AI Hub services registered successfully")
+
+
+async def async_unload_services(hass: HomeAssistant) -> None:
+    """Unload all services for AI Hub integration.
+
+    Args:
+        hass: Home Assistant instance
+    """
+    hass.services.async_remove(DOMAIN, SERVICE_ANALYZE_IMAGE)
+    hass.services.async_remove(DOMAIN, SERVICE_GENERATE_IMAGE)
+    hass.services.async_remove(DOMAIN, SERVICE_TTS_SPEECH)
+    hass.services.async_remove(DOMAIN, SERVICE_TTS_STREAM)
+    hass.services.async_remove(DOMAIN, SERVICE_STT_TRANSCRIBE)
+    hass.services.async_remove(DOMAIN, SERVICE_SEND_WECHAT_MESSAGE)
+    hass.services.async_remove(DOMAIN, SERVICE_TRANSLATE_COMPONENTS)
+    hass.services.async_remove(DOMAIN, SERVICE_TRANSLATE_BLUEPRINTS)
+
+    _LOGGER.info("AI Hub services unloaded successfully")

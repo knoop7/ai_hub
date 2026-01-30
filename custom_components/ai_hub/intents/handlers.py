@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import intent
@@ -14,7 +14,7 @@ from .loader import get_global_config
 _LOGGER = logging.getLogger(__name__)
 
 
-def get_local_intents_config() -> Optional[Dict[str, Any]]:
+def get_local_intents_config() -> dict[str, Any] | None:
     """获取本地意图配置."""
     config = get_global_config()
     if not config:
@@ -590,10 +590,10 @@ class LocalIntentHandler:
 
 
 # 全局意图处理器实例
-_global_intent_handler: Optional[LocalIntentHandler] = None
+_global_intent_handler: LocalIntentHandler | None = None
 
 
-def get_global_intent_handler(hass: HomeAssistant) -> Optional[LocalIntentHandler]:
+def get_global_intent_handler(hass: HomeAssistant) -> LocalIntentHandler | None:
     """获取全局意图处理器实例."""
     global _global_intent_handler
     if _global_intent_handler is None:
