@@ -98,7 +98,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
                 "Content-Type": "application/json",
             }
             payload = {
-                "model": "GLM-4-Flash",
+                "model": "Qwen/Qwen3-8B",
                 "messages": [{"role": "user", "content": "Hi"}],
                 "max_tokens": 10,
             }
