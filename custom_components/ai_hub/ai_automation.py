@@ -155,7 +155,7 @@ mode: single
             ]
 
             request_params = {
-                "model": "Qwen/Qwen2.5-7B-Instruct",  # Use default model
+                "model": "Qwen/Qwen3-8B",  # Use default model
                 "messages": messages,
                 "stream": False,  # Non-streaming response
                 "max_tokens": 2000,

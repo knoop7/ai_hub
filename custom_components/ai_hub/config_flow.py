@@ -104,7 +104,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
             "Content-Type": "application/json",
         }
         payload = {
-            "model": "Qwen/Qwen2.5-7B-Instruct",
+            "model": "Qwen/Qwen3-8B",
             "messages": [{"role": "user", "content": "Hi"}],
             "max_tokens": 10,
         }
