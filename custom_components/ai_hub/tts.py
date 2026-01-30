@@ -312,6 +312,8 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
         self, message: str, voice: str, pitch: str, rate: str, volume: str
     ) -> bytes | None:
         """Synchronous helper to generate audio (runs in thread pool)."""
+        import io
+
         try:
             communicate = edge_tts.Communicate(
                 text=message,
@@ -321,10 +323,10 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
                 volume=volume,
             )
 
-            audio_bytes = b""
-            for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    audio_bytes += chunk["data"]
+            # Use save() method which is synchronous
+            audio_buffer = io.BytesIO()
+            communicate.save(audio_buffer)
+            audio_bytes = audio_buffer.getvalue()
 
             return audio_bytes if audio_bytes else None
 
