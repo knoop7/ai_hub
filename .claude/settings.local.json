@@ -32,7 +32,8 @@
       "Bash(cd:*)",
       "Read(C:\\Users\\djhui\\OneDrive\\Github\\ai_hub\\custom_components\\ai_hub\\entity.py)",
       "mcp__zread__read_file",
-      "mcp__acp__Bash"
+      "mcp__acp__Bash",
+      "mcp__zread__get_repo_structure"
     ],
     "deny": [],
     "ask": []
