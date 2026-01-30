@@ -175,7 +175,7 @@ class SiliconFlowClient(APIClient):
     async def generate_image(
         self,
         prompt: str,
-        model: str = "black-forest-labs/FLUX.1-schnell",
+        model: str = "Kwai-Kolors/Kolors",
         size: str = "1024x1024",
         **kwargs: Any,
     ) -> APIResponse:
@@ -183,7 +183,7 @@ class SiliconFlowClient(APIClient):
 
         Args:
             prompt: Image description
-            model: Model to use (default: black-forest-labs/FLUX.1-schnell)
+            model: Model to use (default: Kwai-Kolors/Kolors - free)
             size: Image size (default: 1024x1024)
             **kwargs: Additional parameters
 
@@ -207,7 +207,7 @@ class SiliconFlowClient(APIClient):
         self,
         image_url: str,
         prompt: str,
-        model: str = "Qwen/Qwen2-VL-72B-Instruct",
+        model: str = "THUDM/GLM-4.1V-9B-Thinking",
         **kwargs: Any,
     ) -> APIResponse:
         """Analyze an image using vision model.
@@ -215,7 +215,7 @@ class SiliconFlowClient(APIClient):
         Args:
             image_url: URL or base64 data URL of the image
             prompt: Analysis prompt
-            model: Vision model to use
+            model: Vision model to use (default: THUDM/GLM-4.1V-9B-Thinking - free)
             **kwargs: Additional parameters
 
         Returns:

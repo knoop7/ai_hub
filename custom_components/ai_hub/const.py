@@ -197,9 +197,9 @@ RECOMMENDED: Final[dict[str, Any]] = {
     "ai_task_temperature": 0.95,
     "ai_task_top_p": 0.7,
     "ai_task_max_tokens": 2000,
-    # Image
-    "image_model": "black-forest-labs/FLUX.1-schnell",
-    "image_analysis_model": "Qwen/Qwen2-VL-72B-Instruct",
+    # Image (Free models on SiliconFlow)
+    "image_model": "Kwai-Kolors/Kolors",
+    "image_analysis_model": "THUDM/GLM-4.1V-9B-Thinking",
     # TTS
     "tts_voice": "zh-CN-XiaoxiaoNeural",
     # STT
@@ -304,7 +304,8 @@ AI_HUB_CHAT_MODELS: Final = [
 
 # Image generation models
 AI_HUB_IMAGE_MODELS: Final = [
-    "black-forest-labs/FLUX.1-schnell",  # Free (recommended)
+    "Kwai-Kolors/Kolors",  # Free (recommended)
+    "black-forest-labs/FLUX.1-schnell",
     "black-forest-labs/FLUX.1-dev",
     "black-forest-labs/FLUX-pro",
     "stabilityai/stable-diffusion-3-5-large",
@@ -313,7 +314,8 @@ AI_HUB_IMAGE_MODELS: Final = [
 
 # Vision models (support image analysis)
 VISION_MODELS: Final = [
-    "Qwen/Qwen2-VL-72B-Instruct",  # Recommended
+    "THUDM/GLM-4.1V-9B-Thinking",  # Free (recommended)
+    "Qwen/Qwen2-VL-72B-Instruct",
     "Qwen/Qwen2-VL-7B-Instruct",
     "meta-llama/Llama-3.2-11B-Vision-Instruct",
 ]
