@@ -8,7 +8,6 @@ from typing import Any
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_entry_flow
 from homeassistant.helpers import device_registry as dr
@@ -70,7 +69,7 @@ class _AIHubServiceButton(ButtonEntity):
 
     _attr_has_entity_name = False
     _attr_should_poll = False
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_category = None
 
     def __init__(
         self,
@@ -88,7 +87,7 @@ class _AIHubServiceButton(ButtonEntity):
         config = _BUTTON_CONFIGS[button_type]
 
         # Set attributes from configuration
-        self._attr_unique_id = f"{subentry.subentry_id}_{config['unique_id_suffix']}"
+        self._attr_unique_id = f"{DOMAIN}_{subentry.subentry_id}_{config['unique_id_suffix']}"
         self._attr_name = config["name"]
         self._attr_icon = config["icon"]
         self._service = config["service"]

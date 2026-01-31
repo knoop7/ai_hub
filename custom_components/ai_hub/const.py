@@ -1,13 +1,22 @@
 """Constants for the AI Hub integration.
 
 This module contains all constants organized by category:
-- Domain and API URLs
-- Timeouts and Retry Configuration
-- Cache and Audio Limits
-- Configuration Keys
-- Model Lists
-- Default Values and Recommended Options
-- Services
+
+SECTION 1: Domain and API URLs
+SECTION 2: Timeouts and Retry Configuration
+SECTION 3: Cache and Audio Limits
+SECTION 4: Configuration Keys
+SECTION 5: Default Values and Recommended Options
+SECTION 6: Model Lists
+SECTION 7: Error Messages
+SECTION 8: Services
+
+For better organization, consider extracting these to separate modules:
+- const/urls.py - API endpoints
+- const/timeouts.py - Timeout configurations
+- const/models.py - Model lists
+- const/defaults.py - Default values
+- const/errors.py - Error messages
 """
 
 from __future__ import annotations
@@ -362,8 +371,7 @@ ERROR_CANNOT_CONNECT: Final = ERRORS["cannot_connect"]
 SERVICES: Final = {
     "generate_image": "generate_image",
     "analyze_image": "analyze_image",
-    "tts_speech": "tts_speech",
-    "tts_stream": "tts_stream",
+    "tts_say": "tts_say",
     "stt_transcribe": "stt_transcribe",
     "send_wechat_message": "send_wechat_message",
     "translate_components": "translate_components",
@@ -373,8 +381,10 @@ SERVICES: Final = {
 # Legacy service constants
 SERVICE_GENERATE_IMAGE: Final = SERVICES["generate_image"]
 SERVICE_ANALYZE_IMAGE: Final = SERVICES["analyze_image"]
-SERVICE_TTS_SPEECH: Final = SERVICES["tts_speech"]
-SERVICE_TTS_STREAM: Final = SERVICES["tts_stream"]
+SERVICE_TTS_SAY: Final = SERVICES["tts_say"]
+# Deprecated: use SERVICE_TTS_SAY instead
+SERVICE_TTS_SPEECH: Final = "tts_speech"
+SERVICE_TTS_STREAM: Final = "tts_stream"
 SERVICE_STT_TRANSCRIBE: Final = SERVICES["stt_transcribe"]
 SERVICE_SEND_WECHAT_MESSAGE: Final = SERVICES["send_wechat_message"]
 SERVICE_TRANSLATE_COMPONENTS: Final = SERVICES["translate_components"]

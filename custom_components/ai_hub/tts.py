@@ -1,4 +1,11 @@
-"""Text to speech support for AI Hub using Edge TTS - with caching and prosody support."""
+"""Text to speech support for AI Hub using Edge TTS.
+
+Features:
+- Caching support for frequently used phrases
+- Prosody parameter support (pitch, rate, volume)
+- Quality parameter support (HA 2025.10+)
+- Streaming input support
+- 400+ voice models from Microsoft Edge TTS"""
 
 from __future__ import annotations
 
@@ -55,8 +62,8 @@ SUPPORTED_LANGUAGES = {
 
 _LOGGER = logging.getLogger(__name__)
 
-# Prosody options
-PROSODY_OPTIONS = ['pitch', 'rate', 'volume']
+# Prosody options and quality (HA 2025.10+)
+PROSODY_OPTIONS = ['pitch', 'rate', 'volume', 'quality']
 
 
 def _get_tts_cache(hass: HomeAssistant) -> TTSCache:
@@ -91,16 +98,16 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [AIHubTextToSpeechEntity(config_entry, subentry)],
+            [AIHubTTSEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
+class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
     """AI Hub text-to-speech entity using Edge TTS."""
 
     _attr_has_entity_name = False
-    _attr_supported_options = ['voice'] + PROSODY_OPTIONS
+    _attr_supported_options = ['voice', 'quality'] + PROSODY_OPTIONS
     _attr_supports_streaming_input = True
 
     def __init__(self, config_entry: ConfigEntry, subentry: ConfigSubentry) -> None:
@@ -127,6 +134,7 @@ class AIHubTextToSpeechEntity(TextToSpeechEntity, AIHubEntityBase):
         """Return default options."""
         return {
             ATTR_VOICE: TTS_DEFAULT_VOICE,
+            'quality': 'default',
             'pitch': '+0Hz',
             'rate': '+0%',
             'volume': '+0%',

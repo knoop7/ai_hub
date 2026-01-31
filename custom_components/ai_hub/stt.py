@@ -1,4 +1,11 @@
-"""Speech to Text support for AI Hub using Silicon Flow ASR."""
+"""Speech to Text support for AI Hub using Silicon Flow ASR.
+
+Features:
+- High-precision recognition using SenseVoice model
+- Automatic language detection (Chinese, English, Japanese, Korean)
+- Support for multiple audio formats (WAV/MP3/FLAC/OGG/WebM)
+- Dynamic timeout calculation based on audio size
+- Retry mechanism with exponential backoff"""
 
 from __future__ import annotations
 
@@ -169,16 +176,16 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [AIHubSpeechToTextEntity(config_entry, subentry)],
+            [AIHubSTTEntity(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
 
 
-class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
+class AIHubSTTEntity(SpeechToTextEntity, AIHubEntityBase):
     """AI Hub speech-to-text entity using Silicon Flow ASR."""
 
     _attr_has_entity_name = False
-    _attr_supported_options = ["model"]
+    _attr_supported_options = ["model", "language"]
 
     def __init__(self, config_entry: ConfigEntry, subentry: ConfigSubentry) -> None:
         """Initialize the STT entity."""
@@ -209,7 +216,10 @@ class AIHubSpeechToTextEntity(SpeechToTextEntity, AIHubEntityBase):
     @property
     def default_options(self) -> dict[str, Any]:
         """Return default options."""
-        return {"model": STT_DEFAULT_MODEL}
+        return {
+            "model": STT_DEFAULT_MODEL,
+            "language": "auto"  # HA 2025.12+ auto detection
+        }
 
     @property
     def supported_languages(self) -> list[str]:

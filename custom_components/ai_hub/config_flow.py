@@ -117,10 +117,10 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status == 401:
-                    raise ValueError("Invalid API key")
+                    raise ValueError("invalid_auth")
                 if response.status != 200:
-                    error_text = await response.text()
-                    raise Exception(f"API test failed: {error_text}")
+                    await response.text()  # Read response but don't use it
+                    raise ValueError("cannot_connect")
 
 
 class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):

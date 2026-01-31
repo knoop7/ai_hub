@@ -66,7 +66,7 @@ async def async_setup_entry(
     entities = []
 
     # Main integration health sensor (always added)
-    entities.append(AIHubHealthSensor(hass, entry))
+    entities.append(AIHubHealthCheckSensor(hass, entry))
 
     # Edge TTS health sensor (always available, no API key needed)
     entities.append(EdgeTTSHealthSensor(hass, entry))
@@ -81,11 +81,12 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class AIHubHealthSensor(SensorEntity):
+class AIHubHealthCheckSensor(SensorEntity):
     """Sensor for overall AI Hub health status."""
 
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = SensorDeviceClass.ENUM
     _attr_icon = "mdi:heart-pulse"
     _attr_should_poll = True
 
@@ -97,7 +98,7 @@ class AIHubHealthSensor(SensorEntity):
         """Initialize the health sensor."""
         self.hass = hass
         self._entry = entry
-        self._attr_unique_id = f"{entry.entry_id}_health"
+        self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_health_sensor"
         self._attr_name = "Health Status"
         self._attr_device_info = _get_diagnostic_device_info(entry)
 
@@ -260,7 +261,7 @@ class _BaseHealthSensor(SensorEntity):
         """Initialize the sensor."""
         self.hass = hass
         self._entry = entry
-        self._attr_unique_id = f"{entry.entry_id}_{self._name_suffix}_latency"
+        self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}_{self._name_suffix}_latency"
         self._attr_name = f"{self._name_suffix.replace('_', ' ').title()} Latency"
         self._attr_device_info = _get_diagnostic_device_info(entry)
 
@@ -328,6 +329,6 @@ class EdgeTTSHealthSensor(_BaseHealthSensor):
 class BemfaHealthSensor(_BaseHealthSensor):
     """Sensor for Bemfa API health and latency."""
 
-    _check_url = "https://apis.bemfa.com"
+    _check_url = "https://apis.bemfa.com/vb/wechat/v1/wechatAlertJson"
     _name_suffix = "bemfa"
     _attr_icon = "mdi:message-text"

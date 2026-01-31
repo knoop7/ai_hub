@@ -8,6 +8,7 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import (
+    CONF_API_KEY,
     CONF_BEMFA_UID,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
@@ -21,8 +22,7 @@ from .const import (
     SERVICE_STT_TRANSCRIBE,
     SERVICE_TRANSLATE_BLUEPRINTS,
     SERVICE_TRANSLATE_COMPONENTS,
-    SERVICE_TTS_SPEECH,
-    SERVICE_TTS_STREAM,
+    SERVICE_TTS_SAY,
 )
 from .services_lib import (
     BLUEPRINTS_TRANSLATION_SCHEMA,
@@ -32,7 +32,6 @@ from .services_lib import (
     STT_SCHEMA,
     TRANSLATION_SCHEMA,
     TTS_SCHEMA,
-    TTS_STREAM_SCHEMA,
     WECHAT_SCHEMA,
     async_translate_all_blueprints,
     async_translate_all_components,
@@ -111,15 +110,16 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             return {"success": False, "error": "API密钥未配置"}
         return await handle_generate_image(hass, call, effective_key, image_url)
 
-    # ========== TTS 语音合成服务 ==========
-    async def _handle_tts_speech(call: ServiceCall) -> dict:
-        if not has_api_key():
-            return {"success": False, "error": "API密钥未配置"}
-        return await handle_tts_speech(hass, call, api_key)
-
-    # ========== TTS 流式语音服务 ==========
-    async def _handle_tts_stream(call: ServiceCall) -> dict:
-        return await handle_tts_stream(hass, call)
+    # ========== TTS 语音合成服务（统一） ==========
+    async def _handle_tts_say(call: ServiceCall) -> dict:
+        """Handle TTS service with optional streaming support."""
+        stream = call.data.get("stream", False)
+        if stream:
+            return await handle_tts_stream(hass, call)
+        else:
+            if not has_api_key():
+                return {"success": False, "error": "API密钥未配置"}
+            return await handle_tts_speech(hass, call, api_key)
 
     # ========== STT 语音转文字服务 ==========
     async def _handle_stt_transcribe(call: ServiceCall) -> dict:
@@ -200,13 +200,8 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     )
 
     hass.services.async_register(
-        DOMAIN, SERVICE_TTS_SPEECH, _handle_tts_speech,
+        DOMAIN, SERVICE_TTS_SAY, _handle_tts_say,
         schema=vol.Schema(TTS_SCHEMA), supports_response=True
-    )
-
-    hass.services.async_register(
-        DOMAIN, SERVICE_TTS_STREAM, _handle_tts_stream,
-        schema=vol.Schema(TTS_STREAM_SCHEMA), supports_response=True
     )
 
     hass.services.async_register(
@@ -240,8 +235,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
     """
     hass.services.async_remove(DOMAIN, SERVICE_ANALYZE_IMAGE)
     hass.services.async_remove(DOMAIN, SERVICE_GENERATE_IMAGE)
-    hass.services.async_remove(DOMAIN, SERVICE_TTS_SPEECH)
-    hass.services.async_remove(DOMAIN, SERVICE_TTS_STREAM)
+    hass.services.async_remove(DOMAIN, SERVICE_TTS_SAY)
     hass.services.async_remove(DOMAIN, SERVICE_STT_TRANSCRIBE)
     hass.services.async_remove(DOMAIN, SERVICE_SEND_WECHAT_MESSAGE)
     hass.services.async_remove(DOMAIN, SERVICE_TRANSLATE_COMPONENTS)

@@ -14,7 +14,9 @@
       "cannot_connect": "Cannot connect to AI Hub service",
       "invalid_auth": "Invalid API key",
       "unknown": "Unknown error",
-      "bemfa_uid_required": "Bemfa UID is required"
+      "bemfa_uid_required": "Bemfa UID is required",
+      "api_key_required": "API key is required",
+      "invalid_input": "Invalid input"
     },
     "abort": {
       "already_configured": "This API key is already configured"

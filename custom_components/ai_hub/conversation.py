@@ -1,9 +1,16 @@
-"""Conversation support for AI Hub."""
+"""Conversation agent support for AI Hub integration.
+
+This module implements the ConversationEntity for AI-powered
+dialogue interactions, supporting:
+- Streaming responses
+- Tool calling (Home Assistant control)
+- Image understanding (vision models)
+- Context-aware conversations
+- Three-tier intent processing (local → HA built-in → LLM)"""
 
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any, Literal
 
 from homeassistant.components import conversation
@@ -39,13 +46,13 @@ async def async_setup_entry(
             continue
 
         async_add_entities(
-            [AIHubConversationEntity(config_entry, subentry)],
+            [AIHubConversationAgent(config_entry, subentry)],
             config_subentry_id=subentry.subentry_id,
         )
-        _LOGGER.debug("Created conversation entity for subentry: %s", subentry.subentry_id)
+        _LOGGER.debug("Created conversation agent for subentry: %s", subentry.subentry_id)
 
 
-class AIHubConversationEntity(
+class AIHubConversationAgent(
     conversation.ConversationEntity,
     conversation.AbstractConversationAgent,
     AIHubBaseLLMEntity,
@@ -162,8 +169,10 @@ class AIHubConversationEntity(
                         _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
                         return result
                     else:
-                        _LOGGER.debug("HA 内置意图未匹配(has_error=%s, is_no_match=%s)，交给 LLM 处理",
-                                    has_error, is_no_match)
+                        _LOGGER.debug(
+                            "HA 内置意图未匹配(has_error=%s, is_no_match=%s)，交给 LLM 处理",
+                            has_error, is_no_match
+                        )
             else:
                 _LOGGER.warning("HA 默认 agent 不可用")
 
@@ -238,9 +247,11 @@ class AIHubConversationEntity(
                 original_content = str(last_content.content)
                 filtered_content = filter_markdown_content(original_content)
                 if filtered_content != original_content:
-                    _LOGGER.debug("Filtered markdown from chat_log before returning: '%s' -> '%s'", 
-                                original_content[:50] if len(original_content) > 50 else original_content,
-                                filtered_content[:50] if len(filtered_content) > 50 else filtered_content)
+                    _LOGGER.debug(
+                        "Filtered markdown from chat_log before returning: '%s' -> '%s'",
+                        original_content[:50] if len(original_content) > 50 else original_content,
+                        filtered_content[:50] if len(filtered_content) > 50 else filtered_content
+                    )
                     last_content.content = filtered_content
 
         # Return result from chat log

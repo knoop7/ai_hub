@@ -607,7 +607,11 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                     "type": "function",
                     "function": {
                         "name": str(tool_call.tool_name) if tool_call.tool_name else "",
-                        "arguments": json.dumps(tool_call.tool_args, ensure_ascii=False) if tool_call.tool_args else "{}",
+                        "arguments": (
+                            json.dumps(tool_call.tool_args, ensure_ascii=False)
+                            if tool_call.tool_args
+                            else "{}"
+                        ),
                     },
                 })
             message["tool_calls"] = tool_calls_list
@@ -632,7 +636,11 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         return {
             "role": "tool",
             "tool_call_id": tool_call_id,
-            "content": json.dumps(content.tool_result, ensure_ascii=False, default=str) if content.tool_result is not None else "{}",
+            "content": (
+                json.dumps(content.tool_result, ensure_ascii=False, default=str)
+                if content.tool_result is not None
+                else "{}"
+            ),
         }
 
     def _format_tool(
@@ -748,7 +756,12 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                                 }
 
                             # Update tool call data - only update id if it's a valid non-empty string
-                            if "id" in tc_delta and tc_delta["id"] and isinstance(tc_delta["id"], str) and tc_delta["id"].strip():
+                            if (
+                                "id" in tc_delta
+                                and tc_delta["id"]
+                                and isinstance(tc_delta["id"], str)
+                                and tc_delta["id"].strip()
+                            ):
                                 tool_call_buffer[index]["id"] = tc_delta["id"]
                             if "function" in tc_delta:
                                 func = tc_delta["function"]
