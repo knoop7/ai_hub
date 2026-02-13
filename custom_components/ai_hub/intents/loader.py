@@ -53,13 +53,13 @@ def _deep_merge(base: Dict, override: Dict) -> Dict:
 
 def _load_intents_config_sync() -> dict[str, Any]:
     """同步加载配置 - 支持多文件合并."""
-    import yaml
+    import yaml  # type: ignore[import]
 
     # 优先尝试新的多文件配置
     config_dir = Path(__file__).parent / "config"
 
     if config_dir.exists():
-        merged_config = {}
+        merged_config: Dict[str, Any] = {}
         loaded_files = []
 
         for filename in CONFIG_FILES:
