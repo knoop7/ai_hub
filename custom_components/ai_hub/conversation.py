@@ -141,7 +141,14 @@ class AIHubConversationAgent(
             from homeassistant.components.conversation import default_agent
 
             # 获取 HA 默认的 conversation agent
-            agent = await default_agent.async_get_agent(self.hass)
+            # HA 2025.10+ 使用 async_get_agent
+            agent = getattr(default_agent, 'async_get_agent', None)
+            if agent:
+                agent = await agent(self.hass)
+            else:
+                # 降级方案：直接使用 default_agent 模块的 process 函数
+                agent = default_agent
+
             if agent:
                 _LOGGER.debug("调用 HA 默认 agent 处理: %s", user_input.text)
                 # 让默认 agent 处理
