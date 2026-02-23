@@ -39,7 +39,7 @@
 
 ## 🌟 Features
 
-AI Hub is a custom integration for Home Assistant, providing native connections to Zhipu AI, SiliconFlow, and Bemfa.
+AI Hub is a custom integration for Home Assistant, providing native connections to SiliconFlow and Bemfa.
 
 If you don't need some entries, just leave the api key blank or delete it. You can add it back later when needed.
 
@@ -48,12 +48,12 @@ If you don't need some entries, just leave the api key blank or delete it. You c
 #### 🗣️ Conversation Assistant
 - **Streaming Output**: Real-time display of model replies for a smooth conversational experience.
 - **Home Control**: Integrates with Home Assistant LLM API to control/query devices.
-- **Image Understanding**: Automatically switches to vision model (GLM-4.1V-Thinking) if a message contains an image.
+- **Image Understanding**: Automatically switches to vision model if a message contains an image.
 - **Context Memory**: Configurable number of history messages to balance effect and performance.
 
 #### 🤖 AI Tasks
 - **Structured Data Generation**: Specify JSON structure, with error prompts on failure.
-- **Image Generation**: Generate images using CogView series models, supporting URL or base64 result.
+- **Image Generation**: Generate images using Kolors and other models, supporting URL or base64 result.
 - **Multimodal Support**: Reuses conversation message format for complex tasks.
 
 #### 🔊 TTS (Text to Speech, Edge TTS)
@@ -70,7 +70,7 @@ If you don't need some entries, just leave the api key blank or delete it. You c
 - **Real-Time Processing**: Suitable for voice control, Voice Assistant, and other scenarios.
 
 #### 🌐 HACS Integration Localization
-- **Auto Translation**: Use Zhipu AI to automatically translate custom component English translation files to Chinese.
+- **Auto Translation**: Use AI to automatically translate custom component English translation files to Chinese.
 - **Batch Processing**: Supports batch localization for multiple components.
 - **Intelligent Recognition**: Automatically detects components needing translation, skipping already localized ones.
 
@@ -112,8 +112,7 @@ If you don't need some entries, just leave the api key blank or delete it. You c
 
 1. **Add Integration**: Go to Settings → Devices & Services → Integrations → Add Integration, search "AI HUB (ai_hub)".
 2. **Configure API Keys**: Follow the wizard to configure:
-   - Zhipu API Key (for Conversation, AI Task, and HACS Localization).
-   - SiliconFlow API Key (for STT, free version does not support streaming).
+   - SiliconFlow API Key (for Conversation, AI Task, and STT).
    - Bemfa API Key (for WeChat messages).
 3. **Verify**: System will verify your API Keys.
 4. **Finish**: Integration will auto-create relevant services and entities.
@@ -134,22 +133,13 @@ AI Hub supports sub-entry configuration for independent functionality:
 
 ## 🔑 Account Registration & Token Acquisition
 
-### Zhipu AI
-- **Usage**: Conversation, AI Tasks, TTS, STT
-- **Register**: [Sign Up Here](https://www.bigmodel.cn/claude-code?ic=19ZL5KZU1F)
-- **Get API Key**:
-  1. Register and login.
-  2. Go to [Dashboard](https://open.bigmodel.cn/usercenter/apikeys).
-  3. Click "Create API Key".
-  4. Copy your new API Key.
-
 ### SiliconFlow
-- **Usage**: Speech Recognition (STT)
+- **Usage**: Conversation, AI Tasks, STT
 - **Register**: [Sign Up Here](https://cloud.siliconflow.cn/i/U3e0rmsr)
 - **Get API Key**:
   1. Register and login.
   2. Go to the dashboard.
-  3. Create new API Key in the API management page.
+  3. Create new API Key in the [API Key Management](https://cloud.siliconflow.cn/account/ak) page.
   4. Copy your new API Key.
 
 ### Bemfa
@@ -201,7 +191,7 @@ automation:
         data:
           prompt: "Beautiful sunrise landscape"
           size: "1024x1024"
-          model: "cogview-3-flash"
+          model: "Kwai-Kolors/Kolors"
 ```
 
 #### Structured Data Generation
@@ -212,7 +202,7 @@ Generate formatted JSON data:
 service: ai_hub.ai_task
 data:
   input: "Generate a JSON including name, age, and occupation"
-  model: "GLM-4-Flash-250414"
+  model: "Qwen/Qwen3-8B"
   temperature: 0.3
 ```
 
@@ -450,7 +440,7 @@ data:
 ### Recommended Configuration (Defaults)
 
 #### Conversation
-- **Model**: GLM-4-Flash-250414
+- **Model**: Qwen/Qwen3-8B
 - **Temperature**: 0.3 (for randomness)
 - **Top P**: 0.5 (controls candidate range)
 - **Top K**: 1 (limits candidate count)
@@ -458,8 +448,8 @@ data:
 - **History Messages**: 30 (context continuity)
 
 #### AI Tasks
-- **Text Model**: GLM-4-Flash-250414
-- **Image Model**: cogview-3-flash
+- **Text Model**: Qwen/Qwen3-8B
+- **Image Model**: Kwai-Kolors/Kolors
 - **Temperature**: 0.95 (creativity)
 - **Top P**: 0.7
 - **Max Tokens**: 2000
@@ -526,12 +516,12 @@ data:
 
 #### 2. Conversation Assistant unresponsive
 **Possible reasons**:
-- Zhipu AI API Key invalid or expired
+- SiliconFlow API Key invalid or expired
 - Network issues
 - Incorrect model selection
 
 **Solutions**:
-- Check API Key
+- Check SiliconFlow API Key
 - Test network
 - Make sure a free model is selected
 
