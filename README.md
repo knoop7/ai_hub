@@ -49,7 +49,7 @@ AI Hub 是 Home Assistant 的自定义集成，提供与硅基流动、巴法云
 #### 🗣️ 对话助手（Conversation）
 - **流式输出**: 实时显示模型回复，提供流畅的对话体验
 - **家居控制**: 对接 Home Assistant LLM API，支持控制/查询设备
-- **图片理解**: 消息携带图片时自动切换到视觉模型
+- **图片理解**: 消息携带图片时自动切换到视觉模型（GLM-4.1V-9B-Thinking）
 - **上下文记忆**: 可配置历史消息条数，平衡效果与性能
 
 #### 🤖 AI 任务（AI Task）
@@ -65,9 +65,9 @@ AI Hub 是 Home Assistant 的自定义集成，提供与硅基流动、巴法云
 - **多种格式**: 输出 MP3 格式音频
 
 #### 🎤 语音识别（STT，SiliconFlow）
-- **高精度识别**: 集成硅基流动 SenseVoice 语音识别服务
+- **高精度识别**: 集成硅基流动语音识别服务，支持 SenseVoice、TeleSpeechASR 等模型
 - **自动语言检测**: 自动识别中文、英文、日文、韩文等多种语言，无需手动指定
-- **格式兼容**: 支持 WAV/MP3/FLAC/OGG/WebM 等多种音频格式
+- **格式兼容**: 支持 WAV/MP3/FLAC/M4A/OGG/WebM 等多种音频格式
 - **实时处理**: 适合语音控制、Voice Assistant 等场景
 
 #### 🌐 HACS 集成汉化
@@ -455,7 +455,7 @@ data:
 #### STT配置
 - **默认模型**: FunAudioLLM/SenseVoiceSmall
 - **语言检测**: 自动检测（支持中文、英文、日文、韩文等）
-- **音频格式**: WAV、MP3、FLAC、OGG、WebM
+- **音频格式**: WAV、MP3、FLAC、M4A、OGG、WebM
 - **最大文件大小**: 25MB
 
 
@@ -597,8 +597,23 @@ custom_components/ai_hub/
 ├── tts.py               # TTS 实体 (Edge TTS)
 ├── stt.py               # STT 实体
 ├── entity.py            # 实体基类
+├── sensor.py            # 健康检查传感器
+├── diagnostics.py       # 诊断模块
 ├── helpers.py           # 辅助函数
+├── intents.py           # 意图处理入口
 ├── services.py          # 服务注册入口
+├── markdown_filter.py   # Markdown 过滤器
+├── voices.py            # Edge TTS 语音列表
+├── button/              # 按钮实体
+│   └── __init__.py
+├── providers/           # API 提供商模块
+│   ├── __init__.py
+│   ├── base.py          # 基类
+│   ├── edge_tts.py      # Edge TTS 提供商
+│   ├── openai_compatible.py  # OpenAI 兼容 API
+│   ├── siliconflow_stt.py    # 硅基流动 STT
+│   ├── stt_base.py      # STT 基类
+│   └── tts_base.py      # TTS 基类
 ├── services_lib/        # 服务实现模块
 │   ├── __init__.py      # 模块导出
 │   ├── schemas.py       # 服务数据验证
@@ -620,7 +635,13 @@ custom_components/ai_hub/
 │       ├── lists.yaml       # 设备类型列表
 │       ├── expansion.yaml   # 扩展规则
 │       └── local_control.yaml # 本地控制配置
+├── utils/               # 工具模块
+│   ├── __init__.py
+│   ├── retry.py         # 重试机制
+│   └── tts_cache.py     # TTS 缓存
 └── translations/        # 多语言翻译
+    ├── en.json
+    └── zh-Hans.json
 ```
 
 ### 贡献方式

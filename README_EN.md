@@ -48,7 +48,7 @@ If you don't need some entries, just leave the api key blank or delete it. You c
 #### 🗣️ Conversation Assistant
 - **Streaming Output**: Real-time display of model replies for a smooth conversational experience.
 - **Home Control**: Integrates with Home Assistant LLM API to control/query devices.
-- **Image Understanding**: Automatically switches to vision model if a message contains an image.
+- **Image Understanding**: Automatically switches to vision model (GLM-4.1V-9B-Thinking) if a message contains an image.
 - **Context Memory**: Configurable number of history messages to balance effect and performance.
 
 #### 🤖 AI Tasks
@@ -64,9 +64,9 @@ If you don't need some entries, just leave the api key blank or delete it. You c
 - **Audio Format**: Outputs MP3 format audio.
 
 #### 🎤 STT (Speech to Text, SiliconFlow)
-- **High Accuracy Recognition**: Integrates SiliconFlow SenseVoice speech recognition service.
+- **High Accuracy Recognition**: Integrates SiliconFlow speech recognition service, supporting SenseVoice, TeleSpeechASR and more models.
 - **Auto Language Detection**: Automatically detects Chinese, English, Japanese, Korean, and other languages without manual specification.
-- **Format Compatibility**: Supports WAV/MP3/FLAC/OGG/WebM and other audio formats.
+- **Format Compatibility**: Supports WAV/MP3/FLAC/M4A/OGG/WebM and other audio formats.
 - **Real-Time Processing**: Suitable for voice control, Voice Assistant, and other scenarios.
 
 #### 🌐 HACS Integration Localization
@@ -464,7 +464,7 @@ data:
 #### STT
 - **Default Model**: FunAudioLLM/SenseVoiceSmall
 - **Language Detection**: Automatic (supports Chinese, English, Japanese, Korean, etc.)
-- **Audio Formats**: WAV, MP3, FLAC, OGG, WebM
+- **Audio Formats**: WAV, MP3, FLAC, M4A, OGG, WebM
 - **Max File Size**: 25MB
 
 ---
@@ -592,6 +592,66 @@ If above doesn't solve your issue:
 ## 🤝 Contributing
 
 You're welcome to contribute — improve features and docs!
+
+### Project Structure
+
+```
+custom_components/ai_hub/
+├── __init__.py          # Integration entry point
+├── config_flow.py       # Configuration flow
+├── const.py             # Constants
+├── conversation.py      # Conversation agent
+├── ai_task.py           # AI Task
+├── ai_automation.py     # AI Automation
+├── tts.py               # TTS entity (Edge TTS)
+├── stt.py               # STT entity
+├── entity.py            # Entity base class
+├── sensor.py            # Health check sensors
+├── diagnostics.py       # Diagnostics module
+├── helpers.py           # Helper functions
+├── intents.py           # Intent processing entry
+├── services.py          # Service registration
+├── markdown_filter.py   # Markdown filter
+├── voices.py            # Edge TTS voice list
+├── button/              # Button entities
+│   └── __init__.py
+├── providers/           # API providers
+│   ├── __init__.py
+│   ├── base.py          # Base class
+│   ├── edge_tts.py      # Edge TTS provider
+│   ├── openai_compatible.py  # OpenAI compatible API
+│   ├── siliconflow_stt.py    # SiliconFlow STT
+│   ├── stt_base.py      # STT base
+│   └── tts_base.py      # TTS base
+├── services_lib/        # Service implementations
+│   ├── __init__.py      # Module exports
+│   ├── schemas.py       # Service validation
+│   ├── image.py         # Image services
+│   ├── tts.py           # TTS service
+│   ├── stt.py           # STT service
+│   ├── wechat.py        # WeChat notification
+│   ├── translation.py   # Component translation
+│   └── blueprints.py    # Blueprint translation
+├── intents/             # Intent processing
+│   ├── __init__.py      # Module entry
+│   ├── loader.py        # Config loader
+│   ├── handlers.py      # Intent handlers
+│   ├── validator.py     # Config validator
+│   ├── config_cache.py  # Config cache
+│   └── config/          # Intent configs
+│       ├── intents.yaml
+│       ├── base.yaml
+│       ├── lists.yaml
+│       ├── expansion.yaml
+│       └── local_control.yaml
+├── utils/               # Utilities
+│   ├── __init__.py
+│   ├── retry.py         # Retry mechanism
+│   └── tts_cache.py     # TTS cache
+└── translations/        # Translations
+    ├── en.json
+    └── zh-Hans.json
+```
 
 ### How to Contribute
 1. **Report Bugs**: [Issues](https://github.com/ha-china/ai_hub/issues)
