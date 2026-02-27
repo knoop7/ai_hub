@@ -18,20 +18,20 @@
 
 ## 📋 目录 / Table of Contents
 
-- [🔧 前置条件 / Prerequisites](#🔧-前置条件--prerequisites)
-- [🌟 功能介绍 / Features](#🌟-功能介绍--features)
-- [📦 安装方法 / Installation](#📦-安装方法--installation)
-- [🚀 快速开始 / Quick Start](#🚀-快速开始--quick-start)
-- [🔑 账号注册与Token获取 / Account Registration & Token](#🔑-账号注册与token获取--account-registration--token)
-- [📖 使用指南 / Usage Guide](#📖-使用指南--usage-guide)
-- [🔧 服务调用详解 / Service Details](#🔧-服务调用详解--service-details)
-- [⚙️ 参数配置 / Configuration](#⚙️-参数配置--configuration)
-- [⚠️ 注意事项 / Notes](#⚠️-注意事项--notes)
-- [🛠️ 故障排除 / Troubleshooting](#🛠️-故障排除--troubleshooting)
-- [🤝 参与贡献 / Contributing](#🤝-参与贡献--contributing)
-- [📄 许可协议 / License](#📄-许可协议--license)
-- [📱 关注我 / Follow Me](#📱-关注我--follow-me)
-- [☕ 赞助支持 / Support](#☕-赞助支持--support)
+- [🔧 前置条件 / Prerequisites](#-前置条件--prerequisites)
+- [🌟 功能介绍 / Features](#-功能介绍--features)
+- [📦 安装方法 / Installation](#-安装方法--installation)
+- [🚀 快速开始 / Quick Start](#-快速开始--quick-start)
+- [🔑 账号注册与Token获取 / Account Registration & Token](#-账号注册与token获取--account-registration--token)
+- [📖 使用指南 / Usage Guide](#-使用指南--usage-guide)
+- [🔧 服务调用详解 / Service Details](#-服务调用详解--service-details)
+- [⚙️ 参数配置 / Configuration](#️-参数配置--configuration)
+- [⚠️ 注意事项 / Notes](#️-注意事项--notes)
+- [🛠️ 故障排除 / Troubleshooting](#️-故障排除--troubleshooting)
+- [🤝 参与贡献 / Contributing](#-参与贡献--contributing)
+- [📄 许可协议 / License](#-许可协议--license)
+- [📱 关注我 / Follow Me](#-关注我--follow-me)
+- [☕ 赞助支持 / Support](#-赞助支持--support)
 
 ---
 
