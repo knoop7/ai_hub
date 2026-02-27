@@ -1,9 +1,9 @@
 <h1 align="center">AI Hub · 一站式免费AI服务</h1>
 <h1 align="center">AI Hub · One-stop Free AI Services</h1>
 <p align="center">
-  为了让你体验各种免费的AI服务，本集成不支持任何收费模型及服务，当然你可能会需要申请账号或创建 API Key。<br>
+  为了让你体验各种免费的AI服务，本集成默认使用免费模型及服务，当然你可能会需要申请账号或创建 API Key。<br>
   <strong>开篇致谢：</strong>前人栽树，后人乘凉。没有 <a href="https://github.com/knoop7" target="_blank">knoop7</a> 和 <a href="https://github.com/rany2/edge-tts" target="_blank">edge-tts</a> 这两个项目，就没有本集成，特此感谢！<br><br>
-  To experience various free AI services, this integration does not support any paid models or services. You may need to register an account or create an API Key.<br>
+  To experience various free AI services, this integration uses free models and services by default. You may need to register an account or create an API Key.<br>
   <strong>Special Thanks:</strong> We stand on the shoulders of giants. Without <a href="https://github.com/knoop7" target="_blank">knoop7</a> and <a href="https://github.com/rany2/edge-tts" target="_blank">edge-tts</a>, this project would not exist!
 </p>
 
