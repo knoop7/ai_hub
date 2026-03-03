@@ -1,0 +1,26 @@
+name: Close stale issues
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark and close stale issues
+        uses: actions/stale@v10
+        with:
+          stale-issue-message: "This issue has had no updates for 30 days and is now closed automatically. Comment here if you still need help and we can reopen it."
+          close-issue-message: "Closed due to inactivity for 30 days."
+          days-before-issue-stale: 30
+          days-before-issue-close: 0
+          stale-pr-message: ""
+          close-pr-message: ""
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          exempt-issue-labels: "pinned,security"
