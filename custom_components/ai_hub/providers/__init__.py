@@ -215,24 +215,13 @@ def get_registry() -> UnifiedProviderRegistry:
 def _register_builtin_providers(registry: UnifiedProviderRegistry) -> None:
     """Register all built-in providers."""
     # Import and register LLM providers
-    try:
-        from .siliconflow import SiliconFlowProvider
-
-        registry.register(
-            SiliconFlowProvider,
-            is_default=True,
-            requires_api_key=True,
-            description="SiliconFlow (硅基流动) - Free tier available",
-        )
-    except ImportError as e:
-        _LOGGER.debug("SiliconFlow provider not available: %s", e)
 
     try:
         from .openai_compatible import OpenAICompatibleProvider
 
         registry.register(
             OpenAICompatibleProvider,
-            is_default=False,
+            is_default=True,
             requires_api_key=True,
             description="OpenAI-compatible API (OpenAI, Azure, local LLMs)",
         )

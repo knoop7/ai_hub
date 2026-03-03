@@ -262,7 +262,7 @@
         }
       }
     },
-    "tts_speech": {
+    "tts_say": {
       "name": "Edge TTS Speech Synthesis",
       "description": "Convert text to speech using Edge TTS",
       "fields": {

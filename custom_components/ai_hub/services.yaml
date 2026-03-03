@@ -126,40 +126,6 @@ create_automation:
       selector:
         text:
 
-get_automation_templates:
-  name: 获取自动化模板
-  description: 获取所有已创建的自动化模板
-
-delete_automation_template:
-  name: 删除自动化模板
-  description: 删除指定的自动化模板
-  fields:
-    template_id:
-      name: 模板ID
-      description: 要删除的模板ID
-      required: true
-      selector:
-        text:
-
-create_dashboard:
-  name: 创建仪表板
-  description: 通过自然语言描述创建Home Assistant仪表板
-  fields:
-    description:
-      name: 仪表板描述
-      description: 描述你想要的仪表板内容和布局
-      required: true
-      example: "创建一个包含温度传感器和灯光控制的主页面仪表板"
-      selector:
-        text:
-          multiline: true
-    dashboard_config:
-      name: 仪表板配置
-      description: 可选的自定义仪表板配置（JSON格式）
-      required: false
-      selector:
-        text:
-          multiline: true
 send_wechat_message:
   name: 发送微信消息
   description: 通过巴法云发送微信消息通知，设备标题显示实体名称和状态（需要Bemfa UID）

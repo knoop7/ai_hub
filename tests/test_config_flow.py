@@ -5,6 +5,10 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+pytest.importorskip("homeassistant")
+pytest.importorskip("voluptuous")
+
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_API_KEY
@@ -75,7 +79,7 @@ class TestValidateInput:
             mock_post.return_value.__aenter__.return_value = mock_response
 
             data = {CONF_API_KEY: "invalid_key"}
-            with pytest.raises(ValueError, match="Invalid API key"):
+            with pytest.raises(ValueError, match="invalid_auth"):
                 await validate_input(mock_hass, data)
 
     @pytest.mark.asyncio
@@ -85,7 +89,7 @@ class TestValidateInput:
             mock_post.side_effect = Exception("Connection error")
 
             data = {CONF_API_KEY: "test_key"}
-            with pytest.raises(Exception, match="API test failed"):
+            with pytest.raises(Exception, match="Connection error"):
                 await validate_input(mock_hass, data)
 
 

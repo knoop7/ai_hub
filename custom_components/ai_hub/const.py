@@ -24,7 +24,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
-from homeassistant.core import HomeAssistant
+try:
+    from homeassistant.core import HomeAssistant
+except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test environments
+    HomeAssistant = Any  # type: ignore[assignment]
 
 # Import llm for API constants
 try:

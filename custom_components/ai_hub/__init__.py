@@ -7,23 +7,41 @@ from dataclasses import dataclass, field
 from typing import Any, TypeAlias
 
 import aiohttp
-from homeassistant.config_entries import ConfigEntry, ConfigSubentry
-from homeassistant.const import CONF_API_KEY, Platform
-from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+
+try:
+    from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+    from homeassistant.const import CONF_API_KEY, Platform
+    from homeassistant.core import HomeAssistant
+    from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test environments
+    ConfigEntry = Any  # type: ignore[assignment]
+    ConfigSubentry = Any  # type: ignore[assignment]
+    HomeAssistant = Any  # type: ignore[assignment]
+    CONF_API_KEY = "api_key"
+
+    class ConfigEntryAuthFailed(Exception):
+        """Fallback exception when Home Assistant is not installed."""
+
+    class ConfigEntryNotReady(Exception):
+        """Fallback exception when Home Assistant is not installed."""
+
+    Platform = None  # type: ignore[assignment]
 
 from .const import AI_HUB_CHAT_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [
-    Platform.CONVERSATION,
-    Platform.AI_TASK,
-    Platform.TTS,
-    Platform.STT,
-    Platform.BUTTON,
-    Platform.SENSOR,
-]
+if Platform is None:
+    PLATFORMS: list[Any] = []
+else:
+    PLATFORMS = [
+        Platform.CONVERSATION,
+        Platform.AI_TASK,
+        Platform.TTS,
+        Platform.STT,
+        Platform.BUTTON,
+        Platform.SENSOR,
+    ]
 
 AIHubConfigEntry: TypeAlias = ConfigEntry  # Store API key
 

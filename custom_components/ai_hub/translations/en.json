@@ -242,7 +242,7 @@
         }
       }
     },
-    "tts_speech": {
+    "tts_say": {
       "name": "Edge TTS Speech Synthesis",
       "description": "Convert text to speech using Edge TTS",
       "fields": {
@@ -257,24 +257,6 @@
         "media_player_entity": {
           "name": "Media Player",
           "description": "Media player entity to play speech"
-        }
-      }
-    },
-    "tts_stream": {
-      "name": "Edge TTS Streaming Speech Synthesis",
-      "description": "Generate streaming speech using Edge TTS, audio chunks are pushed via event bus in real-time",
-      "fields": {
-        "text": {
-          "name": "Text",
-          "description": "Text content to convert to speech"
-        },
-        "voice": {
-          "name": "Voice",
-          "description": "Select Edge TTS voice type"
-        },
-        "chunk_size": {
-          "name": "Chunk Size",
-          "description": "Audio chunk size in bytes, event is pushed when this size is reached"
         }
       }
     },

@@ -145,9 +145,13 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
 
         try:
             await validate_input(self.hass, user_input)
-        except ValueError:
-            _LOGGER.exception("Invalid API key")
-            errors["base"] = "invalid_auth"
+        except ValueError as err:
+            reason = str(err)
+            if reason in {"invalid_auth", "cannot_connect"}:
+                errors["base"] = reason
+            else:
+                _LOGGER.exception("Unexpected validation error: %s", err)
+                errors["base"] = "unknown"
         except aiohttp.ClientError:
             _LOGGER.exception("Cannot connect")
             errors["base"] = "cannot_connect"

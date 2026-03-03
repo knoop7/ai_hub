@@ -18,9 +18,23 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from homeassistant.components.diagnostics import async_redact_data
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+try:
+    from homeassistant.components.diagnostics import async_redact_data
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test environments
+    ConfigEntry = Any  # type: ignore[assignment]
+    HomeAssistant = Any  # type: ignore[assignment]
+
+    def async_redact_data(data: dict[str, Any], to_redact: set[str]) -> dict[str, Any]:
+        """Fallback redaction helper when Home Assistant is unavailable."""
+        redacted = {}
+        for key, value in data.items():
+            if key in to_redact:
+                redacted[key] = "REDACTED"
+            else:
+                redacted[key] = value
+        return redacted
 
 from .const import (
     CONF_API_KEY,
