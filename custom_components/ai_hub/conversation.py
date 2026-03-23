@@ -138,50 +138,43 @@ class AIHubConversationAgent(
         # ========== 步骤2: 尝试 HA 内置意图处理 ==========
         # timer、shopping list、设备控制等 HA 原生支持的意图
         try:
-            from homeassistant.components.conversation import default_agent
+            from homeassistant.components import conversation as ha_conversation
 
-            # 获取 HA 默认的 conversation agent
-            # HA 2025.10+ 使用 async_get_agent
-            agent = getattr(default_agent, 'async_get_agent', None)
-            if agent:
-                agent = await agent(self.hass)
-            else:
-                # 降级方案：直接使用 default_agent 模块的 process 函数
-                agent = default_agent
+            _LOGGER.debug("调用 HA 内置 intents 处理: %s", user_input.text)
+            ha_response = await ha_conversation.async_handle_intents(
+                self.hass,
+                user_input,
+                chat_log,
+            )
 
-            if agent:
-                _LOGGER.debug("调用 HA 默认 agent 处理: %s", user_input.text)
-                # 让默认 agent 处理
-                result = await agent.async_process(user_input)
-                _LOGGER.debug("HA agent 返回结果: %s", result)
-                if result and result.response:
-                    response_type = result.response.response_type
-                    _LOGGER.debug("HA agent response_type: %s", response_type)
+            _LOGGER.debug("HA intents 返回结果: %s", ha_response)
 
-                    # 检查是否有错误
-                    has_error = hasattr(result.response, 'error') and result.response.error
-                    # 检查是否是 "no intent matched" 情况
-                    is_no_match = (response_type == intent.IntentResponseType.NO_INTENT_MATCHED
-                                   if hasattr(intent.IntentResponseType, 'NO_INTENT_MATCHED') else False)
+            if ha_response is not None:
+                response_type = ha_response.response_type
+                _LOGGER.debug("HA intents response_type: %s", response_type)
 
-                    # 只要有响应内容就认为成功（不管是什么类型）
-                    # 除非明确是 NO_INTENT_MATCHED 或有错误
-                    response_has_content = (
-                        hasattr(result.response, 'speech') and result.response.speech.get('plain')
-                    ) or (
-                        hasattr(result.response, 'response_type')
+                has_error = hasattr(ha_response, "error") and ha_response.error
+                is_error_type = response_type == intent.IntentResponseType.ERROR
+                is_no_match = (
+                    response_type == intent.IntentResponseType.NO_INTENT_MATCHED
+                    if hasattr(intent.IntentResponseType, "NO_INTENT_MATCHED")
+                    else False
+                )
+                response_has_content = bool(ha_response.speech and ha_response.speech.get("plain"))
+
+                if not has_error and not is_error_type and not is_no_match and response_has_content:
+                    _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
+                    return conversation.ConversationResult(
+                        response=ha_response,
+                        conversation_id=chat_log.conversation_id,
                     )
 
-                    if not has_error and not is_no_match and response_has_content:
-                        _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
-                        return result
-                    else:
-                        _LOGGER.debug(
-                            "HA 内置意图未匹配(has_error=%s, is_no_match=%s)，交给 LLM 处理",
-                            has_error, is_no_match
-                        )
-            else:
-                _LOGGER.warning("HA 默认 agent 不可用")
+                _LOGGER.debug(
+                    "HA 内置意图未匹配或返回错误(has_error=%s, is_error_type=%s, is_no_match=%s)，交给 LLM 处理",
+                    has_error,
+                    is_error_type,
+                    is_no_match,
+                )
 
         except Exception as e:
             _LOGGER.warning("HA 内置意图处理异常: %s", e, exc_info=True)
