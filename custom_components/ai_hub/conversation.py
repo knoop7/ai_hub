@@ -10,6 +10,7 @@ dialogue interactions, supporting:
 
 from __future__ import annotations
 
+from dataclasses import replace
 import logging
 from typing import Any, Literal
 
@@ -252,7 +253,7 @@ class AIHubConversationAgent(
                         original_content[:50] if len(original_content) > 50 else original_content,
                         filtered_content[:50] if len(filtered_content) > 50 else filtered_content
                     )
-                    last_content.content = filtered_content
+                    chat_log.content[-1] = replace(last_content, content=filtered_content)
 
         # Return result from chat log
         return conversation.async_get_result_from_chat_log(user_input, chat_log)
