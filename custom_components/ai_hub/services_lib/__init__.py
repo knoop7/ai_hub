@@ -7,7 +7,6 @@
 - image.py: 图像分析和生成服务
 - tts.py: 文本转语音服务
 - stt.py: 语音转文本服务
-- wechat.py: 微信消息推送服务
 - translation.py: 组件翻译服务
 - blueprints.py: 蓝图翻译服务
 
@@ -17,7 +16,6 @@
         handle_generate_image,
         handle_tts_speech,
         handle_stt_transcribe,
-        handle_send_wechat_message,
     )
 
     # 在服务注册中使用
@@ -51,7 +49,6 @@ from .schemas import (
     TRANSLATION_SCHEMA,
     TTS_SCHEMA,
     TTS_STREAM_SCHEMA,
-    WECHAT_SCHEMA,
 )
 
 # STT services
@@ -71,9 +68,6 @@ from .tts import (
     handle_tts_stream,
 )
 
-# WeChat services
-from .wechat import handle_send_wechat_message
-
 __all__ = [
     # Schemas
     "IMAGE_ANALYZER_SCHEMA",
@@ -81,7 +75,6 @@ __all__ = [
     "TTS_SCHEMA",
     "TTS_STREAM_SCHEMA",
     "STT_SCHEMA",
-    "WECHAT_SCHEMA",
     "TRANSLATION_SCHEMA",
     "BLUEPRINTS_TRANSLATION_SCHEMA",
     # Image
@@ -96,8 +89,6 @@ __all__ = [
     "handle_tts_stream",
     # STT
     "handle_stt_transcribe",
-    # WeChat
-    "handle_send_wechat_message",
     # Translation
     "async_translate_text",
     "async_translate_json_values",

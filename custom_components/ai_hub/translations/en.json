@@ -5,16 +5,14 @@
         "title": "Connect to AI Hub",
         "description": "Please enter the API key(s) required for the corresponding service. For all services, please enter all API keys. If you have any questions, you can click the question mark icon to view the help documentation.",
         "data": {
-          "api_key": "SiliconFlow API Key (required for all services: conversation, AI tasks, translation, STT, etc.)",
-          "bemfa_uid": "Bemfa UID (optional, for WeChat notification)"
+          "api_key": "SiliconFlow API Key (required for all services: conversation, AI tasks, translation, STT, etc.)"
         }
       }
     },
     "error": {
       "cannot_connect": "Cannot connect to AI Hub service",
       "invalid_auth": "Invalid API key",
-      "unknown": "Unknown error",
-      "bemfa_uid_required": "Bemfa UID is required"
+      "unknown": "Unknown error"
     },
     "abort": {
       "already_configured": "This API key is already configured"
@@ -145,31 +143,6 @@
             "model": "Select ASR model: FunAudioLLM/SenseVoiceSmall (recommended) or TeleAI/TeleSpeechASR"
           }
         }
-      }
-    },
-    "wechat": {
-      "initiate_flow": {
-        "user": "Add WeChat Notification",
-        "reconfigure": "Reconfigure WeChat Notification"
-      },
-      "entry_type": "AI Hub WeChat Notification",
-      "step": {
-        "init": {
-          "title": "Configure WeChat Notification",
-          "description": "Configure Bemfa cloud WeChat notification function. Enable recommended mode to use best settings.",
-          "data": {
-            "name": "Name",
-            "recommended": "Recommended Mode",
-            "bemfa_uid": "Bemfa UID"
-          },
-          "data_description": {
-            "recommended": "Use recommended settings",
-            "bemfa_uid": "Bemfa provided user ID for sending WeChat messages"
-          }
-        }
-      },
-      "error": {
-        "bemfa_uid_required": "Bemfa UID is required"
       }
     },
     "translation": {

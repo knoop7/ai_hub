@@ -17,13 +17,11 @@ from homeassistant.core import HomeAssistant
 from custom_components.ai_hub.config_flow import (
     AIHubConfigFlow,
     AIHubSubentryFlowHandler,
-    AIHubWeChatFlowHandler,
     AIHubTranslationFlowHandler,
     STEP_USER_DATA_SCHEMA,
     validate_input,
 )
 from custom_components.ai_hub.const import (
-    CONF_BEMFA_UID,
     CONF_CHAT_MODEL,
     CONF_LLM_HASS_API,
     CONF_PROMPT,
@@ -31,7 +29,6 @@ from custom_components.ai_hub.const import (
     CONF_TEMPERATURE,
     DEFAULT_CONVERSATION_NAME,
     DEFAULT_TTS_NAME,
-    DEFAULT_WECHAT_NAME,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_TEMPERATURE,
@@ -113,7 +110,6 @@ class TestAIHubConfigFlow:
             with patch("custom_components.ai_hub.config_flow.validate_input") as mock_validate:
                 user_input = {
                     CONF_API_KEY: "test_api_key",
-                    CONF_BEMFA_UID: "test_uid",
                 }
 
                 with patch.object(flow, "async_create_entry") as mock_create:
@@ -157,11 +153,9 @@ class TestAIHubConfigFlow:
         assert "ai_task_data" in subentry_types
         assert "tts" in subentry_types
         assert "stt" in subentry_types
-        assert "wechat" in subentry_types
         assert "translation" in subentry_types
 
         assert subentry_types["conversation"] == AIHubSubentryFlowHandler
-        assert subentry_types["wechat"] == AIHubWeChatFlowHandler
         assert subentry_types["translation"] == AIHubTranslationFlowHandler
 
 
@@ -224,57 +218,6 @@ class TestAIHubSubentryFlowHandler:
         result = subentry_flow.async_step_init({CONF_RECOMMENDED: True})
 
         assert result["type"] == "form"
-
-
-class TestAIHubWeChatFlowHandler:
-    """Tests for AIHubWeChatFlowHandler."""
-
-    @pytest.fixture
-    def wechat_flow(self, mock_hass):
-        """Create a WeChat subentry flow instance."""
-        config_entry = MagicMock(spec=config_entries.ConfigEntry)
-        config_entry.subentries = {}
-
-        flow = AIHubWeChatFlowHandler(mock_hass, config_entry, None)
-        flow.hass = mock_hass
-        flow.source = "user"
-        return flow
-
-    def test_init_form_show(self, wechat_flow):
-        """Test the initial form is shown."""
-        result = wechat_flow.async_step_user(None)
-
-        assert result["type"] == "form"
-        assert result["step_id"] == "init"
-
-    def test_form_success(self, wechat_flow):
-        """Test successful form submission."""
-        with patch.object(wechat_flow, "async_create_entry") as mock_create:
-            user_input = {CONF_BEMFA_UID: "test_uid"}
-
-            result = wechat_flow.async_step_user(user_input)
-
-            assert result["type"] == "create_entry"
-            assert mock_create.called
-
-    def test_form_missing_bemfa_uid(self, wechat_flow):
-        """Test form submission with missing Bemfa UID."""
-        user_input = {CONF_BEMFA_UID: ""}
-
-        result = wechat_flow.async_step_user(user_input)
-
-        assert result["type"] == "form"
-        assert result["errors"] == {CONF_BEMFA_UID: "bemfa_uid_required"}
-
-    def test_reconfigure_not_supported(self, wechat_flow):
-        """Test that reconfigure is not supported."""
-        wechat_flow.source = "reconfigure"
-
-        result = wechat_flow.async_step_user(None)
-
-        assert result["type"] == "abort"
-        assert result["reason"] == "weixin_no_reconfigure"
-
 
 class TestAIHubTranslationFlowHandler:
     """Tests for AIHubTranslationFlowHandler."""

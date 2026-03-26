@@ -5,16 +5,14 @@
         "title": "连接到AI Hub",
         "description": "请输入你需要对应服务的API-KEY，如果需要全服务，请输入所有的API-KEY，如果有任何问题，可以点击问号图标查看帮助文档。",
         "data": {
-          "api_key": "SiliconFlow API密钥（必填，用于对话、AI任务、汉化、语音识别等所有服务）",
-          "bemfa_uid": "巴法云私钥（可选，用于微信通知）"
+          "api_key": "SiliconFlow API密钥（必填，用于对话、AI任务、汉化、语音识别等所有服务）"
         }
       }
     },
     "error": {
       "cannot_connect": "无法连接到AI Hub服务",
       "invalid_auth": "API密钥无效",
-      "unknown": "未知错误",
-      "bemfa_uid_required": "巴法云私钥是必填项"
+      "unknown": "未知错误"
     },
     "abort": {
       "already_configured": "此API密钥已经配置"
@@ -147,34 +145,6 @@
         }
       }
     },
-    "wechat": {
-      "initiate_flow": {
-        "user": "添加微信通知",
-        "reconfigure": "重新配置微信通知"
-      },
-      "entry_type": "AI Hub 微信通知",
-      "step": {
-        "init": {
-          "title": "配置微信通知",
-          "description": "配置巴法云云端微信通知功能。开启推荐模式使用最佳设置。",
-          "data": {
-            "name": "名称",
-            "recommended": "推荐模式",
-            "bemfa_uid": "巴法云私钥"
-          },
-          "data_description": {
-            "recommended": "使用推荐设置",
-            "bemfa_uid": "巴法云提供的用户私钥，用于发送微信消息"
-          }
-        },
-        "error": {
-          "bemfa_uid_required": "巴法云私钥是必填项"
-        }
-      },
-      "abort": {
-        "weixin_no_reconfigure": "微信通知不支持重新配置。如需修改设置，请删除并重新添加。"
-      }
-    },
     "translation": {
       "initiate_flow": {
         "user": "添加汉化",
@@ -292,24 +262,6 @@
         "force_translation": {
           "name": "强制翻译",
           "description": "强制重新翻译并覆盖现有翻译，无论中文翻译文件是否存在"
-        }
-      }
-    },
-    "send_wechat_message": {
-      "name": "发送微信消息",
-      "description": "通过巴法云发送微信消息通知，设备状态改变时自动发送，包含设备名称和状态",
-      "fields": {
-        "device_entity": {
-          "name": "设备实体",
-          "description": "要监视状态的实体ID，可包含多个设备名称和状态，将作为设备名称显示"
-        },
-        "message": {
-          "name": "消息内容",
-          "description": "要发送的消息内容，实体名称和状态将自动替换为设备名称显示"
-        },
-        "url": {
-          "name": "访问链接",
-          "description": "可选的访问链接地址"
         }
       }
     },

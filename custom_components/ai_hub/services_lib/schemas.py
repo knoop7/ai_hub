@@ -8,7 +8,6 @@
 - TTS_SCHEMA: 文本转语音服务
 - TTS_STREAM_SCHEMA: 流式文本转语音服务
 - STT_SCHEMA: 语音转文本服务
-- WECHAT_SCHEMA: 微信消息推送服务
 - TRANSLATION_SCHEMA: 组件翻译服务
 - BLUEPRINTS_TRANSLATION_SCHEMA: 蓝图翻译服务
 """
@@ -65,13 +64,6 @@ TTS_STREAM_SCHEMA = {
 STT_SCHEMA = {
     vol.Required(CONF_STT_FILE): cv.string,
     vol.Optional("model", default=RECOMMENDED_STT_MODEL): vol.In(SILICONFLOW_STT_MODELS),
-}
-
-# Schema for Bemfa WeChat service
-WECHAT_SCHEMA = {
-    vol.Required("device_entity"): cv.entity_id,
-    vol.Required("message"): cv.string,
-    vol.Optional("url", default=""): cv.string,
 }
 
 # Schema for translation service

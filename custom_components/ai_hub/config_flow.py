@@ -37,7 +37,6 @@ from .const import (
     AI_HUB_CHAT_URL,
     AI_HUB_IMAGE_GEN_URL,
     AI_HUB_IMAGE_MODELS,
-    CONF_BEMFA_UID,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
@@ -64,7 +63,6 @@ from .const import (
     DEFAULT_TITLE,
     DEFAULT_TRANSLATION_NAME,
     DEFAULT_TTS_NAME,
-    DEFAULT_WECHAT_NAME,
     DOMAIN,
     EDGE_TTS_VOICES,
     RECOMMENDED_AI_TASK_MAX_TOKENS,
@@ -81,7 +79,6 @@ from .const import (
     RECOMMENDED_TOP_K,
     RECOMMENDED_TRANSLATION_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
-    RECOMMENDED_WECHAT_OPTIONS,
     SILICONFLOW_STT_MODELS,
     TTS_DEFAULT_LANG,
     TTS_DEFAULT_VOICE,
@@ -91,7 +88,6 @@ _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema({
     vol.Required(CONF_API_KEY): str,
-    vol.Optional(CONF_BEMFA_UID): str,
 })
 
 
@@ -186,12 +182,6 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
                     "unique_id": None,
                 },
                 {
-                    "subentry_type": "wechat",
-                    "data": RECOMMENDED_WECHAT_OPTIONS,
-                    "title": DEFAULT_WECHAT_NAME,
-                    "unique_id": None,
-                },
-                {
                     "subentry_type": "translation",
                     "data": RECOMMENDED_TRANSLATION_OPTIONS,
                     "title": DEFAULT_TRANSLATION_NAME,
@@ -224,7 +214,6 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
             "ai_task_data": AIHubSubentryFlowHandler,
             "tts": AIHubSubentryFlowHandler,
             "stt": AIHubSubentryFlowHandler,
-            "wechat": AIHubWeChatFlowHandler,
             "translation": AIHubTranslationFlowHandler,
         }
 
@@ -255,8 +244,6 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
                     self.options = RECOMMENDED_TTS_OPTIONS.copy()
                 elif self._subentry_type == "stt":
                     self.options = RECOMMENDED_STT_OPTIONS.copy()
-                elif self._subentry_type == "wechat":
-                    self.options = RECOMMENDED_WECHAT_OPTIONS.copy()
                 elif self._subentry_type == "translation":
                     self.options = RECOMMENDED_TRANSLATION_OPTIONS.copy()
                 else:
@@ -330,8 +317,6 @@ async def ai_hub_config_option_schema(
             default_name = DEFAULT_TTS_NAME
         elif subentry_type == "stt":
             default_name = DEFAULT_STT_NAME
-        elif subentry_type == "wechat":
-            default_name = DEFAULT_WECHAT_NAME
         elif subentry_type == "translation":
             default_name = DEFAULT_TRANSLATION_NAME
         else:
@@ -362,15 +347,6 @@ async def ai_hub_config_option_schema(
         elif subentry_type == "stt":
             # In recommended mode, no configuration options needed
             pass
-        elif subentry_type == "wechat":
-            # WeChat: simple recommended mode with minimal configuration
-            schema.update({
-                vol.Optional(
-                    CONF_BEMFA_UID,
-                    default=options.get(CONF_BEMFA_UID, ""),
-                    description={"suggested_value": options.get(CONF_BEMFA_UID)},
-                ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
-            })
         elif subentry_type == "translation":
             # Translation: simple recommended mode with minimal configuration
             schema.update({
@@ -529,15 +505,6 @@ async def ai_hub_config_option_schema(
             ),
         })
 
-    elif subentry_type == "wechat":
-        schema.update({
-            vol.Optional(
-                CONF_BEMFA_UID,
-                default=options.get(CONF_BEMFA_UID, ""),
-                description={"suggested_value": options.get(CONF_BEMFA_UID)},
-            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
-        })
-
     elif subentry_type == "translation":
         schema.update({
             vol.Optional(
@@ -558,62 +525,6 @@ async def ai_hub_config_option_schema(
         })
 
     return schema
-
-
-class AIHubWeChatFlowHandler(ConfigSubentryFlow):
-    """Handle WeChat subentry flow - no reconfiguration supported."""
-
-    options: dict[str, Any]
-
-    def __init__(self) -> None:
-        """Initialize the WeChat flow handler."""
-        super().__init__()
-        self.options = {}
-
-    @property
-    def _is_new(self) -> bool:
-        """Return if this is a new subentry."""
-        return self.source == "user"
-
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        """Handle options for WeChat subentry."""
-        return await self.async_step_init(user_input)
-
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        """Handle options for WeChat subentry."""
-        # WeChat subentries cannot be reconfigured
-        if not self._is_new:
-            return self.async_abort(reason="weixin_no_reconfigure")
-
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            # Validate input
-            if not user_input.get(CONF_BEMFA_UID, "").strip():
-                errors[CONF_BEMFA_UID] = "bemfa_uid_required"
-            else:
-                return self.async_create_entry(
-                    title=DEFAULT_WECHAT_NAME,
-                    data={
-                        CONF_BEMFA_UID: user_input[CONF_BEMFA_UID].strip(),
-                        CONF_RECOMMENDED: True,
-                    }
-                )
-
-        # Show form - only require Bemfa UID
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema({
-                vol.Required(
-                    CONF_BEMFA_UID,
-                    default=""
-                ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
-            }),
-            errors=errors,
-        )
 
 
 class AIHubTranslationFlowHandler(ConfigSubentryFlow):

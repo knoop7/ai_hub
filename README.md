@@ -44,9 +44,13 @@
 
 ## 🌟 功能介绍 / Features
 
-AI Hub 是 Home Assistant 的自定义集成，提供与硅基流动、巴法云的原生对接。
+AI Hub 是 Home Assistant 的自定义集成，提供与硅基流动的原生对接。
 
-AI Hub is a custom integration for Home Assistant, providing native connections to SiliconFlow and Bemfa.
+AI Hub is a custom integration for Home Assistant, providing native connections to SiliconFlow.
+
+> **说明**: 微信等即时消息功能已从本项目移除，统一由 [cn_im_hub](https://github.com/ha-china/cn_im_hub) 提供。
+>
+> **Note**: Instant messaging features such as WeChat have been removed from this project and are now handled by [cn_im_hub](https://github.com/ha-china/cn_im_hub).
 
 > **提示**: 如果有些条目你不需要，只需不填 API Key 即可，或者直接删除，后续有需要可以再次添加。
 > 
@@ -109,12 +113,6 @@ AI Hub is a custom integration for Home Assistant, providing native connections 
 | **状态检测**: 智能检测已汉化文件，避免重复翻译 | **Status Detection**: Intelligently detect already localized files to avoid duplicate processing |
 | **完整支持**: 支持复杂的嵌套结构和Home Assistant特殊语法 | **Complete Support**: Support complex nested structures and Home Assistant special syntax |
 
-#### 📱 微信消息推送 / WeChat Notification (Bemfa)
-
-| 中文 | English |
-|------|---------|
-| **实时通知**: 集成巴法云服务，通过微信发送设备状态通知 | **Real-Time Notifications**: Integrate Bemfa service to send device status notifications via WeChat |
-
 ---
 
 ## 📦 安装方法 / Installation
@@ -145,7 +143,6 @@ AI Hub is a custom integration for Home Assistant, providing native connections 
 1. **添加集成**: 进入 设置 → 设备与服务 → 集成 → 添加集成，搜索"AI HUB（ai_hub）" / Go to Settings → Devices & Services → Integrations → Add Integration, search "AI HUB (ai_hub)"
 2. **配置 API Keys**: 按照向导提示依次配置以下服务 / Follow the wizard to configure:
    - 硅基流动 API Key（用于对话、AI任务、STT）/ SiliconFlow API Key (for Conversation, AI Task, and STT)
-   - 巴法云私钥UID（用于微信消息推送）/ Bemfa API Key (for WeChat messages)
 3. **验证配置**: 系统会自动验证 API Keys 的有效性 / System will verify your API Keys
 4. **完成设置**: 配置完成后，集成会自动创建相应的服务和实体 / Integration will auto-create relevant services and entities
 
@@ -161,7 +158,6 @@ AI Hub supports sub-entry configuration for independent functionality:
 | **AI Hub AI任务**: 用于图片生成和结构化数据 | **AI Hub AI Task**: For image generation and structured data |
 | **AI Hub TTS语音**: 用于文本转语音 | **AI Hub TTS**: For text-to-speech |
 | **AI Hub STT语音**: 用于语音转文本 | **AI Hub STT**: For speech-to-text |
-| **AI Hub 微信通知**: 用于微信消息推送 | **AI Hub WeChat Notification**: For WeChat messages |
 | **AI Hub 集成汉化**: 用于集成汉化 | **AI Hub Localization**: For component translation |
 | **AI Hub 蓝图汉化**: 用于蓝图汉化 | **AI Hub Blueprint Localization**: For blueprint translation |
 
@@ -181,18 +177,6 @@ AI Hub supports sub-entry configuration for independent functionality:
 2. 进入控制台 / Go to the dashboard
 3. 在 [API密钥管理](https://cloud.siliconflow.cn/account/ak) 页面创建新的 API Key / Create new API Key in the API Key Management page
 4. 复制生成的 API Key / Copy your new API Key
-
-### 巴法云 / Bemfa
-
-| 项目 | 内容 |
-|------|------|
-| **用途 / Usage** | 微信消息推送 / WeChat Notification |
-| **注册地址 / Register** | [点击注册 / Sign Up Here](http://www.cloud.bemfa.com/u_register.php) |
-
-**获取设备主题 / Get Device Topic:**
-1. 完成注册并登录 / Register and login
-2. 进入 [TCP设备管理](https://cloud.bemfa.com/tcp/index.html) / Go to TCP Device Management
-3. 复制巴法云私钥 / Copy the device topic
 
 > **注意**: Edge TTS 使用微软官方免费接口，不需要单独的 API Key。
 > 
@@ -298,23 +282,7 @@ data:
   model: "FunAudioLLM/SenseVoiceSmall"
 ```
 
-### E. 微信消息推送 / WeChat Notification
-
-```yaml
-automation:
-  - alias: "门窗打开通知 / Notify if door/window opens"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.front_door
-        to: "on"
-    action:
-      - service: ai_hub.send_wechat_message
-        data:
-          device_entity: binary_sensor.front_door
-          message: "前门已打开，请注意安全！ / Front door opened, please pay attention!"
-```
-
-### F. 集成汉化 / Localization
+### E. 集成汉化 / Localization
 
 ```yaml
 service: ai_hub.translate_components
@@ -323,7 +291,7 @@ data:
   force_translation: false  # 是否强制重新翻译 / Force re-translate
 ```
 
-### G. Blueprint 蓝图汉化 / Blueprint Localization
+### F. Blueprint 蓝图汉化 / Blueprint Localization
 
 #### 一键汉化（推荐）/ One-Click Localization (Recommended)
 
@@ -462,17 +430,6 @@ data:
   area_id: "living_room"  # 可选 / optional
 ```
 
-### 发送微信消息服务 / WeChat Message
-
-```yaml
-service: ai_hub.send_wechat_message
-data:
-  device_entity: "sensor.door_sensor"  # 必填 / required
-  message: "消息内容 / Message content"  # 必填 / required
-  group: "通知分组 / Notification group"  # 可选 / optional
-  url: "https://example.com"  # 可选 / optional
-```
-
 ### 翻译组件服务 / Translate Components
 
 ```yaml
@@ -565,7 +522,6 @@ data:
 3. **功能限制 / Feature Limits**:
    - 部分高级功能可能需要较新的 Home Assistant 版本 / Some features require newer Home Assistant
    - 图片生成和识别需要稳定的网络连接 / Image generation/recognition needs stable network
-   - 微信推送需要关注巴法云公众号 / WeChat push requires following Bemfa public account
 
 ### 隐私安全 / Privacy & Security
 
@@ -626,18 +582,6 @@ data:
 - 检查硅基流动 API Key / Check SiliconFlow Key
 - 确认音频格式为支持的类型 / Confirm audio format is supported
 - 压缩音频文件大小 / Compress audio file
-
-#### 5. 微信推送不工作 / WeChat push not working
-
-**可能原因 / Possible reasons:**
-- 巴法云设备主题配置错误 / Bemfa device topic config error
-- 未关注巴法云公众号 / Not following Bemfa official account
-- 网络连接问题 / Network issues
-
-**解决方法 / Solutions:**
-- 检查设备主题是否正确 / Check topic value
-- 确认已关注巴法云公众号 / Follow Bemfa public account
-- 测试网络连接 / Test network
 
 ### 日志调试 / Log Debugging
 
@@ -717,7 +661,6 @@ custom_components/ai_hub/
 │   ├── image.py         # 图像服务 / Image services
 │   ├── tts.py           # TTS 服务 / TTS service
 │   ├── stt.py           # STT 服务 / STT service
-│   ├── wechat.py        # 微信通知 / WeChat notification
 │   ├── translation.py   # 组件翻译 / Component translation
 │   └── blueprints.py    # 蓝图翻译 / Blueprint translation
 ├── intents/             # 意图处理模块 / Intent processing
@@ -777,7 +720,7 @@ This project is released under the [LICENSE](LICENSE) in this repository.
 
 Scan the QR code below to follow me! Feel free to leave me a message:
 
-<img src="https://gitee.com/desmond_GT/hassio-addons/raw/main/WeChat_QRCode.png" width="50%" />
+<img src="https://gitee.com/desmond_GT/hassio-addons/raw/main/1_readme/Ali_Pay.jpg" width="50%" />
 
 ---
 
@@ -789,7 +732,6 @@ If you found my work helpful, please buy me a milk tea! Your support motivates c
 
 <div style="display: flex; justify-content: space-between;">
   <img src="https://gitee.com/desmond_GT/hassio-addons/raw/main/1_readme/Ali_Pay.jpg" height="350px" />
-  <img src="https://gitee.com/desmond_GT/hassio-addons/raw/main/1_readme/WeChat_Pay.jpg" height="350px" />
 </div>
 
 💖 感谢您的支持与鼓励！/ Thank you for your support! 💖

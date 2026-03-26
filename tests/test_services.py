@@ -13,7 +13,6 @@ from homeassistant.core import HomeAssistant, ServiceCall
 
 from custom_components.ai_hub.const import (
     CONF_API_KEY,
-    CONF_BEMFA_UID,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
@@ -22,7 +21,6 @@ from custom_components.ai_hub.const import (
     RECOMMENDED_CHAT_MODEL,
     SERVICE_ANALYZE_IMAGE,
     SERVICE_GENERATE_IMAGE,
-    SERVICE_SEND_WECHAT_MESSAGE,
     SERVICE_STT_TRANSCRIBE,
     SERVICE_TRANSLATE_BLUEPRINTS,
     SERVICE_TRANSLATE_COMPONENTS,
@@ -79,7 +77,6 @@ def mock_config_entry():
     entry.runtime_data = "test_api_key_12345"
     entry.data = {
         CONF_API_KEY: "test_api_key_12345",
-        CONF_BEMFA_UID: "test_bemfa_uid",
     }
     entry.subentries = {
         "conversation": conversation_subentry,
@@ -164,7 +161,6 @@ class TestAsyncSetupServices:
              patch("custom_components.ai_hub.services.handle_tts_speech") as mock_tts, \
              patch("custom_components.ai_hub.services.handle_tts_stream") as mock_stream, \
              patch("custom_components.ai_hub.services.handle_stt_transcribe") as mock_stt, \
-             patch("custom_components.ai_hub.services.handle_send_wechat_message") as mock_wechat, \
              patch("custom_components.ai_hub.services.async_translate_all_components") as mock_translate, \
              patch("custom_components.ai_hub.services.async_translate_all_blueprints") as mock_blueprints:
 
@@ -173,7 +169,6 @@ class TestAsyncSetupServices:
             mock_tts.return_value = AsyncMock(return_value={"success": True})
             mock_stream.return_value = AsyncMock(return_value={"success": True})
             mock_stt.return_value = AsyncMock(return_value={"success": True})
-            mock_wechat.return_value = AsyncMock(return_value={"success": True})
             mock_translate.return_value = AsyncMock(return_value={"success": True, "result": {}})
             mock_blueprints.return_value = AsyncMock(return_value={"success": True, "result": {}})
 
@@ -189,13 +184,8 @@ class TestAsyncSetupServices:
             assert SERVICE_GENERATE_IMAGE in registered_services
             assert SERVICE_TTS_SAY in registered_services
             assert SERVICE_STT_TRANSCRIBE in registered_services
-            assert SERVICE_SEND_WECHAT_MESSAGE in registered_services
             assert SERVICE_TRANSLATE_COMPONENTS in registered_services
             assert SERVICE_TRANSLATE_BLUEPRINTS in registered_services
-
-            # Verify bemfa_uid is stored
-            assert hasattr(mock_config_entry, 'bemfa_uid')
-            assert mock_config_entry.bemfa_uid == "test_bemfa_uid"
 
     @pytest.mark.asyncio
     async def test_tts_say_service_with_stream(self, mock_hass, mock_config_entry):
@@ -300,7 +290,6 @@ class TestAsyncUnloadServices:
         assert SERVICE_GENERATE_IMAGE in removed_services
         assert SERVICE_TTS_SAY in removed_services
         assert SERVICE_STT_TRANSCRIBE in removed_services
-        assert SERVICE_SEND_WECHAT_MESSAGE in removed_services
         assert SERVICE_TRANSLATE_COMPONENTS in removed_services
         assert SERVICE_TRANSLATE_BLUEPRINTS in removed_services
 

@@ -71,9 +71,6 @@ async def async_setup_entry(
     # Edge TTS health sensor (always available, no API key needed)
     entities.append(EdgeTTSHealthSensor(hass, entry))
 
-    # Bemfa health sensor (always check availability)
-    entities.append(BemfaHealthSensor(hass, entry))
-
     # SiliconFlow health sensor (if main API key configured)
     if entry.data.get(CONF_API_KEY):
         entities.append(SiliconFlowHealthSensor(hass, entry))
@@ -168,13 +165,6 @@ class AIHubHealthCheckSensor(SensorEntity):
                 "https://api.siliconflow.cn",
                 "SiliconFlow",
             )
-
-        # Check Bemfa (WeChat)
-        self._api_statuses["bemfa"] = await self._check_api(
-            session,
-            "https://apis.bemfa.com",
-            "Bemfa",
-        )
 
         self._last_check = datetime.now()
 
@@ -325,10 +315,3 @@ class EdgeTTSHealthSensor(_BaseHealthSensor):
     _name_suffix = "edge_tts"
     _attr_icon = "mdi:text-to-speech"
 
-
-class BemfaHealthSensor(_BaseHealthSensor):
-    """Sensor for Bemfa API health and latency."""
-
-    _check_url = "https://apis.bemfa.com/vb/wechat/v1/wechatAlertJson"
-    _name_suffix = "bemfa"
-    _attr_icon = "mdi:message-text"

@@ -126,31 +126,6 @@ create_automation:
       selector:
         text:
 
-send_wechat_message:
-  name: 发送微信消息
-  description: 通过巴法云发送微信消息通知，设备标题显示实体名称和状态（需要Bemfa UID）
-  fields:
-    device_entity:
-      name: 设备实体
-      description: 要监控状态的实体ID，其友好名称和状态将作为设备标题显示
-      required: true
-      selector:
-        entity:
-    message:
-      name: 消息内容
-      description: 要发送的纯消息内容（实体名称和状态将自动作为标题显示）
-      required: true
-      selector:
-        text:
-          multiline: true
-    url:
-      name: 链接地址
-      description: 可选的链接地址
-      required: false
-      default: ""
-      selector:
-        text:
-
 translate_components:
   name: 集成汉化
   description: 汉化指定的自定义集成的英文翻译为中文（需要SiliconFlow API密钥）

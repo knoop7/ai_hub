@@ -9,7 +9,6 @@ from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import (
     CONF_API_KEY,
-    CONF_BEMFA_UID,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
@@ -18,7 +17,6 @@ from .const import (
     RECOMMENDED_CHAT_MODEL,
     SERVICE_ANALYZE_IMAGE,
     SERVICE_GENERATE_IMAGE,
-    SERVICE_SEND_WECHAT_MESSAGE,
     SERVICE_STT_TRANSCRIBE,
     SERVICE_TRANSLATE_BLUEPRINTS,
     SERVICE_TRANSLATE_COMPONENTS,
@@ -32,13 +30,11 @@ from .services_lib import (
     STT_SCHEMA,
     TRANSLATION_SCHEMA,
     TTS_SCHEMA,
-    WECHAT_SCHEMA,
     async_translate_all_blueprints,
     async_translate_all_components,
     # Handlers
     handle_analyze_image,
     handle_generate_image,
-    handle_send_wechat_message,
     handle_stt_transcribe,
     handle_tts_speech,
     handle_tts_stream,
@@ -87,11 +83,6 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     """Set up services for AI Hub integration."""
 
     api_key = config_entry.runtime_data
-    bemfa_uid = config_entry.data.get(CONF_BEMFA_UID) if hasattr(config_entry, 'data') else None
-
-    if bemfa_uid:
-        setattr(config_entry, 'bemfa_uid', bemfa_uid)
-
     def has_api_key() -> bool:
         """Check if any API key is available (main or custom)."""
         return api_key is not None and api_key.strip() != ""
@@ -127,11 +118,6 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
         if not api_key or not api_key.strip():
             return {"success": False, "error": "API密钥未配置"}
         return await handle_stt_transcribe(hass, call, api_key)
-
-    # ========== 微信消息服务 ==========
-    async def _handle_send_wechat_message(call: ServiceCall) -> dict:
-        uid = getattr(config_entry, 'bemfa_uid', None) or call.data.get("bemfa_uid")
-        return await handle_send_wechat_message(hass, call, uid)
 
     # ========== 组件翻译服务 ==========
     async def _handle_translate_components(call: ServiceCall) -> dict:
@@ -210,11 +196,6 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     )
 
     hass.services.async_register(
-        DOMAIN, SERVICE_SEND_WECHAT_MESSAGE, _handle_send_wechat_message,
-        schema=vol.Schema(WECHAT_SCHEMA), supports_response=True
-    )
-
-    hass.services.async_register(
         DOMAIN, SERVICE_TRANSLATE_COMPONENTS, _handle_translate_components,
         schema=vol.Schema(TRANSLATION_SCHEMA), supports_response=True
     )
@@ -237,7 +218,6 @@ async def async_unload_services(hass: HomeAssistant) -> None:
     hass.services.async_remove(DOMAIN, SERVICE_GENERATE_IMAGE)
     hass.services.async_remove(DOMAIN, SERVICE_TTS_SAY)
     hass.services.async_remove(DOMAIN, SERVICE_STT_TRANSCRIBE)
-    hass.services.async_remove(DOMAIN, SERVICE_SEND_WECHAT_MESSAGE)
     hass.services.async_remove(DOMAIN, SERVICE_TRANSLATE_COMPONENTS)
     hass.services.async_remove(DOMAIN, SERVICE_TRANSLATE_BLUEPRINTS)
 

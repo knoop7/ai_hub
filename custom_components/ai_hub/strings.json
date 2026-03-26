@@ -5,8 +5,7 @@
         "title": "Connect to AI Hub",
         "description": "Please enter the API key(s) required for the corresponding service. For all services, please enter all API keys. If you have any questions, you can click the question mark icon to view the help documentation.",
         "data": {
-          "api_key": "SiliconFlow API Key (required for all services: conversation, AI tasks, translation, STT, etc.)",
-          "bemfa_uid": "Bemfa UID (optional, for WeChat notification)"
+          "api_key": "SiliconFlow API Key (required for all services: conversation, AI tasks, translation, STT, etc.)"
         }
       }
     },
@@ -14,7 +13,6 @@
       "cannot_connect": "Cannot connect to AI Hub service",
       "invalid_auth": "Invalid API key",
       "unknown": "Unknown error",
-      "bemfa_uid_required": "Bemfa UID is required",
       "api_key_required": "API key is required",
       "invalid_input": "Invalid input"
     },
@@ -138,31 +136,6 @@
             "model": "Select ASR model: FunAudioLLM/SenseVoiceSmall (recommended) or TeleAI/TeleSpeechASR"
           }
         }
-      }
-    },
-    "wechat": {
-      "initiate_flow": {
-        "user": "Add WeChat Notification",
-        "reconfigure": "Reconfigure WeChat Notification"
-      },
-      "entry_type": "AI Hub WeChat Notification",
-      "step": {
-        "init": {
-          "title": "Configure WeChat Notification",
-          "description": "Configure Bemfa cloud WeChat notification function. Enable recommended mode to use best settings.",
-          "data": {
-            "name": "Name",
-            "recommended": "Recommended Mode",
-            "bemfa_uid": "Bemfa UID"
-          },
-          "data_description": {
-            "recommended": "Use recommended settings",
-            "bemfa_uid": "Bemfa provided user ID for sending WeChat messages"
-          }
-        }
-      },
-      "abort": {
-        "weixin_no_reconfigure": "WeChat notification does not support reconfiguration. To modify settings, please delete and re-add."
       }
     },
     "translation": {
@@ -291,24 +264,6 @@
         "model": {
           "name": "ASR Model",
           "description": "Speech recognition model to use: FunAudioLLM/SenseVoiceSmall (recommended) or TeleAI/TeleSpeechASR"
-        }
-      }
-    },
-    "send_wechat_message": {
-      "name": "Send WeChat Message",
-      "description": "Send WeChat message notification through Bemfa cloud, automatically sent when device status changes, including device name and status",
-      "fields": {
-        "device_entity": {
-          "name": "Device Entity",
-          "description": "Entity ID to monitor status, can include multiple device names and status, will be displayed as device name"
-        },
-        "message": {
-          "name": "Message Content",
-          "description": "Message content to send, entity name and status will be automatically replaced with device name display"
-        },
-        "url": {
-          "name": "Access Link",
-          "description": "Optional access link address"
         }
       }
     },

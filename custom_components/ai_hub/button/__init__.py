@@ -1,4 +1,4 @@
-"""Button platform for AI Hub WeChat notifications."""
+"""Button platform for AI Hub service actions."""
 
 from __future__ import annotations
 
@@ -20,19 +20,6 @@ _LOGGER = logging.getLogger(__name__)
 
 # Button configuration registry
 _BUTTON_CONFIGS: dict[str, dict[str, Any]] = {
-    "wechat_test": {
-        "name": "微信消息测试",
-        "unique_id_suffix": "wechat_test",
-        "icon": "mdi:wechat",
-        "model": "WeChat Notification",
-        "service": "send_wechat_message",
-        "service_data": {
-            "device_entity": "sun.sun",
-            "message": "",
-            "url": ""
-        },
-        "message_template": "🤖 AI Hub 微信测试 - 时间: {time}",
-    },
     "translate": {
         "name": "一键汉化",
         "unique_id_suffix": "translate",
@@ -131,18 +118,6 @@ class _AIHubServiceButton(ButtonEntity):
             )
 
 
-class AIHubWeChatButton(_AIHubServiceButton):
-    """AI Hub WeChat test button - legacy wrapper."""
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry: ConfigEntry,
-        subentry: config_entry_flow.ConfigSubentry,
-    ) -> None:
-        super().__init__(hass, entry, subentry, "wechat_test")
-
-
 class AIHubTranslationButton(_AIHubServiceButton):
     """AI Hub Translation button - legacy wrapper."""
 
@@ -178,9 +153,7 @@ async def async_setup_entry(
 
     buttons = []
     for subentry in entry.subentries.values():
-        if subentry.subentry_type == "wechat":
-            buttons.append(AIHubWeChatButton(hass, entry, subentry))
-        elif subentry.subentry_type == "translation":
+        if subentry.subentry_type == "translation":
             # Unified translation: add both component and blueprint translation buttons
             buttons.append(AIHubTranslationButton(hass, entry, subentry))
             buttons.append(AIHubBlueprintTranslationButton(hass, entry, subentry))

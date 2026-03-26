@@ -63,14 +63,12 @@ API_URLS: Final = {
     "image": "https://api.siliconflow.cn/v1/images/generations",
     "siliconflow_base": "https://api.siliconflow.cn/v1",
     "siliconflow_asr": "https://api.siliconflow.cn/v1/audio/transcriptions",
-    "bemfa_wechat": "https://apis.bemfa.com/vb/wechat/v1/wechatAlertJson",
 }
 
 AI_HUB_CHAT_URL: Final = API_URLS["chat"]
 AI_HUB_IMAGE_GEN_URL: Final = API_URLS["image"]
 SILICONFLOW_API_BASE: Final = API_URLS["siliconflow_base"]
 SILICONFLOW_ASR_URL: Final = API_URLS["siliconflow_asr"]
-BEMFA_API_URL: Final = API_URLS["bemfa_wechat"]
 
 
 # =============================================================================
@@ -83,7 +81,6 @@ TIMEOUTS: Final = {
     "image_api": 120.0,
     "stt_api": 30.0,
     "tts_api": 30.0,
-    "wechat_api": 15.0,
     "translation_api": 60.0,
     "media_download": 30.0,
     "health_check": 10.0,
@@ -95,7 +92,6 @@ TIMEOUT_CHAT_API: Final = TIMEOUTS["chat_api"]
 TIMEOUT_IMAGE_API: Final = TIMEOUTS["image_api"]
 TIMEOUT_STT_API: Final = TIMEOUTS["stt_api"]
 TIMEOUT_TTS_API: Final = TIMEOUTS["tts_api"]
-TIMEOUT_WECHAT_API: Final = TIMEOUTS["wechat_api"]
 TIMEOUT_TRANSLATION_API: Final = TIMEOUTS["translation_api"]
 TIMEOUT_MEDIA_DOWNLOAD: Final = TIMEOUTS["media_download"]
 TIMEOUT_HEALTH_CHECK: Final = TIMEOUTS["health_check"]
@@ -179,8 +175,7 @@ CONF_MAX_HISTORY_MESSAGES: Final = "max_history_messages"
 CONF_TTS_VOICE: Final = "voice"
 CONF_TTS_LANG: Final = "lang"
 
-# WeChat and Translation
-CONF_BEMFA_UID: Final = "bemfa_uid"
+# Translation
 CONF_CUSTOM_COMPONENTS_PATH: Final = "custom_components_path"
 CONF_FORCE_TRANSLATION: Final = "force_translation"
 CONF_TARGET_COMPONENT: Final = "target_component"
@@ -241,7 +236,6 @@ DEFAULT_NAMES: Final = {
     "ai_task": {"zh": "AI Hub AI任务", "en": "AI Hub Task"},
     "tts": {"zh": "AI Hub TTS语音", "en": "AI Hub TTS"},
     "stt": {"zh": "AI Hub STT语音", "en": "AI Hub STT"},
-    "wechat": {"zh": "AI Hub 微信通知", "en": "AI Hub WeChat"},
     "translation": {"zh": "AI Hub 汉化", "en": "AI Hub Localization"},
 }
 
@@ -251,7 +245,6 @@ DEFAULT_CONVERSATION_NAME: Final = DEFAULT_NAMES["conversation"]["zh"]  # type: 
 DEFAULT_AI_TASK_NAME: Final = DEFAULT_NAMES["ai_task"]["zh"]  # type: ignore[index]
 DEFAULT_TTS_NAME: Final = DEFAULT_NAMES["tts"]["zh"]  # type: ignore[index]
 DEFAULT_STT_NAME: Final = DEFAULT_NAMES["stt"]["zh"]  # type: ignore[index]
-DEFAULT_WECHAT_NAME: Final = DEFAULT_NAMES["wechat"]["zh"]  # type: ignore[index]
 DEFAULT_TRANSLATION_NAME: Final = DEFAULT_NAMES["translation"]["zh"]  # type: ignore[index]
 
 
@@ -376,7 +369,6 @@ SERVICES: Final = {
     "analyze_image": "analyze_image",
     "tts_say": "tts_say",
     "stt_transcribe": "stt_transcribe",
-    "send_wechat_message": "send_wechat_message",
     "translate_components": "translate_components",
     "translate_blueprints": "translate_blueprints",
 }
@@ -389,7 +381,6 @@ SERVICE_TTS_SAY: Final = SERVICES["tts_say"]
 SERVICE_TTS_SPEECH: Final = "tts_speech"
 SERVICE_TTS_STREAM: Final = "tts_stream"
 SERVICE_STT_TRANSCRIBE: Final = SERVICES["stt_transcribe"]
-SERVICE_SEND_WECHAT_MESSAGE: Final = SERVICES["send_wechat_message"]
 SERVICE_TRANSLATE_COMPONENTS: Final = SERVICES["translate_components"]
 SERVICE_TRANSLATE_BLUEPRINTS: Final = SERVICES["translate_blueprints"]
 
@@ -429,11 +420,6 @@ RECOMMENDED_TTS_OPTIONS: Final = {
 RECOMMENDED_STT_OPTIONS: Final = {
     CONF_RECOMMENDED: True,
     CONF_STT_MODEL: STT_DEFAULT_MODEL,
-}
-
-RECOMMENDED_WECHAT_OPTIONS: Final = {
-    CONF_RECOMMENDED: True,
-    CONF_BEMFA_UID: "",
 }
 
 RECOMMENDED_TRANSLATION_OPTIONS: Final = {

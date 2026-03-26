@@ -38,7 +38,6 @@ except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test 
 
 from .const import (
     CONF_API_KEY,
-    CONF_BEMFA_UID,
     CONF_CUSTOM_API_KEY,
     DOMAIN,
     RETRY_BASE_DELAY,
@@ -55,7 +54,6 @@ _LOGGER = logging.getLogger(__name__)
 TO_REDACT = {
     CONF_API_KEY,
     CONF_CUSTOM_API_KEY,
-    CONF_BEMFA_UID,
     "api_key",
     "token",
     "password",
@@ -209,7 +207,6 @@ async def _get_api_status_diagnostics(
     status: dict[str, Any] = {
         "siliconflow": {"status": "unknown", "latency_ms": None},
         "edge_tts": {"status": "unknown", "latency_ms": None},
-        "bemfa_wechat": {"status": "unknown", "latency_ms": None},
     }
 
     session = async_get_clientsession(hass)
@@ -234,30 +231,6 @@ async def _get_api_status_diagnostics(
         }
     except Exception as e:
         status["siliconflow"] = {
-            "status": "error",
-            "error": str(e),
-        }
-
-    # Test Bemfa API (WeChat)
-    try:
-        start_time = datetime.now()
-        async with session.get(
-            "https://apis.bemfa.com",
-            timeout=aiohttp.ClientTimeout(total=10),
-        ) as response:
-            latency = (datetime.now() - start_time).total_seconds() * 1000
-            status["bemfa_wechat"] = {
-                "status": "reachable",
-                "http_status": response.status,
-                "latency_ms": round(latency, 2),
-            }
-    except aiohttp.ClientError as e:
-        status["bemfa_wechat"] = {
-            "status": "unreachable",
-            "error": str(e),
-        }
-    except Exception as e:
-        status["bemfa_wechat"] = {
             "status": "error",
             "error": str(e),
         }
