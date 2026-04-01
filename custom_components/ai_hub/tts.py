@@ -87,6 +87,34 @@ def _generate_cache_key(
     return hashlib.md5(key_data.encode()).hexdigest()
 
 
+def _generate_audio_bytes_sync(
+    message: str,
+    voice: str,
+    pitch: str,
+    rate: str,
+    volume: str,
+) -> bytes:
+    """Generate TTS audio in a worker thread.
+
+    edge_tts initializes SSL certificates during stream setup. Running the
+    sync wrapper in an executor avoids blocking Home Assistant's event loop.
+    """
+    communicate = edge_tts.Communicate(
+        text=message,
+        voice=voice,
+        pitch=pitch,
+        rate=rate,
+        volume=volume,
+    )
+
+    audio_bytes = b""
+    for chunk in communicate.stream_sync():
+        if chunk["type"] == "audio":
+            audio_bytes += chunk["data"]
+
+    return audio_bytes
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -228,18 +256,14 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
         start_time = time.perf_counter()
 
         try:
-            communicate = edge_tts.Communicate(
-                text=message,
-                voice=voice,
-                pitch=pitch,
-                rate=rate,
-                volume=volume,
+            audio_bytes = await self.hass.async_add_executor_job(
+                _generate_audio_bytes_sync,
+                message,
+                voice,
+                pitch,
+                rate,
+                volume,
             )
-
-            audio_bytes = b""
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    audio_bytes += chunk["data"]
 
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             _LOGGER.debug(
@@ -265,11 +289,14 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
             if voice != TTS_DEFAULT_VOICE:
                 _LOGGER.warning("Attempting retry with default voice...")
                 try:
-                    communicate = edge_tts.Communicate(text=message, voice=TTS_DEFAULT_VOICE)
-                    audio_bytes = b""
-                    async for chunk in communicate.stream():
-                        if chunk["type"] == "audio":
-                            audio_bytes += chunk["data"]
+                    audio_bytes = await self.hass.async_add_executor_job(
+                        _generate_audio_bytes_sync,
+                        message,
+                        TTS_DEFAULT_VOICE,
+                        pitch,
+                        rate,
+                        volume,
+                    )
                     if audio_bytes:
                         _LOGGER.info("Default voice retry successful")
                         # Cache the retry result as well
@@ -328,18 +355,14 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
         volume = options.get('volume', '+0%') if options else '+0%'
 
         try:
-            communicate = edge_tts.Communicate(
-                text=message,
-                voice=voice,
-                pitch=pitch,
-                rate=rate,
-                volume=volume,
+            audio_bytes = await self.hass.async_add_executor_job(
+                _generate_audio_bytes_sync,
+                message,
+                voice,
+                pitch,
+                rate,
+                volume,
             )
-
-            audio_bytes = b""
-            async for chunk in communicate.stream():
-                if chunk["type"] == "audio":
-                    audio_bytes += chunk["data"]
 
             return audio_bytes if audio_bytes else None
 

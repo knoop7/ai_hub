@@ -35,7 +35,7 @@ import logging
 # LLM provider classes
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator
+from typing import Any
 
 # Re-export base classes
 from .base import (
@@ -47,6 +47,7 @@ from .base import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
 
 
 # ============================================================================
@@ -189,8 +190,6 @@ class LLMProvider(BaseProvider[LLMConfig], ABC):
     def supports_tools(self) -> bool:
         """Check if the provider supports tool/function calling."""
         return True
-
-
 # ============================================================================
 # Global Registry Management
 # ============================================================================
@@ -227,6 +226,17 @@ def _register_builtin_providers(registry: UnifiedProviderRegistry) -> None:
         )
     except ImportError as e:
         _LOGGER.debug("OpenAI compatible provider not available: %s", e)
+
+    try:
+        from .anthropic_compatible import AnthropicCompatibleProvider
+
+        registry.register(
+            AnthropicCompatibleProvider,
+            requires_api_key=True,
+            description="Anthropic Messages API (Claude and compatible endpoints)",
+        )
+    except ImportError as e:
+        _LOGGER.debug("Anthropic compatible provider not available: %s", e)
 
     # Import and register TTS providers
     try:

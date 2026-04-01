@@ -7,6 +7,7 @@ import json
 import logging
 from collections.abc import AsyncGenerator, Callable
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
 from homeassistant.components import conversation, media_source
@@ -56,6 +57,23 @@ def _ensure_string(value: Any) -> str:
         return json.dumps(value, ensure_ascii=False)
     # For other types, convert to string
     return str(value)
+
+
+def _get_request_ssl_setting(api_url: str, default_url: str) -> bool | None:
+    """Return request SSL behavior for API calls.
+
+    Custom LLM endpoints may use plain HTTP or self-signed certificates.
+    Keep verification enabled for the default hosted endpoint and disable it
+    only for user-supplied custom URLs.
+    """
+    parsed = urlparse(api_url)
+    if parsed.scheme == "http":
+        return False
+
+    if api_url != default_url and parsed.scheme == "https":
+        return False
+
+    return None
 
 
 class _AIHubEntityMixin:
@@ -314,6 +332,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",
             }
+            request_ssl = _get_request_ssl_setting(api_url, AI_HUB_CHAT_URL)
 
             # Use Home Assistant's shared session for better performance
             session = async_get_clientsession(self.hass)
@@ -322,6 +341,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 json=request_params,
                 headers=headers,
                 timeout=aiohttp.ClientTimeout(total=60),
+                ssl=request_ssl,
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()

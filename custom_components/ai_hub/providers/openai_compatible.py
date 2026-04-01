@@ -10,12 +10,19 @@ import json
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
 
 from . import LLMMessage, LLMProvider, LLMResponse, register_provider
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _get_ssl_setting(url: str) -> bool:
+    """Allow custom HTTP and self-signed HTTPS endpoints."""
+    parsed = urlparse(url)
+    return parsed.scheme != "http" and parsed.netloc == "api.openai.com"
 
 
 class OpenAICompatibleProvider(LLMProvider):
@@ -126,11 +133,12 @@ class OpenAICompatibleProvider(LLMProvider):
         request = self._build_request(messages, stream=False, tools=tools, **kwargs)
         headers = self._get_headers()
         url = self._get_api_url()
+        ssl = _get_ssl_setting(url)
 
         timeout = aiohttp.ClientTimeout(total=self.config.timeout)
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, json=request, headers=headers) as response:
+            async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     _LOGGER.error("OpenAI compatible API error: %s", error_text)
@@ -169,11 +177,12 @@ class OpenAICompatibleProvider(LLMProvider):
         request = self._build_request(messages, stream=True, tools=tools, **kwargs)
         headers = self._get_headers()
         url = self._get_api_url()
+        ssl = _get_ssl_setting(url)
 
         timeout = aiohttp.ClientTimeout(total=self.config.timeout)
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, json=request, headers=headers) as response:
+            async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
                 if response.status != 200:
                     error_text = await response.text()
                     _LOGGER.error("OpenAI compatible streaming error: %s", error_text)
@@ -219,10 +228,11 @@ class OpenAICompatibleProvider(LLMProvider):
 
             parsed = urlparse(url)
             base = f"{parsed.scheme}://{parsed.netloc}"
+            ssl = _get_ssl_setting(url)
 
             timeout = aiohttp.ClientTimeout(total=10)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(base) as response:
+                async with session.get(base, ssl=ssl) as response:
                     return response.status < 500
         except Exception as e:
             _LOGGER.debug("OpenAI compatible health check failed: %s", e)

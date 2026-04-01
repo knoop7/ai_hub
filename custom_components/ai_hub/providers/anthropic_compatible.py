@@ -1,0 +1,289 @@
+"""Anthropic-compatible LLM provider for AI Hub integration."""
+
+from __future__ import annotations
+
+import json
+import logging
+from collections.abc import AsyncGenerator
+from typing import Any
+from urllib.parse import urlparse
+
+import aiohttp
+
+from . import LLMMessage, LLMProvider, LLMResponse, register_provider
+
+_LOGGER = logging.getLogger(__name__)
+
+_DEFAULT_API_URL = "https://api.anthropic.com/v1/messages"
+_ANTHROPIC_VERSION = "2023-06-01"
+
+
+def _get_ssl_setting(url: str) -> bool:
+    """Allow custom HTTP and self-signed HTTPS endpoints."""
+    parsed = urlparse(url)
+    return parsed.scheme != "http" and parsed.netloc == "api.anthropic.com"
+
+
+class AnthropicCompatibleProvider(LLMProvider):
+    """Anthropic Messages API provider."""
+
+    _name = "anthropic_compatible"
+
+    @property
+    def name(self) -> str:
+        return "anthropic_compatible"
+
+    @property
+    def supported_models(self) -> list[str]:
+        return []
+
+    def supports_vision(self) -> bool:
+        return False
+
+    def supports_tools(self) -> bool:
+        return True
+
+    def _get_headers(self) -> dict[str, str]:
+        headers = {
+            "Content-Type": "application/json",
+            "anthropic-version": _ANTHROPIC_VERSION,
+        }
+        if self.config.api_key:
+            headers["x-api-key"] = self.config.api_key
+        return headers
+
+    def _get_api_url(self) -> str:
+        return self.config.base_url or _DEFAULT_API_URL
+
+    def _convert_content_blocks(self, content: str | list[dict[str, Any]]) -> str | list[dict[str, Any]]:
+        if isinstance(content, str):
+            return content
+
+        blocks: list[dict[str, Any]] = []
+        for part in content:
+            if part.get("type") == "text":
+                blocks.append({"type": "text", "text": str(part.get("text", ""))})
+        return blocks or ""
+
+    def _convert_messages(self, messages: list[LLMMessage]) -> tuple[str | None, list[dict[str, Any]]]:
+        system_parts: list[str] = []
+        converted: list[dict[str, Any]] = []
+
+        for message in messages:
+            if message.role == "system":
+                if isinstance(message.content, str) and message.content.strip():
+                    system_parts.append(message.content)
+                continue
+
+            if message.role in {"user", "assistant"}:
+                anthropic_message: dict[str, Any] = {
+                    "role": message.role,
+                    "content": self._convert_content_blocks(message.content),
+                }
+                if message.role == "assistant" and message.tool_calls:
+                    content_blocks = anthropic_message["content"]
+                    if isinstance(content_blocks, str):
+                        content_blocks = [{"type": "text", "text": content_blocks}] if content_blocks else []
+                    for tool_call in message.tool_calls:
+                        function_data = tool_call.get("function", {})
+                        arguments = function_data.get("arguments", {})
+                        if isinstance(arguments, str):
+                            try:
+                                arguments = json.loads(arguments)
+                            except json.JSONDecodeError:
+                                arguments = {"raw_arguments": arguments}
+                        content_blocks.append(
+                            {
+                                "type": "tool_use",
+                                "id": tool_call.get("id") or function_data.get("name", "tool_call"),
+                                "name": function_data.get("name", "tool"),
+                                "input": arguments if isinstance(arguments, dict) else {"value": arguments},
+                            }
+                        )
+                    anthropic_message["content"] = content_blocks
+                converted.append(anthropic_message)
+                continue
+
+            if message.role == "tool":
+                converted.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": message.tool_call_id or "tool_call",
+                                "content": str(message.content),
+                            }
+                        ],
+                    }
+                )
+
+        system = "\n\n".join(part for part in system_parts if part) or None
+        return system, converted
+
+    def _convert_tools(self, tools: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+        if not tools:
+            return None
+
+        converted = []
+        for tool in tools:
+            function = tool.get("function", {})
+            converted.append(
+                {
+                    "name": function.get("name", "tool"),
+                    "description": function.get("description", ""),
+                    "input_schema": function.get("parameters", {"type": "object", "properties": {}}),
+                }
+            )
+        return converted
+
+    def _extract_text(self, content_blocks: list[dict[str, Any]]) -> str:
+        return "".join(block.get("text", "") for block in content_blocks if block.get("type") == "text")
+
+    def _extract_tool_calls(self, content_blocks: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+        tool_calls = []
+        for block in content_blocks:
+            if block.get("type") != "tool_use":
+                continue
+            tool_calls.append(
+                {
+                    "id": block.get("id"),
+                    "type": "function",
+                    "function": {
+                        "name": block.get("name", "tool"),
+                        "arguments": json.dumps(block.get("input", {}), ensure_ascii=False),
+                    },
+                }
+            )
+        return tool_calls or None
+
+    def _build_request(
+        self,
+        messages: list[LLMMessage],
+        stream: bool = False,
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        system, anthropic_messages = self._convert_messages(messages)
+        request: dict[str, Any] = {
+            "model": self.config.model,
+            "messages": anthropic_messages,
+            "stream": stream,
+            "temperature": self.config.temperature,
+            "max_tokens": self.config.max_tokens,
+        }
+        if system:
+            request["system"] = system
+
+        anthropic_tools = self._convert_tools(tools)
+        if anthropic_tools:
+            request["tools"] = anthropic_tools
+
+        request.update(self.config.extra)
+        request.update(kwargs)
+        return request
+
+    async def complete(
+        self,
+        messages: list[LLMMessage],
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        request = self._build_request(messages, stream=False, tools=tools, **kwargs)
+        headers = self._get_headers()
+        url = self._get_api_url()
+        ssl = _get_ssl_setting(url)
+
+        timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    _LOGGER.error("Anthropic API error: %s", error_text)
+                    raise Exception(f"API error: {error_text}")
+
+                data = await response.json()
+
+        content_blocks = data.get("content", [])
+        usage = data.get("usage")
+        if isinstance(usage, dict):
+            usage = {
+                "input_tokens": usage.get("input_tokens", 0),
+                "output_tokens": usage.get("output_tokens", 0),
+            }
+
+        return LLMResponse(
+            content=self._extract_text(content_blocks),
+            tool_calls=self._extract_tool_calls(content_blocks),
+            usage=usage,
+            model=data.get("model"),
+            finish_reason=data.get("stop_reason"),
+            raw_response=data,
+        )
+
+    async def complete_stream(
+        self,
+        messages: list[LLMMessage],
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator[str, None]:
+        request = self._build_request(messages, stream=True, tools=tools, **kwargs)
+        headers = self._get_headers()
+        url = self._get_api_url()
+        ssl = _get_ssl_setting(url)
+
+        timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    _LOGGER.error("Anthropic streaming API error: %s", error_text)
+                    raise Exception(f"API error: {error_text}")
+
+                buffer = ""
+                async for chunk in response.content:
+                    if not chunk:
+                        continue
+
+                    buffer += chunk.decode("utf-8", errors="ignore")
+
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        line = line.strip()
+
+                        if not line or line.startswith("event:"):
+                            continue
+                        if not line.startswith("data: "):
+                            continue
+
+                        data_str = line[6:]
+
+                        try:
+                            data = json.loads(data_str)
+                        except json.JSONDecodeError:
+                            _LOGGER.debug("Anthropic SSE parse failed: %s", data_str)
+                            continue
+
+                        if data.get("type") == "content_block_delta":
+                            delta = data.get("delta", {})
+                            text = delta.get("text", "")
+                            if text:
+                                yield text
+
+    async def health_check(self) -> bool:
+        try:
+            url = self._get_api_url()
+            parsed = urlparse(url)
+            base = f"{parsed.scheme}://{parsed.netloc}"
+            ssl = _get_ssl_setting(url)
+
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(base, ssl=ssl) as response:
+                    return response.status < 500
+        except Exception as err:
+            _LOGGER.debug("Anthropic health check failed: %s", err)
+            return False
+
+
+register_provider("anthropic_compatible", AnthropicCompatibleProvider)
