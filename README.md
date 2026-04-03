@@ -720,7 +720,7 @@ This project is released under the [LICENSE](LICENSE) in this repository.
 
 Scan the QR code below to follow me! Feel free to leave me a message:
 
-<img src="https://gitee.com/desmond_GT/hassio-addons/raw/main/1_readme/Ali_Pay.jpg" width="50%" />
+<img src="https://gitee.com/desmond_GT/hassio-addons/raw/main/WeChat_QRCode.png" width="50%" />
 
 ---
 
