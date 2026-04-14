@@ -24,6 +24,7 @@ from custom_components.ai_hub.const import (
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_TEMPERATURE,
 )
+from custom_components.ai_hub.intents.config_cache import ConfigCache
 
 
 @pytest.fixture
@@ -145,19 +146,36 @@ class TestAIHubConversationAgent:
         result = agent._extract_automation_description("创建自动化")
         assert result is None
 
-    def test_should_skip_ha_processing(self, mock_hass, mock_config_entry):
-        """Test HA processing skip logic."""
+    def test_should_skip_ha_standard_processing(self, mock_hass, mock_config_entry):
+        """Test that only explicit global commands bypass HA Core first."""
         subentry = list(mock_config_entry.subentries.values())[0]
         agent = AIHubConversationAgent(mock_config_entry, subentry)
 
+        agent._config_cache = MagicMock()
+        agent._config_cache.get_config.return_value = {
+            "local_intents": {
+                "GlobalDeviceControl": {
+                    "global_keywords": ["所有", "全部", "全屋"],
+                    "on_keywords": ["打开", "开启"],
+                    "off_keywords": ["关闭", "关掉"],
+                    "param_keywords": ["调到", "设置"],
+                    "brightness_keywords": ["亮度"],
+                    "volume_keywords": ["音量"],
+                    "color_keywords": ["颜色"],
+                    "temperature_keywords": ["温度"],
+                }
+            }
+        }
+
         # Test global command with action
-        assert agent._should_skip_ha_processing("打开所有灯") is True
+        assert agent._should_skip_ha_standard_processing("打开所有灯") is True
 
         # Test global command with parameter
-        assert agent._should_skip_ha_processing("所有灯调到50%亮度") is True
+        assert agent._should_skip_ha_standard_processing("所有灯调到50%亮度") is True
 
-        # Test normal command
-        assert agent._should_skip_ha_processing("打开客厅的灯") is False
+        # Non-global commands should let HA Core try first
+        assert agent._should_skip_ha_standard_processing("打开客厅的灯") is False
+        assert agent._should_skip_ha_standard_processing("把卧室灯调成暖白") is False
 
     def test_is_all_device_operation(self, mock_hass, mock_config_entry):
         """Test all device operation detection."""
@@ -167,3 +185,46 @@ class TestAIHubConversationAgent:
         assert agent._is_all_device_operation({"text": "打开所有设备"}) is True
         assert agent._is_all_device_operation({"text": "关闭全部灯"}) is True
         assert agent._is_all_device_operation({"text": "打开客厅灯"}) is False
+
+
+class TestIntentConfigCache:
+    """Tests for intent config cache compatibility."""
+
+    def test_reads_merged_local_intents_structure(self):
+        """Config cache should read AI Hub merged config directly."""
+        cache = ConfigCache()
+        cache.get_config = lambda force_reload=False: {
+            "local_intents": {
+                "GlobalDeviceControl": {
+                    "global_keywords": ["所有", "全屋"],
+                }
+            },
+            "responses": {"ok": "ok"},
+            "expansion_rules": {"turn": "打开|关闭"},
+        }
+
+        assert cache.get_global_keywords() == ["所有", "全屋"]
+        assert "打开" in cache.get_local_features()
+
+    def test_keeps_backward_compatibility_with_legacy_nested_structure(self):
+        """Config cache should still support legacy nested config."""
+        cache = ConfigCache()
+        cache.get_config = lambda force_reload=False: {
+            "intents": {
+                "ai_hub": {
+                    "local_intents": {
+                        "GlobalDeviceControl": {
+                            "global_keywords": ["全部"],
+                        }
+                    },
+                    "defaults": {
+                        "error_messages": {
+                            "llm_config_error": "配置错误",
+                        }
+                    },
+                }
+            }
+        }
+
+        assert cache.get_global_keywords() == ["全部"]
+        assert cache.get_error_message("llm_config_error") == "配置错误"

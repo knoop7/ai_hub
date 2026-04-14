@@ -11,6 +11,21 @@ _LOGGER = logging.getLogger(__name__)
 class ConfigCache:
     """配置缓存管理器，使用 loader 模块的全局缓存."""
 
+    def _get_ai_hub_intent_config(self) -> dict[str, Any]:
+        """Get AI Hub specific config from the merged intent structure."""
+        config = self.get_config()
+        if not config:
+            return {}
+
+        if isinstance(config.get('local_intents'), dict):
+            return config
+
+        intents = config.get('intents', {})
+        if isinstance(intents, dict) and isinstance(intents.get('ai_hub'), dict):
+            return intents['ai_hub']
+
+        return {}
+
     def get_config(self, force_reload: bool = False) -> dict[str, Any] | None:
         """获取配置，使用 loader 的缓存."""
         from .loader import get_global_config, reload_config
@@ -21,19 +36,17 @@ class ConfigCache:
 
     def _get_defaults(self) -> dict[str, Any]:
         """获取默认配置."""
-        config = self.get_config()
-        if config and 'intents' in config and 'ai_hub' in config['intents']:
-            return config['intents']['ai_hub'].get('defaults', {})
+        config = self._get_ai_hub_intent_config()
+        if config:
+            return config.get('defaults', {})
         return {}
 
     def get_global_keywords(self) -> list[str]:
         """获取全局关键词."""
-        # 首先尝试从GlobalDeviceControl获取
-        config = self.get_config()
-        if config and 'intents' in config:
-            global_config = config['intents'].get('ai_hub', {}).get('GlobalDeviceControl', {})
-            if global_config and 'global_keywords' in global_config:
-                return global_config['global_keywords']
+        config = self._get_ai_hub_intent_config()
+        global_config = config.get('local_intents', {}).get('GlobalDeviceControl', {})
+        if global_config and 'global_keywords' in global_config:
+            return global_config['global_keywords']
 
         # 如果没有，从默认配置获取
         defaults = self._get_defaults()
@@ -41,16 +54,14 @@ class ConfigCache:
 
     def get_local_features(self) -> list[str]:
         """获取本地特征关键词."""
-        # 首先尝试从expansion_rules中提取
-        config = self.get_config()
-        if config and 'intents' in config:
-            expansion_rules = config['intents'].get('ai_hub', {}).get('expansion_rules', {})
-            local_features = []
-            for key, value in expansion_rules.items():
-                if isinstance(value, str) and '|' in value:
-                    local_features.extend(value.split('|'))
-            if local_features:
-                return local_features
+        config = self._get_ai_hub_intent_config()
+        expansion_rules = config.get('expansion_rules', {})
+        local_features = []
+        for value in expansion_rules.values():
+            if isinstance(value, str) and '|' in value:
+                local_features.extend(value.split('|'))
+        if local_features:
+            return local_features
 
         # 如果没有，从默认配置获取
         defaults = self._get_defaults()
@@ -58,13 +69,11 @@ class ConfigCache:
 
     def get_automation_config(self, key: str, default_value=None) -> Any:
         """获取自动化配置."""
-        config = self.get_config()
-        if config and 'intents' in config:
-            ai_hub_config = config['intents']['ai_hub']
-            if key in ai_hub_config:
-                return ai_hub_config[key]
-            # 从默认配置获取
-            defaults = ai_hub_config.get('defaults', {})
+        config = self._get_ai_hub_intent_config()
+        if config:
+            if key in config:
+                return config[key]
+            defaults = config.get('defaults', {})
             if key in defaults:
                 return defaults[key]
 
@@ -73,14 +82,11 @@ class ConfigCache:
 
     def get_responses_config(self) -> dict[str, Any]:
         """获取响应配置."""
-        config = self.get_config()
-        if config and 'intents' in config:
-            ai_hub_config = config['intents']['ai_hub']
-            # 首先尝试从responses获取
-            if 'responses' in ai_hub_config:
-                return ai_hub_config['responses']
-            # 从默认配置获取
-            defaults = ai_hub_config.get('defaults', {})
+        config = self._get_ai_hub_intent_config()
+        if config:
+            if 'responses' in config:
+                return config['responses']
+            defaults = config.get('defaults', {})
             if 'responses' in defaults:
                 return defaults['responses']
 
@@ -88,14 +94,11 @@ class ConfigCache:
 
     def get_verification_config(self) -> dict[str, Any]:
         """获取验证配置."""
-        config = self.get_config()
-        if config and 'intents' in config:
-            ai_hub_config = config['intents']['ai_hub']
-            # 首先尝试从verification获取
-            if 'verification' in ai_hub_config:
-                return ai_hub_config['verification']
-            # 从默认配置获取
-            defaults = ai_hub_config.get('defaults', {})
+        config = self._get_ai_hub_intent_config()
+        if config:
+            if 'verification' in config:
+                return config['verification']
+            defaults = config.get('defaults', {})
             if 'verification' in defaults:
                 return defaults['verification']
 

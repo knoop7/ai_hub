@@ -118,12 +118,17 @@ class AIHubConversationAgent(
         except Exception as e:
             _LOGGER.debug("Automation handling failed: %s", e)
 
-        # 1b. 检查是否需要本地意图处理 (全局设备控制)
+        # 1b. 仅对明确的全局控制优先走本地处理，避免覆盖 HA Core
+        intent_handler = None
         try:
             from .intents import get_global_intent_handler
             intent_handler = get_global_intent_handler(self.hass)
 
-            if intent_handler and intent_handler.should_handle(user_input.text):
+            if (
+                intent_handler
+                and self._should_skip_ha_standard_processing(user_input.text)
+                and intent_handler.should_handle(user_input.text)
+            ):
                 _LOGGER.debug("Local intent processing: %s", user_input.text)
                 intent_result = await intent_handler.handle(user_input.text, user_input.language)
 
@@ -185,6 +190,15 @@ class AIHubConversationAgent(
                         response=ha_response,
                         conversation_id=chat_log.conversation_id,
                     )
+
+                if intent_handler and intent_handler.should_handle(user_input.text):
+                    _LOGGER.debug("Falling back to local intent processing: %s", user_input.text)
+                    intent_result = await intent_handler.handle(user_input.text, user_input.language)
+                    if intent_result:
+                        return conversation.ConversationResult(
+                            response=intent_result["response"],
+                            conversation_id=user_input.conversation_id,
+                        )
 
                 _LOGGER.debug(
                     "HA 内置意图未匹配、返回错误或结果异常(has_error=%s, is_error_type=%s, is_no_match=%s, is_truncated_query_answer=%s)，交给 LLM 处理",

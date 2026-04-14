@@ -115,6 +115,50 @@ local_intents:
       - "声量"
       - "音量大小"
 
+    # 媒体播放搜索配置
+    media_search:
+      action_keywords:
+        - "播放"
+        - "放"
+        - "收听"
+        - "来一首"
+        - "来点"
+        - "来个"
+      default_content_type: "music"
+      fallback_target_strategy: "single_only"
+      service_domain: "media_player"
+      service_name: "play_media"
+      enqueue: "replace"
+      media_type_keywords:
+        artist:
+          - "歌手"
+          - "艺术家"
+        album:
+          - "专辑"
+          - "唱片"
+          - "合集"
+          - "单曲"
+        track:
+          - "歌曲"
+          - "音乐"
+          - "歌"
+        playlist:
+          - "播放列表"
+          - "歌单"
+        radio:
+          - "广播"
+          - "电台"
+          - "频道"
+        podcast:
+          - "播客"
+          - "节目"
+        movie:
+          - "电影"
+          - "影片"
+        tv_show:
+          - "电视剧"
+          - "剧集"
+
     # 窗帘位置关键词
     cover_position_keywords:
       - "位置"
@@ -272,6 +316,7 @@ local_intents:
       success_volume: "已将{area}{device}音量调至{volume}%"
       success_cover_position: "已将{area}{device}位置调至{position}%"
       success_fan_speed: "已将{area}{device}风速调至{speed}%"
+      success_media_play: "已在{area}{device}播放{query}"
       success_scene: "已激活场景：{scene_name}"
       success_script: "已执行脚本：{script_name}"
       no_devices: "没有找到可控制的设备"

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
+import sys
+from types import ModuleType, SimpleNamespace
 
 import aiohttp
 import pytest
@@ -44,6 +46,167 @@ class TestAPIResponse:
         assert response.success is False
         assert response.is_error is True
         assert response.get_error_message() == "Something went wrong"
+
+
+def _install_homeassistant_stubs() -> None:
+    if "homeassistant" in sys.modules:
+        return
+
+    homeassistant = ModuleType("homeassistant")
+    homeassistant.__path__ = []
+    core = ModuleType("homeassistant.core")
+    core.HomeAssistant = object
+
+    components = ModuleType("homeassistant.components")
+    components.__path__ = []
+    component_homeassistant = ModuleType("homeassistant.components.homeassistant")
+    component_homeassistant.exposed_entities = SimpleNamespace(
+        async_should_expose=lambda hass, platform, entity_id: True
+    )
+
+    helpers = ModuleType("homeassistant.helpers")
+    helpers.__path__ = []
+    intent = ModuleType("homeassistant.helpers.intent")
+
+    class _IntentHandler:
+        pass
+
+    class _IntentResponse:
+        def __init__(self, language: str | None = None):
+            self.language = language
+            self.speech = None
+            self.error = None
+
+        def async_set_speech(self, message: str) -> None:
+            self.speech = message
+
+        def async_set_error(self, code, message: str) -> None:
+            self.error = (code, message)
+
+    intent.IntentHandler = _IntentHandler
+    intent.IntentResponse = _IntentResponse
+    intent.IntentResponseErrorCode = SimpleNamespace(UNKNOWN="unknown")
+    intent.Intent = object
+
+    area_registry = ModuleType("homeassistant.helpers.area_registry")
+    area_registry.async_get = lambda hass: None
+    device_registry = ModuleType("homeassistant.helpers.device_registry")
+    device_registry.async_get = lambda hass: None
+    entity_registry = ModuleType("homeassistant.helpers.entity_registry")
+    entity_registry.async_get = lambda hass: None
+
+    sys.modules["homeassistant"] = homeassistant
+    sys.modules["homeassistant.core"] = core
+    sys.modules["homeassistant.components"] = components
+    sys.modules["homeassistant.components.homeassistant"] = component_homeassistant
+    sys.modules["homeassistant.helpers"] = helpers
+    sys.modules["homeassistant.helpers.intent"] = intent
+    sys.modules["homeassistant.helpers.area_registry"] = area_registry
+    sys.modules["homeassistant.helpers.device_registry"] = device_registry
+    sys.modules["homeassistant.helpers.entity_registry"] = entity_registry
+
+
+class _FakeStates:
+    def __init__(self, entity_ids):
+        self._entity_ids = entity_ids
+
+    def async_entity_ids(self, domain=None):
+        if domain is None:
+            return list(self._entity_ids)
+        return [entity_id for entity_id in self._entity_ids if entity_id.startswith(f"{domain}.")]
+
+    def get(self, entity_id):
+        return None
+
+
+class _FakeHass:
+    def __init__(self, entity_ids):
+        self.states = _FakeStates(entity_ids)
+        self.services = SimpleNamespace(async_call=None)
+
+
+def test_intent_config_cache_reads_merged_structure():
+    _install_homeassistant_stubs()
+    from custom_components.ai_hub.intents.config_cache import ConfigCache
+
+    cache = ConfigCache()
+    cache.get_config = lambda force_reload=False: {
+        "local_intents": {
+            "GlobalDeviceControl": {
+                "global_keywords": ["所有", "全屋"],
+            }
+        },
+        "expansion_rules": {"turn": "打开|关闭"},
+    }
+
+    assert cache.get_global_keywords() == ["所有", "全屋"]
+    assert "打开" in cache.get_local_features()
+
+
+def test_intent_config_cache_keeps_legacy_structure_support():
+    _install_homeassistant_stubs()
+    from custom_components.ai_hub.intents.config_cache import ConfigCache
+
+    cache = ConfigCache()
+    cache.get_config = lambda force_reload=False: {
+        "intents": {
+            "ai_hub": {
+                "local_intents": {
+                    "GlobalDeviceControl": {
+                        "global_keywords": ["全部"],
+                    }
+                },
+                "defaults": {
+                    "error_messages": {
+                        "llm_config_error": "配置错误",
+                    }
+                },
+            }
+        }
+    }
+
+    assert cache.get_global_keywords() == ["全部"]
+    assert cache.get_error_message("llm_config_error") == "配置错误"
+
+
+def test_extract_media_query_and_fallback_target_strategy():
+    _install_homeassistant_stubs()
+    from custom_components.ai_hub.intents.handlers import LocalIntentHandler
+
+    handler = LocalIntentHandler(_FakeHass(["media_player.only_one"]))
+    handler._config = {
+        "lists": {
+            "area_names": {"values": ["客厅"]},
+            "media_player_names": {"values": ["电视"]},
+            "media_names": {"values": ["电视"]},
+        }
+    }
+    handler._local_config = {
+        "GlobalDeviceControl": {
+            "global_keywords": ["所有"],
+            "media_search": {
+                "action_keywords": ["播放", "放"],
+                "default_content_type": "music",
+                "fallback_target_strategy": "single_only",
+                "media_type_keywords": {
+                    "movie": ["电影"],
+                    "track": ["歌曲", "歌"],
+                },
+            },
+        }
+    }
+
+    query, content_type = handler._extract_media_query(
+        "在客厅电视播放电影星际穿越",
+        handler.local_config["GlobalDeviceControl"],
+        handler.local_config["GlobalDeviceControl"]["media_search"],
+    )
+
+    assert query.endswith("星际穿越")
+    assert content_type == "movie"
+    assert handler._select_media_fallback_targets({"fallback_target_strategy": "single_only"}, []) == [
+        "media_player.only_one"
+    ]
 
     def test_error_message_extraction(self):
         """Test error message extraction from various formats."""
