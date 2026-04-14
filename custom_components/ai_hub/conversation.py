@@ -154,6 +154,10 @@ class AIHubConversationAgent(
                 response_type = ha_response.response_type
                 _LOGGER.debug("HA intents response_type: %s", response_type)
 
+                plain_speech = None
+                if ha_response.speech and ha_response.speech.get("plain"):
+                    plain_speech = ha_response.speech["plain"].get("speech")
+
                 has_error = hasattr(ha_response, "error") and ha_response.error
                 is_error_type = response_type == intent.IntentResponseType.ERROR
                 is_no_match = (
@@ -161,9 +165,21 @@ class AIHubConversationAgent(
                     if hasattr(intent.IntentResponseType, "NO_INTENT_MATCHED")
                     else False
                 )
-                response_has_content = bool(ha_response.speech and ha_response.speech.get("plain"))
+                response_has_content = bool(plain_speech)
+                normalized_speech = plain_speech.strip() if isinstance(plain_speech, str) else ""
+                is_truncated_query_answer = (
+                    response_type == intent.IntentResponseType.QUERY_ANSWER
+                    and isinstance(plain_speech, str)
+                    and len(normalized_speech) <= 3
+                )
 
-                if not has_error and not is_error_type and not is_no_match and response_has_content:
+                if (
+                    not has_error
+                    and not is_error_type
+                    and not is_no_match
+                    and response_has_content
+                    and not is_truncated_query_answer
+                ):
                     _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
                     return conversation.ConversationResult(
                         response=ha_response,
@@ -171,10 +187,11 @@ class AIHubConversationAgent(
                     )
 
                 _LOGGER.debug(
-                    "HA 内置意图未匹配或返回错误(has_error=%s, is_error_type=%s, is_no_match=%s)，交给 LLM 处理",
+                    "HA 内置意图未匹配、返回错误或结果异常(has_error=%s, is_error_type=%s, is_no_match=%s, is_truncated_query_answer=%s)，交给 LLM 处理",
                     has_error,
                     is_error_type,
                     is_no_match,
+                    is_truncated_query_answer,
                 )
 
         except Exception as e:

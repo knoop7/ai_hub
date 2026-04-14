@@ -155,6 +155,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _LOGGER.debug("Platforms setup completed")
 
+    # Sync auto-generated intent lists before loading local intent config
+    from .intents.loader import async_sync_intent_lists
+    await async_sync_intent_lists(hass)
+
     # Set up intent handlers
     from .intents import async_setup_intents
     await async_setup_intents(hass)

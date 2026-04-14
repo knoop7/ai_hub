@@ -176,19 +176,25 @@ class LocalIntentHandler:
                 'climate': 'climate_names',
                 'fan': 'fan_names',
                 'cover': 'cover_names',
-                'media_player': 'media_player_names',
+                'media_player': ['media_player_names', 'media_names'],
                 'lock': 'lock_names',
                 'vacuum': 'vacuum_names',
                 'valve': 'valve_names'
             }
 
-            for domain, list_name in domain_mapping.items():
-                keywords_list = lists_config.get(list_name, {}).get('values', [])
-                if keywords_list:
-                    for keyword in keywords_list:
-                        if keyword in text_lower:
-                            device_types.append(domain)
-                            break
+            for domain, list_names in domain_mapping.items():
+                if isinstance(list_names, str):
+                    list_names = [list_names]
+
+                for list_name in list_names:
+                    keywords_list = lists_config.get(list_name, {}).get('values', [])
+                    if keywords_list:
+                        for keyword in keywords_list:
+                            if keyword in text_lower:
+                                device_types.append(domain)
+                                break
+                    if domain in device_types:
+                        break
         else:
             for keyword, domain in device_type_keywords.items():
                 if keyword in text_lower:
