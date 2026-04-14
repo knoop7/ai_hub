@@ -44,6 +44,7 @@
             "name": "名称",
             "recommended": "推荐模式",
             "prompt": "提示词模板",
+            "llm_provider": "LLM 协议",
             "chat_model": "聊天模型",
             "chat_url": "对话API地址",
             "custom_api_key": "自定义API密钥",
@@ -56,6 +57,7 @@
           "data_description": {
             "recommended": "使用推荐配置",
             "prompt": "自定义系统提示词",
+            "llm_provider": "选择自定义 LLM 接口使用的协议类型",
             "chat_model": "选择或输入自定义模型名称",
             "chat_url": "完整的对话API地址（如API不通，请在地址后添加 /chat/completions）",
             "custom_api_key": "自定义API密钥（留空使用主密钥）",

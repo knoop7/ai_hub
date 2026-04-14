@@ -50,10 +50,22 @@ class AnthropicCompatibleProvider(LLMProvider):
         }
         if self.config.api_key:
             headers["x-api-key"] = self.config.api_key
+            headers["Authorization"] = f"Bearer {self.config.api_key}"
         return headers
 
     def _get_api_url(self) -> str:
-        return self.config.base_url or _DEFAULT_API_URL
+        url = self.config.base_url or _DEFAULT_API_URL
+        if not url:
+            return _DEFAULT_API_URL
+
+        normalized = url.rstrip("/")
+        if normalized.endswith("/v1/messages"):
+            return normalized
+        if normalized.endswith("/messages"):
+            return normalized
+        if normalized.endswith("/v1"):
+            return f"{normalized}/messages"
+        return f"{normalized}/v1/messages"
 
     def _convert_content_blocks(self, content: str | list[dict[str, Any]]) -> str | list[dict[str, Any]]:
         if isinstance(content, str):
@@ -140,6 +152,74 @@ class AnthropicCompatibleProvider(LLMProvider):
     def _extract_text(self, content_blocks: list[dict[str, Any]]) -> str:
         return "".join(block.get("text", "") for block in content_blocks if block.get("type") == "text")
 
+    def _extract_response_text(self, data: dict[str, Any]) -> str:
+        """Extract text from Anthropic-compatible responses.
+
+        Some third-party compatible endpoints do not return the exact official
+        Anthropic payload shape, so we accept a few common variants.
+        """
+        content = data.get("content", [])
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            text = self._extract_text(content)
+            if text:
+                return text
+
+        if isinstance(data.get("output_text"), str):
+            return data["output_text"]
+        if isinstance(data.get("text"), str):
+            return data["text"]
+
+        message = data.get("message")
+        if isinstance(message, dict):
+            if isinstance(message.get("content"), str):
+                return message["content"]
+            if isinstance(message.get("content"), list):
+                text = self._extract_text(message["content"])
+                if text:
+                    return text
+
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices:
+            first = choices[0]
+            if isinstance(first, dict):
+                if isinstance(first.get("text"), str):
+                    return first["text"]
+                message = first.get("message")
+                if isinstance(message, dict) and isinstance(message.get("content"), str):
+                    return message["content"]
+
+        return ""
+
+    def _extract_response_tool_calls(self, data: dict[str, Any]) -> list[dict[str, Any]] | None:
+        """Extract tool calls from Anthropic-compatible responses."""
+        content = data.get("content", [])
+        if isinstance(content, list):
+            tool_calls = self._extract_tool_calls(content)
+            if tool_calls:
+                return tool_calls
+
+        message = data.get("message")
+        if isinstance(message, dict):
+            content = message.get("content")
+            if isinstance(content, list):
+                tool_calls = self._extract_tool_calls(content)
+                if tool_calls:
+                    return tool_calls
+
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices:
+            first = choices[0]
+            if isinstance(first, dict):
+                message = first.get("message")
+                if isinstance(message, dict):
+                    tool_calls = message.get("tool_calls")
+                    if isinstance(tool_calls, list):
+                        return tool_calls
+
+        return None
+
     def _extract_tool_calls(self, content_blocks: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
         tool_calls = []
         for block in content_blocks:
@@ -212,9 +292,14 @@ class AnthropicCompatibleProvider(LLMProvider):
                 "output_tokens": usage.get("output_tokens", 0),
             }
 
+        text_content = self._extract_response_text(data)
+        tool_calls = self._extract_response_tool_calls(data)
+        if not text_content and not tool_calls:
+            _LOGGER.debug("Anthropic-compatible empty response payload: %s", data)
+
         return LLMResponse(
-            content=self._extract_text(content_blocks),
-            tool_calls=self._extract_tool_calls(content_blocks),
+            content=text_content,
+            tool_calls=tool_calls,
             usage=usage,
             model=data.get("model"),
             finish_reason=data.get("stop_reason"),

@@ -44,6 +44,7 @@
             "name": "Name",
             "recommended": "Recommended Mode",
             "prompt": "Prompt Template",
+            "llm_provider": "LLM Provider",
             "chat_model": "Chat Model",
             "chat_url": "Chat API URL",
             "custom_api_key": "Custom API Key",
@@ -56,6 +57,7 @@
           "data_description": {
             "recommended": "Use recommended settings",
             "prompt": "Custom system prompt",
+            "llm_provider": "Select protocol type for the custom LLM endpoint",
             "chat_model": "Select or enter custom model name",
             "chat_url": "Complete chat API URL (if API fails, try appending /chat/completions)",
             "custom_api_key": "Custom API key (leave empty to use main key)",

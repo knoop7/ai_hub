@@ -39,6 +39,7 @@ from .const import (
     AI_HUB_IMAGE_MODELS,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
+    CONF_LLM_PROVIDER,
     CONF_CUSTOM_API_KEY,
     CONF_FORCE_TRANSLATION,
     CONF_IMAGE_MODEL,
@@ -69,6 +70,7 @@ from .const import (
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_AI_TASK_TEMPERATURE,
     RECOMMENDED_CHAT_MODEL,
+    RECOMMENDED_LLM_PROVIDER,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_IMAGE_MODEL,
     RECOMMENDED_MAX_HISTORY_MESSAGES,
@@ -379,6 +381,16 @@ async def ai_hub_config_option_schema(
                 default=options.get(CONF_PROMPT, llm.DEFAULT_INSTRUCTIONS_PROMPT),
                 description={"suggested_value": options.get(CONF_PROMPT)},
             ): TemplateSelector(),
+            vol.Optional(
+                CONF_LLM_PROVIDER,
+                default=options.get(CONF_LLM_PROVIDER, RECOMMENDED_LLM_PROVIDER),
+                description={"suggested_value": options.get(CONF_LLM_PROVIDER)},
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=["openai_compatible", "anthropic_compatible"],
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
             vol.Optional(
                 CONF_CHAT_MODEL,
                 default=options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),

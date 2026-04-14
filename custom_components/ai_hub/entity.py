@@ -19,10 +19,12 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.util import ulid
 from voluptuous_openapi import convert
 
+from .providers import LLMMessage, create_provider
 from .const import (
     AI_HUB_CHAT_URL,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
+    CONF_LLM_PROVIDER,
     CONF_CUSTOM_API_KEY,
     CONF_MAX_HISTORY_MESSAGES,
     CONF_MAX_TOKENS,
@@ -74,6 +76,17 @@ def _get_request_ssl_setting(api_url: str, default_url: str) -> bool | None:
         return False
 
     return None
+
+
+def _get_provider_name(api_url: str, configured_provider: str | None = None) -> str:
+    """Select provider implementation from URL."""
+    if configured_provider in {"openai_compatible", "anthropic_compatible"}:
+        return configured_provider
+
+    parsed = urlparse(api_url)
+    if "anthropic" in parsed.path.lower() or parsed.netloc == "api.anthropic.com":
+        return "anthropic_compatible"
+    return "openai_compatible"
 
 
 class _AIHubEntityMixin:
@@ -283,15 +296,6 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             model_name = self.default_model
             _LOGGER.warning("Model name was invalid, using default: %s", model_name)
 
-        request_params = {
-            "model": model_name,
-            "messages": messages,
-            "stream": True,
-        }
-
-        if tools:
-            request_params["tools"] = tools
-
         # Validate all message contents before sending
         for i, msg in enumerate(messages):
             msg_content = msg.get("content")
@@ -311,6 +315,17 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             api_url = AI_HUB_CHAT_URL
             _LOGGER.warning("API URL was invalid, using default: %s", api_url)
 
+        provider_name = _get_provider_name(api_url, options.get(CONF_LLM_PROVIDER))
+
+        request_params = {
+            "model": model_name,
+            "messages": messages,
+            "stream": True,
+        }
+
+        if tools:
+            request_params["tools"] = tools
+
         try:
             # Validate API key before making request
             if not self._api_key:
@@ -322,10 +337,45 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 self._api_key = str(self._api_key)
 
             _LOGGER.debug(
-                "API Request: model=%s, messages_count=%d",
+                "API Request: provider=%s, model=%s, messages_count=%d",
+                provider_name,
                 model_name,
                 len(messages)
             )
+
+            llm_messages = [
+                LLMMessage(
+                    role=msg["role"],
+                    content=msg.get("content", ""),
+                    tool_calls=msg.get("tool_calls"),
+                    tool_call_id=msg.get("tool_call_id"),
+                )
+                for msg in messages
+            ]
+
+            provider = create_provider(
+                provider_name,
+                {
+                    "api_key": self._api_key,
+                    "model": model_name,
+                    "base_url": api_url,
+                    "temperature": model_config.get("temperature", RECOMMENDED_TEMPERATURE),
+                    "max_tokens": model_config.get("max_tokens", RECOMMENDED_MAX_TOKENS),
+                },
+            )
+
+            if provider_name == "anthropic_compatible" and provider is not None:
+                response = await provider.complete(llm_messages, tools=tools)
+                tool_calls = self._convert_provider_tool_calls(response.tool_calls)
+                assistant_content = conversation.AssistantContent(
+                    agent_id=self.entity_id,
+                    content=response.content or None,
+                    tool_calls=tool_calls or None,
+                    native=response.raw_response,
+                )
+                async for _ in chat_log.async_add_assistant_content(assistant_content):
+                    pass
+                return
 
             # Call AI Hub API with streaming via HTTP
             headers = {
@@ -362,6 +412,37 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         except Exception as err:
             _LOGGER.error("Error calling AI Hub API: %s", err)
             raise HomeAssistantError(ERROR_GETTING_RESPONSE) from err
+
+    def _convert_provider_tool_calls(
+        self,
+        tool_calls: list[dict[str, Any]] | None,
+    ) -> list[llm.ToolInput]:
+        """Convert provider tool calls to Home Assistant ToolInput objects."""
+        if not tool_calls:
+            return []
+
+        converted: list[llm.ToolInput] = []
+        for tool_call in tool_calls:
+            try:
+                function_data = tool_call.get("function", {})
+                arguments = function_data.get("arguments", {})
+                if isinstance(arguments, str):
+                    arguments = json.loads(arguments) if arguments else {}
+                if not isinstance(arguments, dict):
+                    arguments = {"value": arguments}
+
+                tool_id = tool_call.get("id") or ulid.ulid_now()
+                converted.append(
+                    llm.ToolInput(
+                        id=tool_id,
+                        tool_name=function_data.get("name", "tool"),
+                        tool_args=arguments,
+                    )
+                )
+            except Exception as err:
+                _LOGGER.warning("Failed to convert provider tool call: %s", err)
+
+        return converted
 
     async def _async_convert_chat_log_to_messages(
         self, chat_log: conversation.ChatLog

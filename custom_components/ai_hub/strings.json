@@ -46,6 +46,7 @@
             "name": "Name",
             "recommended": "Recommended Mode",
             "prompt": "Prompt Template",
+            "llm_provider": "LLM Provider",
             "chat_model": "Chat Model",
             "temperature": "Temperature",
             "top_p": "Top P",
@@ -56,6 +57,7 @@
           "data_description": {
             "recommended": "Use recommended settings",
             "prompt": "Custom system prompt",
+            "llm_provider": "Select protocol type for the custom LLM endpoint",
             "temperature": "Control creativity (0-2)",
             "top_p": "Sampling parameter (0-1)",
             "max_tokens": "Maximum response length",
