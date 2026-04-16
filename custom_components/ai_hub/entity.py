@@ -409,6 +409,8 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         except aiohttp.ClientError as err:
             _LOGGER.error("Network error calling AI Hub API: %s", err)
             raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: Network error") from err
+        except HomeAssistantError:
+            raise
         except Exception as err:
             _LOGGER.error("Error calling AI Hub API: %s", err)
             raise HomeAssistantError(ERROR_GETTING_RESPONSE) from err
