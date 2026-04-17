@@ -31,11 +31,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    CONF_API_KEY,
     DOMAIN,
     TIMEOUT_HEALTH_CHECK,
 )
-from .diagnostics import get_diagnostics_collector
+from .diagnostics import collect_api_monitor_targets, get_diagnostics_collector
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +43,19 @@ SCAN_INTERVAL = timedelta(minutes=5)
 
 # Diagnostic device identifier
 DIAGNOSTIC_DEVICE_ID = "diagnostic"
+
+
+def _uses_siliconflow(entry: ConfigEntry) -> bool:
+    """Return whether any configured subentry uses SiliconFlow services."""
+    return any(
+        subentry.subentry_type in {"conversation", "ai_task_data", "stt", "translation"}
+        for subentry in entry.subentries.values()
+    )
+
+
+def _uses_edge_tts(entry: ConfigEntry) -> bool:
+    """Return whether any configured subentry uses Edge TTS."""
+    return any(subentry.subentry_type == "tts" for subentry in entry.subentries.values())
 
 
 def _get_diagnostic_device_info(entry: ConfigEntry) -> dr.DeviceInfo:
@@ -68,11 +80,10 @@ async def async_setup_entry(
     # Main integration health sensor (always added)
     entities.append(AIHubHealthCheckSensor(hass, entry))
 
-    # Edge TTS health sensor (always available, no API key needed)
-    entities.append(EdgeTTSHealthSensor(hass, entry))
+    if _uses_edge_tts(entry):
+        entities.append(EdgeTTSHealthSensor(hass, entry))
 
-    # SiliconFlow health sensor (if main API key configured)
-    if entry.data.get(CONF_API_KEY):
+    if _uses_siliconflow(entry):
         entities.append(SiliconFlowHealthSensor(hass, entry))
 
     async_add_entities(entities)
@@ -157,14 +168,13 @@ class AIHubHealthCheckSensor(SensorEntity):
     async def async_update(self) -> None:
         """Update the health status."""
         session = async_get_clientsession(self.hass)
+        self._api_statuses = {}
 
-        # Check SiliconFlow
-        if self._entry.data.get(CONF_API_KEY):
-            self._api_statuses["siliconflow"] = await self._check_api(
-                session,
-                "https://api.siliconflow.cn",
-                "SiliconFlow",
-            )
+        for target in collect_api_monitor_targets(self._entry):
+            api_status = await self._check_api(session, target["url"], target["label"])
+            api_status["url"] = target["url"]
+            api_status["sources"] = target["sources"]
+            self._api_statuses[target["key"]] = api_status
 
         self._last_check = datetime.now()
 
@@ -314,4 +324,3 @@ class EdgeTTSHealthSensor(_BaseHealthSensor):
     _check_url = "https://speech.platform.bing.com"
     _name_suffix = "edge_tts"
     _attr_icon = "mdi:text-to-speech"
-

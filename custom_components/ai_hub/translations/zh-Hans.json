@@ -3,9 +3,9 @@
     "step": {
       "user": {
         "title": "连接到AI Hub",
-        "description": "请输入你需要对应服务的API-KEY，如果需要全服务，请输入所有的API-KEY，如果有任何问题，可以点击问号图标查看帮助文档。",
+        "description": "主 SiliconFlow API 密钥现在可以先留空，进入集成详情页后再按需添加你需要的服务。[注册]({register_url}) | [获取 API Key]({api_key_url})",
         "data": {
-          "api_key": "SiliconFlow API密钥（必填，用于对话、AI任务、汉化、语音识别等所有服务）"
+          "api_key": "SiliconFlow API密钥（可选主密钥，用于对话、AI任务、汉化、语音识别等服务）"
         }
       }
     },
@@ -21,13 +21,14 @@
   "options": {
     "step": {
       "init": {
-        "title": "配置选项",
-        "description": "请在集成详情页面找到对应的子项目（对话助手或AI任务），点击每个子项目右侧的配置按钮修改设置。点击集成页面上的AI Hub进入详情页面，您会看到已配置的子项目列表，每个子项目都可以单独配置。"
+        "title": "配置 AI Hub",
+        "description": "在这里设置或更新主 SiliconFlow API 密钥。你仍然可以在集成详情页里按需单独添加和配置各个服务。[注册]({register_url}) | [获取 API Key]({api_key_url})",
+        "data": {
+          "api_key": "SiliconFlow API密钥"
+        }
       }
     },
-    "abort": {
-      "configure_via_subentries": "请通过子项目配置对话和AI任务。在设备页面找到对应的子项目。"
-    }
+    "abort": {}
   },
   "config_subentries": {
     "conversation": {
@@ -138,11 +139,15 @@
           "data": {
             "name": "名称",
             "recommended": "推荐模式",
-            "model": "ASR模型"
+            "model": "ASR模型",
+            "stt_url": "ASR接口地址",
+            "custom_api_key": "自定义API密钥"
           },
           "data_description": {
             "recommended": "使用推荐设置",
-            "model": "选择ASR模型：FunAudioLLM/SenseVoiceSmall（推荐）或TeleAI/TeleSpeechASR"
+            "model": "选择ASR模型：FunAudioLLM/SenseVoiceSmall（推荐）或TeleAI/TeleSpeechASR",
+            "stt_url": "完整的 ASR API 地址",
+            "custom_api_key": "自定义API密钥（留空使用主密钥）"
           }
         }
       }
@@ -156,11 +161,27 @@
       "step": {
         "init": {
           "title": "配置汉化",
-          "description": "配置汉化功能。使用SiliconFlow AI自动将英文文件翻译为中文。"
+          "description": "配置汉化功能。使用你选择的 AI 接口自动将英文文件翻译为中文。",
+          "data": {
+            "name": "名称",
+            "recommended": "推荐模式",
+            "chat_model": "聊天模型",
+            "chat_url": "对话API地址",
+            "custom_api_key": "自定义API密钥",
+            "list_components": "仅列出组件",
+            "force_translation": "强制翻译",
+            "target_component": "目标组件"
+          },
+          "data_description": {
+            "recommended": "使用推荐设置",
+            "chat_model": "选择或输入自定义模型名称",
+            "chat_url": "完整的对话API地址",
+            "custom_api_key": "自定义API密钥（留空使用主密钥）",
+            "list_components": "仅列出可汉化组件，不执行翻译",
+            "force_translation": "即使已有中文翻译也重新翻译",
+            "target_component": "只汉化指定组件"
+          }
         }
-      },
-      "abort": {
-        "translation_no_reconfigure": "汉化不支持重新配置。如需修改设置，请删除并重新添加。"
       }
     }
   },

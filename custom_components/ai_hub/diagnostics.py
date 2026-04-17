@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
 try:
     from homeassistant.components.diagnostics import async_redact_data
@@ -37,8 +38,13 @@ except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test 
         return redacted
 
 from .const import (
+    AI_HUB_CHAT_URL,
+    AI_HUB_IMAGE_GEN_URL,
     CONF_API_KEY,
+    CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
+    CONF_IMAGE_URL,
+    CONF_STT_URL,
     DOMAIN,
     RETRY_BASE_DELAY,
     RETRY_MAX_ATTEMPTS,
@@ -113,11 +119,74 @@ async def _get_configuration_diagnostics(
     }
 
     # Check if API key is configured
-    api_key = entry.data.get(CONF_API_KEY, "")
+    api_key = entry.options.get(CONF_API_KEY) or entry.data.get(CONF_API_KEY, "")
     config["api_key_configured"] = bool(api_key and api_key.strip())
     config["api_key_length"] = len(api_key) if api_key else 0
 
     return config
+
+
+def _normalize_monitor_url(url: str) -> str | None:
+    """Normalize a configured endpoint to a base URL for health checks."""
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+def collect_api_monitor_targets(entry: ConfigEntry) -> list[dict[str, Any]]:
+    """Collect API endpoints that should appear in diagnostics and health checks."""
+    targets: dict[str, dict[str, Any]] = {}
+
+    def add_target(url: str, label: str, source: str) -> None:
+        normalized = _normalize_monitor_url(url)
+        if normalized is None:
+            return
+
+        parsed = urlparse(normalized)
+        key = f"{label.lower().replace(' ', '_')}_{parsed.netloc.replace('.', '_').replace(':', '_')}"
+
+        if normalized not in targets:
+            targets[normalized] = {
+                "key": key,
+                "label": label,
+                "url": normalized,
+                "sources": [source],
+            }
+            return
+
+        if source not in targets[normalized]["sources"]:
+            targets[normalized]["sources"].append(source)
+
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type == "conversation":
+            add_target(
+                subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
+                "Conversation API",
+                subentry.title,
+            )
+        elif subentry.subentry_type == "ai_task_data":
+            add_target(
+                subentry.data.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL),
+                "AI Task Image API",
+                subentry.title,
+            )
+        elif subentry.subentry_type == "stt":
+            add_target(
+                subentry.data.get(CONF_STT_URL, "https://api.siliconflow.cn"),
+                "STT API",
+                subentry.title,
+            )
+        elif subentry.subentry_type == "translation":
+            add_target(
+                subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
+                "Translation API",
+                subentry.title,
+            )
+        elif subentry.subentry_type == "tts":
+            add_target("https://speech.platform.bing.com", "Edge TTS API", subentry.title)
+
+    return sorted(targets.values(), key=lambda target: target["label"])
 
 
 async def _get_subentries_diagnostics(
@@ -204,60 +273,41 @@ async def _get_api_status_diagnostics(
     import aiohttp
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-    status: dict[str, Any] = {
-        "siliconflow": {"status": "unknown", "latency_ms": None},
-        "edge_tts": {"status": "unknown", "latency_ms": None},
-    }
-
+    status: dict[str, Any] = {}
     session = async_get_clientsession(hass)
 
-    # Test SiliconFlow API (just connectivity, not authentication)
-    try:
-        start_time = datetime.now()
-        async with session.get(
-            "https://api.siliconflow.cn",
-            timeout=aiohttp.ClientTimeout(total=10),
-        ) as response:
-            latency = (datetime.now() - start_time).total_seconds() * 1000
-            status["siliconflow"] = {
-                "status": "reachable",
-                "http_status": response.status,
-                "latency_ms": round(latency, 2),
+    for target in collect_api_monitor_targets(entry):
+        try:
+            start_time = datetime.now()
+            async with session.get(
+                target["url"],
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                latency = (datetime.now() - start_time).total_seconds() * 1000
+                status[target["key"]] = {
+                    "label": target["label"],
+                    "url": target["url"],
+                    "sources": target["sources"],
+                    "status": "reachable",
+                    "http_status": response.status,
+                    "latency_ms": round(latency, 2),
+                }
+        except aiohttp.ClientError as e:
+            status[target["key"]] = {
+                "label": target["label"],
+                "url": target["url"],
+                "sources": target["sources"],
+                "status": "unreachable",
+                "error": str(e),
             }
-    except aiohttp.ClientError as e:
-        status["siliconflow"] = {
-            "status": "unreachable",
-            "error": str(e),
-        }
-    except Exception as e:
-        status["siliconflow"] = {
-            "status": "error",
-            "error": str(e),
-        }
-
-    # Test Edge TTS (Microsoft Speech Service)
-    try:
-        start_time = datetime.now()
-        async with session.get(
-            "https://speech.platform.bing.com",
-            timeout=aiohttp.ClientTimeout(total=10),
-        ) as response:
-            latency = (datetime.now() - start_time).total_seconds() * 1000
-            status["edge_tts"] = {
-                "status": "reachable",
-                "http_status": response.status,
-                "latency_ms": round(latency, 2),
+        except Exception as e:
+            status[target["key"]] = {
+                "label": target["label"],
+                "url": target["url"],
+                "sources": target["sources"],
+                "status": "error",
+                "error": str(e),
             }
-    except aiohttp.ClientError as e:
-        status["edge_tts"] = {
-            "status": "unreachable",
-            "error": str(e),
-        }
-    except Exception as e:
-        status["edge_tts"] = {
-            "status": "error",
-            "error": str(e),
-        }
 
     return status
 

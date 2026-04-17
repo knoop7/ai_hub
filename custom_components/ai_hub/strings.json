@@ -3,9 +3,9 @@
     "step": {
       "user": {
         "title": "Connect to AI Hub",
-        "description": "Please enter the API key(s) required for the corresponding service. For all services, please enter all API keys. If you have any questions, you can click the question mark icon to view the help documentation.",
+        "description": "You can leave the main SiliconFlow API key blank for now and add only the services you need later from the integration details page. [Register]({register_url}) | [Get API Key]({api_key_url})",
         "data": {
-          "api_key": "SiliconFlow API Key (required for all services: conversation, AI tasks, translation, STT, etc.)"
+          "api_key": "SiliconFlow API Key (optional main key for conversation, AI tasks, translation, STT, etc.)"
         }
       }
     },
@@ -23,13 +23,14 @@
   "options": {
     "step": {
       "init": {
-        "title": "Configuration Options",
-        "description": "Please find the corresponding subentries (Conversation Agent or AI Task) in the integration details page, and click the configuration button on the right side of each subentry to modify settings.\n\nClick 'AI Hub' on the integrations page to enter the details page, where you will see the list of configured subentries, each of which can be configured individually."
+        "title": "Configure AI Hub",
+        "description": "Set or update the main SiliconFlow API key here. You can still add and configure services separately from the integration details page. [Register]({register_url}) | [Get API Key]({api_key_url})",
+        "data": {
+          "api_key": "SiliconFlow API Key"
+        }
       }
     },
-    "abort": {
-      "configure_via_subentries": "Please configure conversation and AI task through subentries. Find the corresponding subentries in the devices page."
-    }
+    "abort": {}
   },
   "config_subentries": {
     "conversation": {
@@ -131,11 +132,15 @@
           "data": {
             "name": "Name",
             "recommended": "Recommended Mode",
-            "model": "ASR Model"
+            "model": "ASR Model",
+            "stt_url": "ASR API URL",
+            "custom_api_key": "Custom API Key"
           },
           "data_description": {
             "recommended": "Use recommended settings",
-            "model": "Select ASR model: FunAudioLLM/SenseVoiceSmall (recommended) or TeleAI/TeleSpeechASR"
+            "model": "Select ASR model: FunAudioLLM/SenseVoiceSmall (recommended) or TeleAI/TeleSpeechASR",
+            "stt_url": "Complete ASR API URL",
+            "custom_api_key": "Custom API key (leave empty to use main key)"
           }
         }
       }
@@ -148,14 +153,28 @@
       "entry_type": "AI Hub Integration Translation",
       "step": {
         "init": {
-          "title": "Add Integration Translation",
-          "description": "Enable component translation function, translate English custom integrations to Chinese.",
-          "data": {},
-          "data_description": {}
+          "title": "Configure Integration Translation",
+          "description": "Configure localization function. Use your selected AI endpoint to automatically translate English files to Chinese.",
+          "data": {
+            "name": "Name",
+            "recommended": "Recommended Mode",
+            "chat_model": "Chat Model",
+            "chat_url": "Chat API URL",
+            "custom_api_key": "Custom API Key",
+            "list_components": "List Components Only",
+            "force_translation": "Force Translation",
+            "target_component": "Target Component"
+          },
+          "data_description": {
+            "recommended": "Use recommended settings",
+            "chat_model": "Select or enter custom model name",
+            "chat_url": "Complete chat API URL",
+            "custom_api_key": "Custom API key (leave empty to use main key)",
+            "list_components": "Only list available components without translating",
+            "force_translation": "Translate even if a Chinese translation already exists",
+            "target_component": "Only translate the specified component"
+          }
         }
-      },
-      "abort": {
-        "translation_no_reconfigure": "Integration translation does not support reconfiguration. To modify settings, please delete and re-add."
       }
     },
     "blueprint_translation": {

@@ -52,6 +52,7 @@ from .const import (
     CONF_PROMPT,
     CONF_RECOMMENDED,
     CONF_STT_MODEL,
+    CONF_STT_URL,
     CONF_TARGET_BLUEPRINT,
     CONF_TARGET_COMPONENT,
     CONF_TEMPERATURE,
@@ -82,14 +83,18 @@ from .const import (
     RECOMMENDED_TRANSLATION_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
     SILICONFLOW_STT_MODELS,
+    SILICONFLOW_ASR_URL,
     TTS_DEFAULT_LANG,
     TTS_DEFAULT_VOICE,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
+SILICONFLOW_REGISTER_URL = "https://cloud.siliconflow.cn/i/U3e0rmsr"
+SILICONFLOW_API_KEY_URL = "https://cloud.siliconflow.cn/account/ak"
+
 STEP_USER_DATA_SCHEMA = vol.Schema({
-    vol.Required(CONF_API_KEY): str,
+    vol.Optional(CONF_API_KEY, default=""): str,
 })
 
 
@@ -126,6 +131,11 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Return the options flow handler."""
+        return AIHubOptionsFlowHandler()
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -135,9 +145,13 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
                 step_id="user",
                 data_schema=STEP_USER_DATA_SCHEMA,
                 description_placeholders={
-                    "api_key_url": "https://cloud.siliconflow.cn/account/ak"
+                    "register_url": SILICONFLOW_REGISTER_URL,
+                    "api_key_url": SILICONFLOW_API_KEY_URL,
                 },
             )
+
+        user_input = {**user_input}
+        user_input[CONF_API_KEY] = user_input.get(CONF_API_KEY, "").strip()
 
         errors = {}
 
@@ -157,44 +171,9 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
             _LOGGER.exception("Unexpected exception")
             errors["base"] = "unknown"
         else:
-            # Create entry with subentries
-            subentries = [
-                {
-                    "subentry_type": "conversation",
-                    "data": RECOMMENDED_CONVERSATION_OPTIONS,
-                    "title": DEFAULT_CONVERSATION_NAME,
-                    "unique_id": None,
-                },
-                {
-                    "subentry_type": "ai_task_data",
-                    "data": RECOMMENDED_AI_TASK_OPTIONS,
-                    "title": DEFAULT_AI_TASK_NAME,
-                    "unique_id": None,
-                },
-                {
-                    "subentry_type": "tts",
-                    "data": RECOMMENDED_TTS_OPTIONS,
-                    "title": DEFAULT_TTS_NAME,
-                    "unique_id": None,
-                },
-                {
-                    "subentry_type": "stt",
-                    "data": RECOMMENDED_STT_OPTIONS,
-                    "title": DEFAULT_STT_NAME,
-                    "unique_id": None,
-                },
-                {
-                    "subentry_type": "translation",
-                    "data": RECOMMENDED_TRANSLATION_OPTIONS,
-                    "title": DEFAULT_TRANSLATION_NAME,
-                    "unique_id": None,
-                },
-            ]
-
             return self.async_create_entry(
                 title=DEFAULT_TITLE,
                 data=user_input,
-                subentries=subentries,
             )
 
         return self.async_show_form(
@@ -202,7 +181,8 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
             description_placeholders={
-                "api_key_url": "https://cloud.siliconflow.cn/account/ak"
+                "register_url": SILICONFLOW_REGISTER_URL,
+                "api_key_url": SILICONFLOW_API_KEY_URL,
             },
         )
 
@@ -216,7 +196,7 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
             "ai_task_data": AIHubSubentryFlowHandler,
             "tts": AIHubSubentryFlowHandler,
             "stt": AIHubSubentryFlowHandler,
-            "translation": AIHubTranslationFlowHandler,
+            "translation": AIHubSubentryFlowHandler,
         }
 
 
@@ -332,7 +312,6 @@ async def ai_hub_config_option_schema(
 
     # If recommended mode is enabled, only show basic fields
     if options.get(CONF_RECOMMENDED):
-        # In recommended mode, only show prompt for conversation
         if subentry_type == "conversation":
             schema.update({
                 vol.Optional(
@@ -340,18 +319,114 @@ async def ai_hub_config_option_schema(
                     default=options.get(CONF_PROMPT, llm.DEFAULT_INSTRUCTIONS_PROMPT),
                     description={"suggested_value": options.get(CONF_PROMPT)},
                 ): TemplateSelector(),
+                vol.Optional(
+                    CONF_LLM_PROVIDER,
+                    default=options.get(CONF_LLM_PROVIDER, RECOMMENDED_LLM_PROVIDER),
+                    description={"suggested_value": options.get(CONF_LLM_PROVIDER)},
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=["openai_compatible", "anthropic_compatible"],
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_CHAT_MODEL,
+                    default=options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
+                    description={"suggested_value": options.get(CONF_CHAT_MODEL)},
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=AI_HUB_CHAT_MODELS,
+                        mode=SelectSelectorMode.DROPDOWN,
+                        custom_value=True,
+                    )
+                ),
+                vol.Optional(
+                    CONF_CHAT_URL,
+                    default=options.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
+                    description={"suggested_value": options.get(CONF_CHAT_URL)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+                vol.Optional(
+                    CONF_CUSTOM_API_KEY,
+                    default=options.get(CONF_CUSTOM_API_KEY, ""),
+                    description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             })
             # Ensure LLM Hass API is always enabled in recommended mode
             options[CONF_LLM_HASS_API] = llm.LLM_API_ASSIST
+        elif subentry_type == "ai_task_data":
+            schema.update({
+                vol.Optional(
+                    CONF_IMAGE_MODEL,
+                    default=options.get(CONF_IMAGE_MODEL, RECOMMENDED_IMAGE_MODEL),
+                    description={"suggested_value": options.get(CONF_IMAGE_MODEL)},
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=AI_HUB_IMAGE_MODELS,
+                        mode=SelectSelectorMode.DROPDOWN,
+                        custom_value=True,
+                    )
+                ),
+                vol.Optional(
+                    CONF_IMAGE_URL,
+                    default=options.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL),
+                    description={"suggested_value": options.get(CONF_IMAGE_URL)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+                vol.Optional(
+                    CONF_CUSTOM_API_KEY,
+                    default=options.get(CONF_CUSTOM_API_KEY, ""),
+                    description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+            })
         elif subentry_type == "tts":
             # In recommended mode, no configuration options shown - use defaults
             pass
         elif subentry_type == "stt":
-            # In recommended mode, no configuration options needed
-            pass
+            schema.update({
+                vol.Optional(
+                    CONF_STT_MODEL,
+                    default=options.get(CONF_STT_MODEL, RECOMMENDED_STT_MODEL),
+                    description={"suggested_value": options.get(CONF_STT_MODEL)},
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=SILICONFLOW_STT_MODELS,
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_STT_URL,
+                    default=options.get(CONF_STT_URL, SILICONFLOW_ASR_URL),
+                    description={"suggested_value": options.get(CONF_STT_URL)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+                vol.Optional(
+                    CONF_CUSTOM_API_KEY,
+                    default=options.get(CONF_CUSTOM_API_KEY, ""),
+                    description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+            })
         elif subentry_type == "translation":
             # Translation: simple recommended mode with minimal configuration
             schema.update({
+                vol.Optional(
+                    CONF_CHAT_MODEL,
+                    default=options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
+                    description={"suggested_value": options.get(CONF_CHAT_MODEL)},
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=AI_HUB_CHAT_MODELS,
+                        mode=SelectSelectorMode.DROPDOWN,
+                        custom_value=True,
+                    )
+                ),
+                vol.Optional(
+                    CONF_CHAT_URL,
+                    default=options.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
+                    description={"suggested_value": options.get(CONF_CHAT_URL)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+                vol.Optional(
+                    CONF_CUSTOM_API_KEY,
+                    default=options.get(CONF_CUSTOM_API_KEY, ""),
+                    description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
                 vol.Optional(
                     CONF_LIST_COMPONENTS,
                     default=options.get(CONF_LIST_COMPONENTS, False),
@@ -515,10 +590,41 @@ async def ai_hub_config_option_schema(
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
+            vol.Optional(
+                CONF_STT_URL,
+                default=options.get(CONF_STT_URL, SILICONFLOW_ASR_URL),
+                description={"suggested_value": options.get(CONF_STT_URL)},
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+            vol.Optional(
+                CONF_CUSTOM_API_KEY,
+                default=options.get(CONF_CUSTOM_API_KEY, ""),
+                description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
         })
 
     elif subentry_type == "translation":
         schema.update({
+            vol.Optional(
+                CONF_CHAT_MODEL,
+                default=options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
+                description={"suggested_value": options.get(CONF_CHAT_MODEL)},
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=AI_HUB_CHAT_MODELS,
+                    mode=SelectSelectorMode.DROPDOWN,
+                    custom_value=True,
+                )
+            ),
+            vol.Optional(
+                CONF_CHAT_URL,
+                default=options.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
+                description={"suggested_value": options.get(CONF_CHAT_URL)},
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.URL)),
+            vol.Optional(
+                CONF_CUSTOM_API_KEY,
+                default=options.get(CONF_CUSTOM_API_KEY, ""),
+                description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             vol.Optional(
                 CONF_LIST_COMPONENTS,
                 default=options.get(CONF_LIST_COMPONENTS, False),
@@ -539,55 +645,60 @@ async def ai_hub_config_option_schema(
     return schema
 
 
-class AIHubTranslationFlowHandler(ConfigSubentryFlow):
-    """Handle Translation subentry flow - no reconfiguration supported."""
-
-    options: dict[str, Any]
-
-    def __init__(self) -> None:
-        """Initialize the Translation flow handler."""
-        super().__init__()
-        self.options = {}
-
-    @property
-    def _is_new(self) -> bool:
-        """Return if this is a new subentry."""
-        return self.source == "user"
-
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        """Handle options for Translation subentry."""
-        return await self.async_step_init(user_input)
-
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> SubentryFlowResult:
-        """Handle options for Translation subentry."""
-        # Translation subentries cannot be reconfigured
-        if not self._is_new:
-            return self.async_abort(reason="translation_no_reconfigure")
-
-        # Translation doesn't need any input, just create the subentry
-        # Unified translation includes both component and blueprint translation
-        return self.async_create_entry(
-            title=DEFAULT_TRANSLATION_NAME,
-            data={
-                CONF_LIST_COMPONENTS: False,
-                CONF_FORCE_TRANSLATION: False,
-                CONF_TARGET_COMPONENT: "",
-                CONF_LIST_BLUEPRINTS: False,
-                CONF_TARGET_BLUEPRINT: "",
-                CONF_RECOMMENDED: True,
-            }
-        )
-
-
 class AIHubOptionsFlowHandler(OptionsFlow):
     """Handle options flow for AI Hub."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Manage the options for the custom component."""
-        return self.async_abort(reason="configure_via_subentries")
+        """Manage the main integration options."""
+        current_api_key = (
+            self.config_entry.options.get(CONF_API_KEY)
+            or self.config_entry.data.get(CONF_API_KEY)
+            or ""
+        )
+
+        if user_input is None:
+            return self.async_show_form(
+                step_id="init",
+                data_schema=vol.Schema({
+                    vol.Optional(CONF_API_KEY, default=current_api_key): str,
+                }),
+                description_placeholders={
+                    "register_url": SILICONFLOW_REGISTER_URL,
+                    "api_key_url": SILICONFLOW_API_KEY_URL,
+                },
+            )
+
+        user_input = {**user_input}
+        user_input[CONF_API_KEY] = user_input.get(CONF_API_KEY, "").strip()
+
+        try:
+            await validate_input(self.hass, user_input)
+        except ValueError as err:
+            reason = str(err)
+            return self.async_show_form(
+                step_id="init",
+                data_schema=vol.Schema({
+                    vol.Optional(CONF_API_KEY, default=user_input[CONF_API_KEY]): str,
+                }),
+                errors={"base": reason if reason in {"invalid_auth", "cannot_connect"} else "unknown"},
+                description_placeholders={
+                    "register_url": SILICONFLOW_REGISTER_URL,
+                    "api_key_url": SILICONFLOW_API_KEY_URL,
+                },
+            )
+        except aiohttp.ClientError:
+            return self.async_show_form(
+                step_id="init",
+                data_schema=vol.Schema({
+                    vol.Optional(CONF_API_KEY, default=user_input[CONF_API_KEY]): str,
+                }),
+                errors={"base": "cannot_connect"},
+                description_placeholders={
+                    "register_url": SILICONFLOW_REGISTER_URL,
+                    "api_key_url": SILICONFLOW_API_KEY_URL,
+                },
+            )
+
+        return self.async_create_entry(title="", data=user_input)

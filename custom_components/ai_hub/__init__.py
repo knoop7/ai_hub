@@ -74,6 +74,12 @@ def get_ai_hub_data(hass: HomeAssistant) -> AIHubData | None:
     return hass.data.get(DOMAIN)
 
 
+def get_configured_api_key(entry: ConfigEntry) -> str:
+    """Return the configured main API key from options or entry data."""
+    api_key = entry.options.get(CONF_API_KEY) or entry.data.get(CONF_API_KEY) or ""
+    return api_key.strip() if isinstance(api_key, str) else str(api_key).strip()
+
+
 def get_or_create_ai_hub_data(hass: HomeAssistant) -> AIHubData:
     """Get or create AI Hub runtime data."""
     if DOMAIN not in hass.data:
@@ -105,7 +111,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     """Set up AI Hub from a config entry."""
 
     # Get API key (may be None if not provided)
-    api_key = entry.data.get(CONF_API_KEY)
+    api_key = get_configured_api_key(entry)
 
     # Validate API key by testing API connection only if provided
     if api_key and api_key.strip():

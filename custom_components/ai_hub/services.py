@@ -8,11 +8,11 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import (
-    CONF_API_KEY,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
     CONF_IMAGE_URL,
+    CONF_STT_URL,
     DOMAIN,
     RECOMMENDED_CHAT_MODEL,
     SERVICE_ANALYZE_IMAGE,
@@ -79,6 +79,42 @@ def _get_image_config(config_entry) -> tuple[str, str]:
     return image_url, api_key
 
 
+def _get_stt_config(config_entry) -> tuple[str, str]:
+    """Get STT URL and API key from STT subentry."""
+    from .const import SILICONFLOW_ASR_URL
+
+    stt_url = SILICONFLOW_ASR_URL
+    custom_api_key = ""
+
+    for subentry in config_entry.subentries.values():
+        if subentry.subentry_type == "stt":
+            stt_url = subentry.data.get(CONF_STT_URL, stt_url)
+            custom_api_key = subentry.data.get(CONF_CUSTOM_API_KEY, "").strip()
+            break
+
+    api_key = custom_api_key if custom_api_key else config_entry.runtime_data
+    return stt_url, api_key
+
+
+def _get_translation_config(config_entry) -> tuple[str, str, str]:
+    """Get translation URL, model and API key from translation subentry."""
+    from .const import AI_HUB_CHAT_URL
+
+    chat_url = AI_HUB_CHAT_URL
+    model = RECOMMENDED_CHAT_MODEL
+    custom_api_key = ""
+
+    for subentry in config_entry.subentries.values():
+        if subentry.subentry_type == "translation":
+            chat_url = subentry.data.get(CONF_CHAT_URL, chat_url)
+            model = subentry.data.get(CONF_CHAT_MODEL, model)
+            custom_api_key = subentry.data.get(CONF_CUSTOM_API_KEY, "").strip()
+            break
+
+    api_key = custom_api_key if custom_api_key else config_entry.runtime_data
+    return chat_url, model, api_key
+
+
 async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     """Set up services for AI Hub integration."""
 
@@ -114,10 +150,10 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
 
     # ========== STT 语音转文字服务 ==========
     async def _handle_stt_transcribe(call: ServiceCall) -> dict:
-        api_key = config_entry.data.get(CONF_API_KEY) if hasattr(config_entry, 'data') else None
+        stt_url, api_key = _get_stt_config(config_entry)
         if not api_key or not api_key.strip():
             return {"success": False, "error": "API密钥未配置"}
-        return await handle_stt_transcribe(hass, call, api_key)
+        return await handle_stt_transcribe(hass, call, api_key, stt_url)
 
     # ========== 组件翻译服务 ==========
     async def _handle_translate_components(call: ServiceCall) -> dict:
@@ -126,8 +162,7 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             target_component = call.data.get("target_component", "").strip()
             force_translation = call.data.get("force_translation", False)
 
-            # Get chat URL, model and API key from Conversation Agent
-            chat_url, model, effective_key = _get_conversation_config(config_entry)
+            chat_url, model, effective_key = _get_translation_config(config_entry)
 
             if not list_components and (not effective_key or not effective_key.strip()):
                 return {"success": False, "error": "API密钥未配置"}
@@ -154,8 +189,7 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             retranslate = call.data.get("retranslate", False)
             blueprints_path = hass.config.path("blueprints")
 
-            # Get chat URL, model and API key from Conversation Agent
-            chat_url, model, effective_key = _get_conversation_config(config_entry)
+            chat_url, model, effective_key = _get_translation_config(config_entry)
 
             if not list_blueprints and (not effective_key or not effective_key.strip()):
                 return {"success": False, "error": "API密钥未配置"}

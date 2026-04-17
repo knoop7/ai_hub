@@ -17,7 +17,6 @@ from homeassistant.core import HomeAssistant
 from custom_components.ai_hub.config_flow import (
     AIHubConfigFlow,
     AIHubSubentryFlowHandler,
-    AIHubTranslationFlowHandler,
     STEP_USER_DATA_SCHEMA,
     validate_input,
 )
@@ -89,6 +88,14 @@ class TestValidateInput:
             with pytest.raises(Exception, match="Connection error"):
                 await validate_input(mock_hass, data)
 
+    @pytest.mark.asyncio
+    async def test_empty_api_key_skips_validation(self, mock_hass):
+        """Test validation skips network call when API key is empty."""
+        with patch("aiohttp.ClientSession.post") as mock_post:
+            await validate_input(mock_hass, {CONF_API_KEY: ""})
+
+            mock_post.assert_not_called()
+
 
 class TestAIHubConfigFlow:
     """Tests for AIHubConfigFlow."""
@@ -117,6 +124,21 @@ class TestAIHubConfigFlow:
 
                     assert result["type"] == "create_entry"
                     assert mock_create.called
+                    assert mock_create.call_args.kwargs["data"] == user_input
+                    assert "subentries" not in mock_create.call_args.kwargs
+
+    @pytest.mark.asyncio
+    async def test_form_success_without_api_key(self, flow):
+        """Test setup can complete without a main API key."""
+        with patch("custom_components.ai_hub.config_flow.validate_input") as mock_validate:
+            user_input = {CONF_API_KEY: ""}
+
+            with patch.object(flow, "async_create_entry") as mock_create:
+                result = flow.async_step_user(user_input)
+
+                assert result["type"] == "create_entry"
+                mock_validate.assert_called_once()
+                assert mock_create.call_args.kwargs["data"] == user_input
 
     @pytest.mark.asyncio
     async def test_form_invalid_auth(self, flow):
@@ -156,7 +178,7 @@ class TestAIHubConfigFlow:
         assert "translation" in subentry_types
 
         assert subentry_types["conversation"] == AIHubSubentryFlowHandler
-        assert subentry_types["translation"] == AIHubTranslationFlowHandler
+        assert subentry_types["translation"] == AIHubSubentryFlowHandler
 
 
 class TestAIHubSubentryFlowHandler:
@@ -219,33 +241,11 @@ class TestAIHubSubentryFlowHandler:
 
         assert result["type"] == "form"
 
-class TestAIHubTranslationFlowHandler:
-    """Tests for AIHubTranslationFlowHandler."""
+    def test_translation_subentry(self, subentry_flow):
+        """Test translation subentry uses the generic flow."""
+        subentry_flow._subentry_type = "translation"
+        subentry_flow.options = {"recommended": True}
 
-    @pytest.fixture
-    def translation_flow(self, mock_hass):
-        """Create a Translation subentry flow instance."""
-        config_entry = MagicMock(spec=config_entries.ConfigEntry)
-        config_entry.subentries = {}
+        result = subentry_flow.async_step_init({CONF_RECOMMENDED: True})
 
-        flow = AIHubTranslationFlowHandler(mock_hass, config_entry, None)
-        flow.hass = mock_hass
-        flow.source = "user"
-        return flow
-
-    def test_init_create_entry(self, translation_flow):
-        """Test that translation subentry is created immediately."""
-        with patch.object(translation_flow, "async_create_entry") as mock_create:
-            result = translation_flow.async_step_user(None)
-
-            assert result["type"] == "create_entry"
-            assert mock_create.called
-
-    def test_reconfigure_not_supported(self, translation_flow):
-        """Test that reconfigure is not supported."""
-        translation_flow.source = "reconfigure"
-
-        result = translation_flow.async_step_user(None)
-
-        assert result["type"] == "abort"
-        assert result["reason"] == "translation_no_reconfigure"
+        assert result["type"] == "form"
