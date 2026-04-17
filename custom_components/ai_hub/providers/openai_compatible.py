@@ -14,17 +14,11 @@ from urllib.parse import urlparse
 
 import aiohttp
 
+from ..const import AI_HUB_CHAT_URL
+from ..http import build_json_headers, client_timeout, resolve_ssl_setting
 from . import LLMMessage, LLMProvider, LLMResponse, register_provider
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _get_ssl_setting(url: str) -> bool:
-    """Allow custom HTTP and self-signed HTTPS endpoints."""
-    parsed = urlparse(url)
-    return parsed.scheme != "http" and parsed.netloc == "api.openai.com"
-
-
 class OpenAICompatibleProvider(LLMProvider):
     """OpenAI-compatible LLM provider implementation.
 
@@ -79,16 +73,11 @@ class OpenAICompatibleProvider(LLMProvider):
 
     def _get_headers(self) -> dict[str, str]:
         """Get request headers."""
-        headers = {
-            "Content-Type": "application/json",
-        }
-        if self.config.api_key:
-            headers["Authorization"] = f"Bearer {self.config.api_key}"
-        return headers
+        return build_json_headers(self.config.api_key)
 
     def _get_api_url(self) -> str:
         """Get the API URL."""
-        return self.config.base_url or "https://api.openai.com/v1/chat/completions"
+        return self.config.base_url or AI_HUB_CHAT_URL
 
     def _build_request(
         self,
@@ -133,9 +122,9 @@ class OpenAICompatibleProvider(LLMProvider):
         request = self._build_request(messages, stream=False, tools=tools, **kwargs)
         headers = self._get_headers()
         url = self._get_api_url()
-        ssl = _get_ssl_setting(url)
+        ssl = resolve_ssl_setting(url, AI_HUB_CHAT_URL)
 
-        timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+        timeout = client_timeout(self.config.timeout)
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
@@ -177,9 +166,9 @@ class OpenAICompatibleProvider(LLMProvider):
         request = self._build_request(messages, stream=True, tools=tools, **kwargs)
         headers = self._get_headers()
         url = self._get_api_url()
-        ssl = _get_ssl_setting(url)
+        ssl = resolve_ssl_setting(url, AI_HUB_CHAT_URL)
 
-        timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+        timeout = client_timeout(self.config.timeout)
 
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
@@ -228,9 +217,9 @@ class OpenAICompatibleProvider(LLMProvider):
 
             parsed = urlparse(url)
             base = f"{parsed.scheme}://{parsed.netloc}"
-            ssl = _get_ssl_setting(url)
+            ssl = resolve_ssl_setting(url, AI_HUB_CHAT_URL)
 
-            timeout = aiohttp.ClientTimeout(total=10)
+            timeout = client_timeout(10)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(base, ssl=ssl) as response:
                     return response.status < 500

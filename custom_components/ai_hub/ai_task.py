@@ -28,28 +28,10 @@ from .const import (
     VISION_MODELS,
 )
 from .entity import AIHubBaseLLMEntity
+from .http import build_json_headers, client_timeout
+from .utils.serialization import ensure_string
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _ensure_string(value: Any) -> str:
-    """Ensure a value is a valid string.
-
-    Args:
-        value: The value to convert to string
-
-    Returns:
-        A string representation of the value, or empty string if None/empty
-    """
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, (list, dict)):
-        return json.dumps(value, ensure_ascii=False)
-    return str(value)
-
-
 def _get_conversation_model(config_entry: ConfigEntry) -> str:
     """Get the chat model from Conversation Agent subentry."""
     for subentry in config_entry.subentries.values():
@@ -162,7 +144,7 @@ class AIHubTaskEntity(
             )
             raise HomeAssistantError(ERROR_GETTING_RESPONSE)
 
-        text = _ensure_string(chat_log.content[-1].content)
+        text = ensure_string(chat_log.content[-1].content)
 
         # If structure is requested, parse as JSON
         if task.structure:
@@ -227,10 +209,7 @@ class AIHubTaskEntity(
 
         try:
             # Call AI Hub image generation API via HTTP
-            headers = {
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            }
+            headers = build_json_headers(self._api_key)
 
             # Get image URL from config (complete URL)
             image_url = options.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL)
@@ -240,7 +219,7 @@ class AIHubTaskEntity(
                     image_url,
                     json=request_params,
                     headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=120),
+                    timeout=client_timeout(120),
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()

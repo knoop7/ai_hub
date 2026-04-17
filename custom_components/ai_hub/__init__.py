@@ -27,7 +27,7 @@ except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test 
 
     Platform = None  # type: ignore[assignment]
 
-from .const import AI_HUB_CHAT_URL, DOMAIN
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,32 +116,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     # Validate API key by testing API connection only if provided
     if api_key and api_key.strip():
         try:
-            # Test the connection with a simple API call
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "model": "Qwen/Qwen3-8B",
-                "messages": [{"role": "user", "content": "Hi"}],
-                "max_tokens": 10,
-            }
+            from .config_flow_validation import validate_input
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    AI_HUB_CHAT_URL,
-                    json=payload,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    if response.status == 401:
-                        raise ConfigEntryAuthFailed("Invalid API key")
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise ConfigEntryNotReady(f"API test failed: {error_text}")
+            await validate_input(hass, {CONF_API_KEY: api_key})
         except aiohttp.ClientError as err:
             _LOGGER.error("Failed to connect to API: %s", err)
             raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
+        except ValueError as err:
+            reason = str(err)
+            if reason == "invalid_auth":
+                raise ConfigEntryAuthFailed("Invalid API key") from err
+            if reason == "cannot_connect":
+                raise ConfigEntryNotReady("API test failed") from err
+            _LOGGER.error("API validation failed: %s", err)
+            raise ConfigEntryNotReady(f"API validation failed: {err}") from err
         except ConfigEntryAuthFailed:
             raise
         except Exception as err:

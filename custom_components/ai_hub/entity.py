@@ -7,7 +7,6 @@ import json
 import logging
 from collections.abc import AsyncGenerator, Callable
 from typing import Any
-from urllib.parse import urlparse
 
 import aiohttp
 from homeassistant.components import conversation, media_source
@@ -17,7 +16,6 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import ulid
-from voluptuous_openapi import convert
 
 from .providers import LLMMessage, create_provider
 from .const import (
@@ -36,57 +34,30 @@ from .const import (
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
 )
+from .http import build_json_headers, client_timeout, resolve_ssl_setting
+from .llm_attachment_processor import AttachmentProcessor
+from .llm_message_builder import ChatMessageBuilder
+from .llm_stream import transform_stream
 from .markdown_filter import filter_markdown_streaming
+from .provider_router import get_provider_name
+from .utils.serialization import ensure_string
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def _ensure_string(value: Any) -> str:
-    """Ensure a value is a valid string for API calls.
-
-    Args:
-        value: The value to convert to string
-
-    Returns:
-        A string representation of the value, or empty string if None/empty
-    """
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, (list, dict)):
-        # Convert complex types to JSON string
-        return json.dumps(value, ensure_ascii=False)
-    # For other types, convert to string
-    return str(value)
+    """Ensure a value is a valid string for API calls."""
+    return ensure_string(value)
 
 
 def _get_request_ssl_setting(api_url: str, default_url: str) -> bool | None:
-    """Return request SSL behavior for API calls.
-
-    Custom LLM endpoints may use plain HTTP or self-signed certificates.
-    Keep verification enabled for the default hosted endpoint and disable it
-    only for user-supplied custom URLs.
-    """
-    parsed = urlparse(api_url)
-    if parsed.scheme == "http":
-        return False
-
-    if api_url != default_url and parsed.scheme == "https":
-        return False
-
-    return None
+    """Return request SSL behavior for API calls."""
+    return resolve_ssl_setting(api_url, default_url)
 
 
 def _get_provider_name(api_url: str, configured_provider: str | None = None) -> str:
     """Select provider implementation from URL."""
-    if configured_provider in {"openai_compatible", "anthropic_compatible"}:
-        return configured_provider
-
-    parsed = urlparse(api_url)
-    if "anthropic" in parsed.path.lower() or parsed.netloc == "api.anthropic.com":
-        return "anthropic_compatible"
-    return "openai_compatible"
+    return get_provider_name(api_url, configured_provider)
 
 
 class _AIHubEntityMixin:
@@ -378,10 +349,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 return
 
             # Call AI Hub API with streaming via HTTP
-            headers = {
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            }
+            headers = build_json_headers(self._api_key)
             request_ssl = _get_request_ssl_setting(api_url, AI_HUB_CHAT_URL)
 
             # Use Home Assistant's shared session for better performance
@@ -390,7 +358,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 api_url,
                 json=request_params,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=60),
+                timeout=client_timeout(60),
                 ssl=request_ssl,
             ) as response:
                 if response.status != 200:
@@ -452,82 +420,11 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         """Convert chat log to AI Hub message format."""
         options = self.subentry.data
         max_history = options.get(CONF_MAX_HISTORY_MESSAGES, RECOMMENDED_MAX_HISTORY_MESSAGES)
-
-        messages = []
-
-        if not chat_log.content:
-            return []
-
-        # For debugging: Check if we have attachments and simplify format
-        last_content = chat_log.content[-1]
-        if last_content.role == "user" and last_content.attachments:
-            _LOGGER.debug("Simplifying to single message format with attachments (like working service)")
-            # Only send the last user message with attachments, like the working service
-            return [await self._convert_user_message(last_content)]
-
-        # Track tool_call IDs for matching with tool results
-        # Maps: original_id -> generated_id (if we had to generate one)
-        # Also tracks: index -> id for tool_calls without original ids
-        tool_call_id_map: dict[str, str] = {}
-        last_tool_call_ids: list[str] = []
-
-        # Standard conversation handling for messages without attachments
-        # First message is system message (index 0)
-        # History is content[1:-1] (excluding first system and last user input)
-        # Last message is current user input (index -1)
-
-        # Add system messages
-        for content in chat_log.content:
-            if content.role == "system":
-                messages.append({"role": "system", "content": _ensure_string(content.content)})
-
-        # Process history messages (excluding system and last user input)
-        history_content = chat_log.content[1:-1] if len(chat_log.content) > 1 else []
-
-        # Build history messages with ID tracking
-        history_messages = []
-        for content in history_content:
-            if content.role == "user":
-                history_messages.append(await self._convert_user_message(content))
-            elif content.role == "assistant":
-                msg, generated_ids = self._convert_assistant_message_with_id_tracking(content, tool_call_id_map)
-                history_messages.append(msg)
-                last_tool_call_ids = generated_ids
-            elif content.role == "tool_result":
-                msg = self._convert_tool_message_with_id_matching(content, tool_call_id_map, last_tool_call_ids)
-                history_messages.append(msg)
-
-        # Limit history: keep only the most recent conversation turns
-        # Count user messages to determine conversation turns
-        if max_history > 0:
-            user_message_count = sum(1 for msg in history_messages if msg.get("role") == "user")
-            if user_message_count > max_history:
-                # Find the index to start keeping messages
-                # We want to keep the last max_history user turns and their associated messages
-                user_count = 0
-                start_index = len(history_messages)
-                for i in range(len(history_messages) - 1, -1, -1):
-                    if history_messages[i].get("role") == "user":
-                        user_count += 1
-                        if user_count >= max_history:
-                            start_index = i
-                            break
-                history_messages = history_messages[start_index:]
-
-        # Add history to messages
-        messages.extend(history_messages)
-
-        # Add current user input (with ID tracking for consistency)
-        if last_content.role == "user":
-            messages.append(await self._convert_user_message(last_content))
-        elif last_content.role == "assistant":
-            msg, _ = self._convert_assistant_message_with_id_tracking(last_content, tool_call_id_map)
-            messages.append(msg)
-        elif last_content.role == "tool_result":
-            msg = self._convert_tool_message_with_id_matching(last_content, tool_call_id_map, last_tool_call_ids)
-            messages.append(msg)
-
-        return messages
+        builder = ChatMessageBuilder(
+            attachment_processor=AttachmentProcessor(self.hass, self.entity_id),
+            max_history=max_history,
+        )
+        return await builder.async_convert_chat_log_to_messages(chat_log)
 
     async def _convert_user_message(
         self, content: conversation.Content
@@ -750,38 +647,13 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         self, tool: llm.Tool, custom_serializer: Callable[[Any], Any] | None
     ) -> dict[str, Any]:
         """Format tool for AI Hub API."""
-        # Ensure tool name and description are valid strings
-        tool_name = str(tool.name) if tool.name else ""
-        tool_description = str(tool.description) if tool.description else ""
-
-        return {
-            "type": "function",
-            "function": {
-                "name": tool_name,
-                "description": tool_description,
-                "parameters": self._convert_schema(tool.parameters, custom_serializer),
-            },
-        }
+        return ChatMessageBuilder.format_tool(tool, custom_serializer)
 
     def _convert_schema(
         self, schema: dict[str, Any], custom_serializer: Callable[[Any], Any] | None
     ) -> dict[str, Any]:
         """Convert schema to AI Hub format."""
-        # AI Hub uses standard JSON Schema
-        # Use voluptuous_openapi to convert the schema properly
-        try:
-            return convert(
-                schema,
-                custom_serializer=custom_serializer if custom_serializer else llm.selector_serializer,
-            )
-        except Exception as err:
-            _LOGGER.warning("Failed to convert schema with custom_serializer: %s", err)
-            # Fall back to basic conversion without custom_serializer
-            try:
-                return convert(schema, custom_serializer=llm.selector_serializer)
-            except Exception:
-                # If all else fails, return as-is
-                return schema
+        return ChatMessageBuilder.convert_schema(schema, custom_serializer)
 
     async def _transform_stream(
         self,
@@ -790,112 +662,8 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         conversation.AssistantContentDeltaDict | conversation.ToolResultContentDeltaDict
     ]:
         """Transform AI Hub SSE stream into HA format."""
-        buffer = ""
-        tool_call_buffer: dict[int, dict[str, Any]] = {}
-        has_started = False
-
-        async for chunk in response.content:
-            if not chunk:
-                continue
-
-            chunk_text = chunk.decode("utf-8", errors="ignore")
-            buffer += chunk_text
-
-            # Process complete lines
-            while "\n" in buffer:
-                line, buffer = buffer.split("\n", 1)
-                line = line.strip()
-
-                # Skip empty lines and end markers
-                if not line or line == "data: [DONE]":
-                    continue
-
-                # Process SSE data lines
-                if line.startswith("data: "):
-                    data_str = line[6:]  # Remove "data: " prefix
-                    if not data_str.strip():
-                        continue
-
-                    try:
-                        data = json.loads(data_str)
-                    except json.JSONDecodeError:
-                        _LOGGER.debug("SSE data parse failed: %s", data_str)
-                        continue
-
-                    if not data.get("choices"):
-                        continue
-
-                    delta = data["choices"][0].get("delta", {})
-
-                    # Start assistant message if not started
-                    if not has_started:
-                        yield {"role": "assistant"}
-                        has_started = True
-
-                    # Handle content delta
-                    if "content" in delta and delta["content"]:
-                        # Filter markdown from content using streaming filter to preserve spaces
-                        filtered_content = filter_markdown_streaming(delta["content"])
-                        yield {"content": filtered_content}
-
-                    # Handle tool calls
-                    if "tool_calls" in delta:
-                        for tc_delta in delta["tool_calls"]:
-                            index = tc_delta.get("index", 0)
-
-                            # Initialize tool call buffer if needed
-                            if index not in tool_call_buffer:
-                                # Ensure we always have a valid id
-                                tool_id = tc_delta.get("id")
-                                if not tool_id or not isinstance(tool_id, str) or not tool_id.strip():
-                                    tool_id = ulid.ulid_now()
-                                tool_call_buffer[index] = {
-                                    "id": tool_id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": "",
-                                        "arguments": "",
-                                    },
-                                }
-
-                            # Update tool call data - only update id if it's a valid non-empty string
-                            if (
-                                "id" in tc_delta
-                                and tc_delta["id"]
-                                and isinstance(tc_delta["id"], str)
-                                and tc_delta["id"].strip()
-                            ):
-                                tool_call_buffer[index]["id"] = tc_delta["id"]
-                            if "function" in tc_delta:
-                                func = tc_delta["function"]
-                                if "name" in func:
-                                    tool_call_buffer[index]["function"]["name"] = func["name"]
-                                if "arguments" in func:
-                                    tool_call_buffer[index]["function"]["arguments"] += func["arguments"]
-
-        # Yield final tool calls if any
-        if tool_call_buffer:
-            tool_calls = []
-            for tc in tool_call_buffer.values():
-                try:
-                    # Ensure id is valid before creating ToolInput
-                    tool_id = tc["id"]
-                    if not tool_id or not isinstance(tool_id, str) or not tool_id.strip():
-                        tool_id = ulid.ulid_now()
-
-                    args = json.loads(tc["function"]["arguments"]) if tc["function"]["arguments"] else {}
-                    tool_calls.append(
-                        llm.ToolInput(
-                            id=tool_id,
-                            tool_name=tc["function"]["name"],
-                            tool_args=args,
-                        )
-                    )
-                except json.JSONDecodeError as err:
-                    _LOGGER.warning("Failed to parse tool call arguments: %s", err)
-
-            if tool_calls:
-                yield {"tool_calls": tool_calls}
+        async for content in transform_stream(response):
+            yield content
 
     async def _async_download_image_from_url(self, url: str) -> bytes | None:
         """Download image from URL."""

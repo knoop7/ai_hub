@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 import aiohttp
 
+from ..http import build_json_headers, client_timeout, resolve_ssl_setting
 from . import LLMMessage, LLMProvider, LLMResponse, register_provider
 
 _LOGGER = logging.getLogger(__name__)
@@ -20,8 +21,7 @@ _ANTHROPIC_VERSION = "2023-06-01"
 
 def _get_ssl_setting(url: str) -> bool:
     """Allow custom HTTP and self-signed HTTPS endpoints."""
-    parsed = urlparse(url)
-    return parsed.scheme != "http" and parsed.netloc == "api.anthropic.com"
+    return resolve_ssl_setting(url, _DEFAULT_API_URL) is not False
 
 
 class AnthropicCompatibleProvider(LLMProvider):
@@ -44,10 +44,8 @@ class AnthropicCompatibleProvider(LLMProvider):
         return True
 
     def _get_headers(self) -> dict[str, str]:
-        headers = {
-            "Content-Type": "application/json",
-            "anthropic-version": _ANTHROPIC_VERSION,
-        }
+        headers = build_json_headers(self.config.api_key)
+        headers["anthropic-version"] = _ANTHROPIC_VERSION
         if self.config.api_key:
             headers["x-api-key"] = self.config.api_key
             headers["Authorization"] = f"Bearer {self.config.api_key}"
@@ -272,9 +270,9 @@ class AnthropicCompatibleProvider(LLMProvider):
         request = self._build_request(messages, stream=False, tools=tools, **kwargs)
         headers = self._get_headers()
         url = self._get_api_url()
-        ssl = _get_ssl_setting(url)
+        ssl = resolve_ssl_setting(url, _DEFAULT_API_URL)
 
-        timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+        timeout = client_timeout(self.config.timeout)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
                 if response.status != 200:
@@ -315,9 +313,9 @@ class AnthropicCompatibleProvider(LLMProvider):
         request = self._build_request(messages, stream=True, tools=tools, **kwargs)
         headers = self._get_headers()
         url = self._get_api_url()
-        ssl = _get_ssl_setting(url)
+        ssl = resolve_ssl_setting(url, _DEFAULT_API_URL)
 
-        timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+        timeout = client_timeout(self.config.timeout)
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
                 if response.status != 200:
@@ -360,9 +358,9 @@ class AnthropicCompatibleProvider(LLMProvider):
             url = self._get_api_url()
             parsed = urlparse(url)
             base = f"{parsed.scheme}://{parsed.netloc}"
-            ssl = _get_ssl_setting(url)
+            ssl = resolve_ssl_setting(url, _DEFAULT_API_URL)
 
-            timeout = aiohttp.ClientTimeout(total=10)
+            timeout = client_timeout(10)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.get(base, ssl=ssl) as response:
                     return response.status < 500
