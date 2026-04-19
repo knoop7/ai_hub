@@ -10,9 +10,6 @@ responses:
     error_message: "操作失败，请稍后再试"
   error:
     default_error: "操作失败"
-  automation:
-    creation_success: "我已经为您创建了自动化: {automation_name}"
-    creation_error: "创建自动化失败: {error}"
   device_operation:
     verification_success: "操作已成功执行"
     verification_timeout: "命令已发送，设备可能需要几秒钟响应"
@@ -30,14 +27,10 @@ device_operations:
   defaults:
     global_keywords: ["所有", "全部", "一切"]
     local_features: ["所有设备", "全部设备", "所有灯", "全部灯"]
-    automation_keywords: ["创建自动化", "创建一个自动化", "建立自动化", "设置自动化"]
-    automation_prefixes: ["创建自动化", "创建一个自动化", "建立自动化", "设置自动化"]
 
     # 默认错误消息
     error_messages:
       llm_config_error: "LLM配置出现问题，请检查集成设置。"
-      automation_default_name: "新自动化"
-      automation_trigger_unknown: "unknown"
 
     # 超时配置
     timeouts:
@@ -57,15 +50,3 @@ device_operations:
     script: ["script.turn_on", "script.turn_off", "script.toggle"]
     scene: ["scene.turn_on"]
     valve: ["valve.open", "valve.close", "valve.set_position"]
-
-# ========== 自动化关键词 ==========
-automation_keywords:
-  - "创建自动化"
-  - "设置自动化"
-  - "自动执行"
-  - "定时执行"
-  - "当...时候"
-  - "如果...就"
-  - "帮我创建"
-  - "智能控制"
-  - "设置定时"
