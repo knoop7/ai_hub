@@ -135,6 +135,7 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
     """AI Hub text-to-speech entity using Edge TTS."""
 
     _attr_has_entity_name = False
+    _attr_icon = "mdi:microsoft-edge"
     _attr_supported_options = ['voice', 'quality'] + PROSODY_OPTIONS
     _attr_supports_streaming_input = True
 

@@ -94,6 +94,7 @@ class LLMConfig(BaseProviderConfig):
         base_url: Base URL for the API
         temperature: Sampling temperature (0-1)
         max_tokens: Maximum tokens to generate
+        enable_thinking: Enable thinking mode for models that support chain-of-thought
         timeout: Request timeout in seconds
         extra: Additional provider-specific configuration
     """
@@ -102,6 +103,7 @@ class LLMConfig(BaseProviderConfig):
     base_url: str | None = None
     temperature: float = 0.3
     max_tokens: int = 250
+    enable_thinking: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
 
 

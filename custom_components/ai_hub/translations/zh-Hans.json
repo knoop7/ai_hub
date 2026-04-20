@@ -53,7 +53,8 @@
             "top_p": "Top P",
             "top_k": "Top K",
             "max_tokens": "最大令牌数",
-            "max_history_messages": "历史消息数"
+            "max_history_messages": "历史消息数",
+            "enable_thinking": "启用思维链"
           },
           "data_description": {
             "recommended": "使用推荐配置",
@@ -65,7 +66,8 @@
             "temperature": "控制创造性（0-2）",
             "top_p": "采样参数（0-1）",
             "max_tokens": "最大响应长度",
-            "max_history_messages": "保留的历史消息数量"
+            "max_history_messages": "保留的历史消息数量",
+            "enable_thinking": "为支持思维链的模型启用思维模式"
           }
         }
       }
