@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import logging
+from types import SimpleNamespace
 from typing import Any, Literal
 
 from homeassistant.components import conversation
@@ -27,6 +28,7 @@ from .intents import get_config_cache
 _LOGGER = logging.getLogger(__name__)
 
 MATCH_ALL: Literal["*"] = "*"
+FALLBACK_AGENT_NAME = "AI Hub Local Assist"
 
 
 async def async_setup_entry(
@@ -37,14 +39,22 @@ async def async_setup_entry(
     """Set up conversation entities."""
     _LOGGER.debug("Setting up conversation entities, subentries: %s", config_entry.subentries)
 
-    if not config_entry.subentries:
-        _LOGGER.warning("No subentries found in config entry")
+    conversation_subentries = [
+        subentry
+        for subentry in config_entry.subentries.values()
+        if subentry.subentry_type == "conversation"
+    ]
+
+    if not conversation_subentries:
+        async_add_entities([AIHubLocalConversationAgent(config_entry)])
+        _LOGGER.debug(
+            "Created fallback local conversation agent for entry: %s",
+            config_entry.entry_id,
+        )
         return
 
-    for subentry in config_entry.subentries.values():
+    for subentry in conversation_subentries:
         _LOGGER.debug("Processing subentry: %s, type: %s", subentry.subentry_id, subentry.subentry_type)
-        if subentry.subentry_type != "conversation":
-            continue
 
         async_add_entities(
             [AIHubConversationAgent(config_entry, subentry)],
@@ -106,6 +116,22 @@ class AIHubConversationAgent(
         2. 如果本地没匹配，交给 Home Assistant 处理（内置意图 + LLM）
         """
         options = self.subentry.data
+
+        local_or_builtin_result = await self._async_handle_local_and_builtin_intents(
+            user_input,
+            chat_log,
+        )
+        if local_or_builtin_result is not None:
+            return local_or_builtin_result
+
+        return await self._async_handle_llm_message(user_input, chat_log, options)
+
+    async def _async_handle_local_and_builtin_intents(
+        self,
+        user_input: conversation.ConversationInput,
+        chat_log: conversation.ChatLog,
+    ) -> conversation.ConversationResult | None:
+        """Run local intents first, then Home Assistant built-in intents."""
 
         # ========== 步骤1: 本地意图处理 ==========
         # 只处理 HA 原生不支持的功能（如全局设备控制）
@@ -203,7 +229,15 @@ class AIHubConversationAgent(
         except Exception as e:
             _LOGGER.warning("HA 内置意图处理异常: %s", e, exc_info=True)
 
-        # ========== 步骤3: LLM 处理 ==========
+        return None
+
+    async def _async_handle_llm_message(
+        self,
+        user_input: conversation.ConversationInput,
+        chat_log: conversation.ChatLog,
+        options: dict[str, Any],
+    ) -> conversation.ConversationResult:
+        """Handle the remaining request via LLM."""
 
         try:
             # High-performance LLM API config retrieval
@@ -382,3 +416,42 @@ class AIHubConversationAgent(
         except Exception as e:
             _LOGGER.debug(f"Error checking whether to skip HA processing: {e}")
             return False
+
+
+class AIHubLocalConversationAgent(AIHubConversationAgent):
+    """Fallback local-only conversation agent shown when no formal agent exists."""
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        """Initialize the fallback agent."""
+        from .consts import RECOMMENDED_CHAT_MODEL
+
+        fallback_subentry = SimpleNamespace(
+            subentry_id=f"{entry.entry_id}_local_assist",
+            title=FALLBACK_AGENT_NAME,
+            data={},
+            subentry_type="conversation",
+        )
+        super().__init__(entry, fallback_subentry)
+        self.default_model = RECOMMENDED_CHAT_MODEL
+
+    async def _async_handle_message(
+        self,
+        user_input: conversation.ConversationInput,
+        chat_log: conversation.ChatLog,
+    ) -> conversation.ConversationResult:
+        """Process a sentence using only local and built-in intents."""
+        local_or_builtin_result = await self._async_handle_local_and_builtin_intents(
+            user_input,
+            chat_log,
+        )
+        if local_or_builtin_result is not None:
+            return local_or_builtin_result
+
+        empty_response = intent.IntentResponse(language=user_input.language)
+        empty_response.async_set_speech(
+            "AI Hub Local Assist 仅支持本地意图和 Home Assistant 内置语音控制"
+        )
+        return conversation.ConversationResult(
+            response=empty_response,
+            conversation_id=user_input.conversation_id,
+        )
