@@ -187,6 +187,9 @@
       }
     }
   },
+  "runtime": {
+    "local_assist_only": "Current mode only supports local intents"
+  },
   "services": {
     "generate_image": {
       "name": "Generate Image",

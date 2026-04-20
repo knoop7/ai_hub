@@ -114,6 +114,8 @@ class _AIHubEntityMixin:
         entry: config_entry_flow.ConfigEntry,
         subentry: config_entry_flow.ConfigSubentry,
         default_model: str,
+        *,
+        warn_on_missing_api_key: bool = True,
     ) -> None:
         """Initialize common AI Hub entity attributes.
 
@@ -141,7 +143,8 @@ class _AIHubEntityMixin:
             self._api_key = main_key
         else:
             self._api_key = ""
-            _LOGGER.warning("No valid API key found for entity %s", subentry.title)
+            if warn_on_missing_api_key:
+                _LOGGER.warning("No valid API key found for entity %s", subentry.title)
 
     def _get_device_model(self, default_model: str) -> str:
         """Get the device model for device info.
@@ -182,10 +185,17 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         entry: config_entry_flow.ConfigEntry,
         subentry: config_entry_flow.ConfigSubentry,
         default_model: str,
+        *,
+        warn_on_missing_api_key: bool = True,
     ) -> None:
         """Initialize the entity."""
         # Use mixin initialization
-        self._initialize_aihub_entity(entry, subentry, default_model)
+        self._initialize_aihub_entity(
+            entry,
+            subentry,
+            default_model,
+            warn_on_missing_api_key=warn_on_missing_api_key,
+        )
         # Create device info using mixin method
         self._attr_device_info = self._create_device_info(DOMAIN)
 
@@ -1087,9 +1097,16 @@ class AIHubEntityBase(Entity, _AIHubEntityMixin):
         entry: config_entry_flow.ConfigEntry,
         subentry: config_entry_flow.ConfigSubentry,
         default_model: str,
+        *,
+        warn_on_missing_api_key: bool = True,
     ) -> None:
         """Initialize the entity."""
         # Use mixin initialization
-        self._initialize_aihub_entity(entry, subentry, default_model)
+        self._initialize_aihub_entity(
+            entry,
+            subentry,
+            default_model,
+            warn_on_missing_api_key=warn_on_missing_api_key,
+        )
         # Create device info using mixin method
         self._attr_device_info = self._create_device_info(DOMAIN)

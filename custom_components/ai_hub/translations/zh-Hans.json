@@ -187,6 +187,9 @@
       }
     }
   },
+  "runtime": {
+    "local_assist_only": "当前模式仅支持本地意图"
+  },
   "services": {
     "generate_image": {
       "name": "生成图像",

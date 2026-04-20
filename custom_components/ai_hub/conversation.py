@@ -11,7 +11,9 @@ dialogue interactions, supporting:
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 import logging
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal
 
@@ -19,6 +21,7 @@ from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import intent, llm
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .consts import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN
@@ -29,6 +32,43 @@ _LOGGER = logging.getLogger(__name__)
 
 MATCH_ALL: Literal["*"] = "*"
 FALLBACK_AGENT_NAME = "AI Hub Local Assist"
+_TRANSLATIONS_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def _load_translation_file(language_code: str) -> dict[str, Any]:
+    """Load a translation file from disk."""
+    translations_path = Path(__file__).parent / "translations" / f"{language_code}.json"
+    try:
+        with translations_path.open("r", encoding="utf-8") as file_handle:
+            data = json.load(file_handle)
+            return data if isinstance(data, dict) else {}
+    except Exception as err:
+        _LOGGER.debug("Failed to load runtime translations from %s: %s", translations_path, err)
+        return {}
+
+
+async def _async_prime_runtime_translations() -> None:
+    """Preload translation files so runtime speech does not hit disk."""
+    if "en" not in _TRANSLATIONS_CACHE:
+        _TRANSLATIONS_CACHE["en"] = await asyncio.to_thread(_load_translation_file, "en")
+    if "zh-Hans" not in _TRANSLATIONS_CACHE:
+        _TRANSLATIONS_CACHE["zh-Hans"] = await asyncio.to_thread(
+            _load_translation_file,
+            "zh-Hans",
+        )
+
+
+def _get_local_assist_only_message(language: str | None) -> str:
+    """Load the fallback local-assist message from translations files."""
+    normalized_language = (language or "").lower()
+    language_code = "en" if normalized_language.startswith("en") else "zh-Hans"
+    fallback = "Current mode only supports local intents" if language_code == "en" else "当前模式仅支持本地意图"
+
+    translations = _TRANSLATIONS_CACHE.get(language_code, {})
+
+    runtime = translations.get("runtime") if isinstance(translations, dict) else None
+    message = runtime.get("local_assist_only") if isinstance(runtime, dict) else None
+    return message if isinstance(message, str) else fallback
 
 
 async def async_setup_entry(
@@ -37,6 +77,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up conversation entities."""
+    await _async_prime_runtime_translations()
     _LOGGER.debug("Setting up conversation entities, subentries: %s", config_entry.subentries)
 
     conversation_subentries = [
@@ -44,6 +85,13 @@ async def async_setup_entry(
         for subentry in config_entry.subentries.values()
         if subentry.subentry_type == "conversation"
     ]
+
+    if not conversation_subentries and _has_registered_conversation_entity(hass, config_entry):
+        _LOGGER.debug(
+            "Skipping fallback local conversation agent because a registered conversation entity already exists for entry: %s",
+            config_entry.entry_id,
+        )
+        return
 
     if not conversation_subentries:
         async_add_entities([AIHubLocalConversationAgent(config_entry)])
@@ -63,6 +111,22 @@ async def async_setup_entry(
         _LOGGER.debug("Created conversation agent for subentry: %s", subentry.subentry_id)
 
 
+def _has_registered_conversation_entity(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+) -> bool:
+    """Return whether a non-fallback conversation entity is already registered."""
+    entity_registry = er.async_get(hass)
+    fallback_unique_id = f"{config_entry.entry_id}_local_assist"
+    for entity_entry in er.async_entries_for_config_entry(entity_registry, config_entry.entry_id):
+        if entity_entry.domain != conversation.DOMAIN:
+            continue
+        if entity_entry.unique_id == fallback_unique_id:
+            continue
+        return True
+    return False
+
+
 class AIHubConversationAgent(
     conversation.ConversationEntity,
     conversation.AbstractConversationAgent,
@@ -73,18 +137,28 @@ class AIHubConversationAgent(
     _attr_supports_streaming = True
 
     def __init__(
-        self, entry: ConfigEntry, subentry: ConfigSubentry
+        self,
+        entry: ConfigEntry,
+        subentry: ConfigSubentry,
+        *,
+        warn_on_missing_api_key: bool = True,
+        force_control_feature: bool = False,
     ) -> None:
         """Initialize the agent."""
         from .consts import RECOMMENDED_CHAT_MODEL
 
-        super().__init__(entry, subentry, RECOMMENDED_CHAT_MODEL)
+        super().__init__(
+            entry,
+            subentry,
+            RECOMMENDED_CHAT_MODEL,
+            warn_on_missing_api_key=warn_on_missing_api_key,
+        )
 
         # 初始化配置缓存
         self._config_cache = get_config_cache()
 
         # Enable control feature if LLM Hass API is configured
-        if self.subentry.data.get(CONF_LLM_HASS_API):
+        if force_control_feature or self.subentry.data.get(CONF_LLM_HASS_API):
             self._attr_supported_features = (
                 conversation.ConversationEntityFeature.CONTROL
             )
@@ -225,6 +299,14 @@ class AIHubConversationAgent(
                     is_no_match,
                     is_truncated_query_answer,
                 )
+            elif intent_handler and intent_handler.should_handle(user_input.text):
+                _LOGGER.debug("HA intents returned None, falling back to local intent: %s", user_input.text)
+                intent_result = await intent_handler.handle(user_input.text, user_input.language)
+                if intent_result:
+                    return conversation.ConversationResult(
+                        response=intent_result["response"],
+                        conversation_id=user_input.conversation_id,
+                    )
 
         except Exception as e:
             _LOGGER.warning("HA 内置意图处理异常: %s", e, exc_info=True)
@@ -431,7 +513,12 @@ class AIHubLocalConversationAgent(AIHubConversationAgent):
             data={},
             subentry_type="conversation",
         )
-        super().__init__(entry, fallback_subentry)
+        super().__init__(
+            entry,
+            fallback_subentry,
+            warn_on_missing_api_key=False,
+            force_control_feature=True,
+        )
         self.default_model = RECOMMENDED_CHAT_MODEL
 
     async def _async_handle_message(
@@ -448,9 +535,7 @@ class AIHubLocalConversationAgent(AIHubConversationAgent):
             return local_or_builtin_result
 
         empty_response = intent.IntentResponse(language=user_input.language)
-        empty_response.async_set_speech(
-            "AI Hub Local Assist 仅支持本地意图和 Home Assistant 内置语音控制"
-        )
+        empty_response.async_set_speech(_get_local_assist_only_message(user_input.language))
         return conversation.ConversationResult(
             response=empty_response,
             conversation_id=user_input.conversation_id,

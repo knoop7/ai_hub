@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -12,7 +13,6 @@ from homeassistant.config_entries import (
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentryFlow,
-    OptionsFlow,
     SubentryFlowResult,
 )
 from homeassistant.const import CONF_API_KEY, CONF_NAME
@@ -39,11 +39,6 @@ class AIHubConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for AI Hub."""
 
     VERSION = 1
-
-    @staticmethod
-    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        """Return the options flow handler."""
-        return AIHubOptionsFlowHandler()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -104,6 +99,16 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
     options: dict[str, Any]
     last_rendered_recommended: bool = False
 
+    def _async_schedule_entry_reload(self) -> None:
+        """Reload the parent entry so conversation fallback state stays in sync."""
+
+        async def _delayed_reload() -> None:
+            entry_id = self._get_entry().entry_id
+            await asyncio.sleep(1)
+            await self.hass.config_entries.async_reload(entry_id)
+
+        self.hass.async_create_task(_delayed_reload())
+
     @property
     def _is_new(self) -> bool:
         """Return if this is a new subentry."""
@@ -130,6 +135,8 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
                     processed_input[CONF_LLM_HASS_API] = llm.LLM_API_ASSIST
 
                 if self._is_new:
+                    if self._subentry_type == "conversation":
+                        self._async_schedule_entry_reload()
                     return self.async_create_entry(
                         title=processed_input.pop(
                             CONF_NAME,
@@ -141,6 +148,8 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
                         data=processed_input,
                     )
 
+                if self._subentry_type == "conversation":
+                    self._async_schedule_entry_reload()
                 return self.async_update_and_abort(
                     self._get_entry(),
                     self._get_reconfigure_subentry(),
@@ -164,57 +173,3 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
 
     async_step_reconfigure = async_step_init
     async_step_user = async_step_init
-
-
-class AIHubOptionsFlowHandler(OptionsFlow):
-    """Handle options flow for AI Hub."""
-
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Manage the main integration options."""
-        current_api_key = (
-            self.config_entry.options.get(CONF_API_KEY)
-            or self.config_entry.data.get(CONF_API_KEY)
-            or ""
-        )
-
-        if user_input is None:
-            return self.async_show_form(
-                step_id="init",
-                data_schema=vol.Schema(
-                    {vol.Optional(CONF_API_KEY, default=current_api_key): str}
-                ),
-                description_placeholders=FLOW_DESCRIPTION_PLACEHOLDERS,
-            )
-
-        user_input = {**user_input}
-        user_input[CONF_API_KEY] = user_input.get(CONF_API_KEY, "").strip()
-
-        try:
-            await validate_input(self.hass, user_input)
-        except ValueError as err:
-            reason = str(err)
-            return self.async_show_form(
-                step_id="init",
-                data_schema=vol.Schema(
-                    {vol.Optional(CONF_API_KEY, default=user_input[CONF_API_KEY]): str}
-                ),
-                errors={
-                    "base": (
-                        reason if reason in {"invalid_auth", "cannot_connect"} else "unknown"
-                    )
-                },
-                description_placeholders=FLOW_DESCRIPTION_PLACEHOLDERS,
-            )
-        except aiohttp.ClientError:
-            return self.async_show_form(
-                step_id="init",
-                data_schema=vol.Schema(
-                    {vol.Optional(CONF_API_KEY, default=user_input[CONF_API_KEY]): str}
-                ),
-                errors={"base": "cannot_connect"},
-                description_placeholders=FLOW_DESCRIPTION_PLACEHOLDERS,
-            )
-
-        return self.async_create_entry(title="", data=user_input)
