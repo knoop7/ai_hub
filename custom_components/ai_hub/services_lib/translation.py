@@ -24,6 +24,7 @@ from pathlib import Path
 import aiohttp
 
 from ..consts import AI_HUB_CHAT_URL, RECOMMENDED_CHAT_MODEL
+from .batch_utils import build_batch_result, build_list_result, select_named_items
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -195,44 +196,45 @@ async def async_translate_all_components(
             if zh_file.exists():
                 available_translations.append(component_dir.name)
 
-        return {
-            "mode": "list_only",
-            "total_components": len(all_components),
-            "all_components": sorted(all_components),
-            "components_with_translations": sorted(available_translations),
-        }
+        return build_list_result(
+            mode="list_only",
+            total_key="total_components",
+            all_items_key="all_components",
+            all_items=sorted(all_components),
+            translated_key="components_with_translations",
+            translated_items=sorted(available_translations),
+        )
 
-    translated = 0
-    skipped = 0
     translated_components = []
     skipped_components = []
 
-    if target_component:
-        target_dir = base_path / target_component
-        if not target_dir.exists():
-            return {"error": f"Target component not found: {target_component}"}
-        component_dirs = [target_dir]
-    else:
-        component_dirs = [
-            d for d in base_path.iterdir()
-            if d.is_dir() and d.name not in ["ai_hub", "translation_localizer"]
-        ]
+    component_dirs = [
+        d for d in base_path.iterdir()
+        if d.is_dir() and d.name not in ["ai_hub", "translation_localizer"]
+    ]
+    component_dirs, error = select_named_items(
+        component_dirs,
+        target_component,
+        matcher=lambda item, target: item.name == target,
+        not_found_error=f"Target component not found: {target_component}",
+    )
+    if error is not None:
+        return error
+    assert component_dirs is not None
 
     for component_dir in component_dirs:
         result = await async_translate_component(
             component_dir, component_dir.name, api_key, force_translation, api_url, model
         )
         if result == "translated":
-            translated += 1
             translated_components.append(component_dir.name)
         else:
-            skipped += 1
             skipped_components.append(component_dir.name)
 
-    return {
-        "mode": "translate",
-        "translated": translated,
-        "skipped": skipped,
-        "translated_components": translated_components,
-        "skipped_components": skipped_components,
-    }
+    return build_batch_result(
+        mode="translate",
+        translated_items=translated_components,
+        skipped_items=skipped_components,
+        translated_key="translated_components",
+        skipped_key="skipped_components",
+    )

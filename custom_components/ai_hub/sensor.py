@@ -34,6 +34,7 @@ from .consts import (
     DOMAIN,
     TIMEOUT_HEALTH_CHECK,
 )
+from .api_health import async_probe_url
 from .diagnostics import collect_api_monitor_targets, get_diagnostics_collector
 
 _LOGGER = logging.getLogger(__name__)
@@ -199,43 +200,35 @@ class AIHubHealthCheckSensor(SensorEntity):
         Returns:
             Status dictionary
         """
-        try:
-            start_time = datetime.now()
-            async with session.get(
-                url,
-                timeout=aiohttp.ClientTimeout(total=TIMEOUT_HEALTH_CHECK),
-            ) as response:
-                latency = (datetime.now() - start_time).total_seconds() * 1000
+        probe = await async_probe_url(session, url, timeout_seconds=TIMEOUT_HEALTH_CHECK)
+        if probe.get("reachable"):
+            return {
+                "status": "healthy" if probe["http_status"] < 500 else "degraded",
+                "http_status": probe["http_status"],
+                "latency_ms": probe["latency_ms"],
+                "checked_at": probe["checked_at"],
+            }
 
-                return {
-                    "status": "healthy" if response.status < 500 else "degraded",
-                    "http_status": response.status,
-                    "latency_ms": round(latency, 2),
-                    "checked_at": datetime.now().isoformat(),
-                }
-
-        except aiohttp.ClientError as e:
-            _LOGGER.debug("%s health check failed: %s", name, e)
+        if probe.get("error_type") == "client":
+            _LOGGER.debug("%s health check failed: %s", name, probe["error"])
             return {
                 "status": "unreachable",
-                "error": str(e),
-                "checked_at": datetime.now().isoformat(),
+                "error": probe["error"],
+                "checked_at": probe["checked_at"],
             }
 
-        except asyncio.TimeoutError:
+        if probe.get("error_type") == "timeout":
             return {
                 "status": "timeout",
-                "error": f"Timeout after {TIMEOUT_HEALTH_CHECK}s",
-                "checked_at": datetime.now().isoformat(),
+                "error": probe["error"],
+                "checked_at": probe["checked_at"],
             }
 
-        except aiohttp.ClientError as err:
-            _LOGGER.warning("%s health check error: %s", name, err)
-            return {
-                "status": "error",
-                "error": str(err),
-                "checked_at": datetime.now().isoformat(),
-            }
+        return {
+            "status": "error",
+            "error": probe.get("error", "Unknown error"),
+            "checked_at": probe["checked_at"],
+        }
 
 
 class _BaseHealthSensor(SensorEntity):
@@ -296,24 +289,17 @@ class _BaseHealthSensor(SensorEntity):
         """Update the sensor."""
         session = async_get_clientsession(self.hass)
 
-        try:
-            start_time = datetime.now()
-            async with session.get(
-                self._check_url,
-                timeout=aiohttp.ClientTimeout(total=TIMEOUT_HEALTH_CHECK),
-            ) as response:
-                self._latency = round(
-                    (datetime.now() - start_time).total_seconds() * 1000,
-                    2,
-                )
-                self._status = "healthy" if response.status < 500 else "degraded"
-
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            _LOGGER.debug("%s latency check failed: %s", self._name_suffix, err)
+        probe = await async_probe_url(session, self._check_url, timeout_seconds=TIMEOUT_HEALTH_CHECK)
+        if probe.get("reachable"):
+            self._latency = probe["latency_ms"]
+            self._status = "healthy" if probe["http_status"] < 500 else "degraded"
+        else:
+            if probe.get("error_type") in {"client", "timeout"}:
+                _LOGGER.debug("%s latency check failed: %s", self._name_suffix, probe["error"])
             self._latency = None
             self._status = "unreachable"
 
-        self._last_check = datetime.now()
+        self._last_check = datetime.fromisoformat(probe["checked_at"])
 
 
 class SiliconFlowHealthSensor(_BaseHealthSensor):

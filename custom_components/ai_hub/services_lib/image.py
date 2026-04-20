@@ -32,6 +32,7 @@ from ..consts import (
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
     RECOMMENDED_IMAGE_MODEL,
 )
+from .image_utils import extract_generated_image_payload
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -266,30 +267,14 @@ async def handle_generate_image(
                     raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: {error_text}")
 
                 result = await response.json()
-
-                if "data" in result and len(result["data"]) > 0:
-                    image_data = result["data"][0]
-                    image_url = image_data.get("url", "")
-                    if image_url:
-                        return {
-                            "success": True,
-                            "image_url": image_url,
-                            "prompt": prompt,
-                            "size": size,
-                            "model": model,
-                        }
-                    else:
-                        b64_json = image_data.get("b64_json", "")
-                        if b64_json:
-                            return {
-                                "success": True,
-                                "image_base64": b64_json,
-                                "prompt": prompt,
-                                "size": size,
-                                "model": model,
-                            }
-
-                raise HomeAssistantError("无法获取生成的图像")
+                image_payload = extract_generated_image_payload(result)
+                return {
+                    "success": True,
+                    **image_payload,
+                    "prompt": prompt,
+                    "size": size,
+                    "model": model,
+                }
 
     except Exception as err:
         _LOGGER.error("Error generating image: %s", err)

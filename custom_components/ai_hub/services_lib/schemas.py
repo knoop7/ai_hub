@@ -28,9 +28,14 @@ from ..consts import (
     TTS_DEFAULT_VOICE,
 )
 
+CONFIG_ENTRY_FIELD = {vol.Optional("config_entry_id"): cv.string}
+TTS_VOICE_FIELD = {
+    vol.Optional("voice", default=TTS_DEFAULT_VOICE): vol.In(list(EDGE_TTS_VOICES.keys()))
+}
+
 # Schema for image analysis service
 IMAGE_ANALYZER_SCHEMA = {
-    vol.Optional("config_entry_id"): cv.string,
+    **CONFIG_ENTRY_FIELD,
     vol.Optional("image_file"): cv.string,
     vol.Optional("image_entity"): cv.entity_id,
     vol.Required("message"): cv.string,
@@ -42,7 +47,7 @@ IMAGE_ANALYZER_SCHEMA = {
 
 # Schema for image generation service
 IMAGE_GENERATOR_SCHEMA = {
-    vol.Optional("config_entry_id"): cv.string,
+    **CONFIG_ENTRY_FIELD,
     vol.Required("prompt"): cv.string,
     vol.Optional("size", default="1024x1024"): vol.In(IMAGE_SIZES),
     vol.Optional("model", default=RECOMMENDED_IMAGE_MODEL): cv.string,
@@ -50,30 +55,30 @@ IMAGE_GENERATOR_SCHEMA = {
 
 # Schema for Edge TTS service
 TTS_SCHEMA = {
-    vol.Optional("config_entry_id"): cv.string,
+    **CONFIG_ENTRY_FIELD,
     vol.Required("text"): cv.string,
-    vol.Optional("voice", default=TTS_DEFAULT_VOICE): vol.In(list(EDGE_TTS_VOICES.keys())),
+    **TTS_VOICE_FIELD,
     vol.Optional("media_player_entity"): cv.entity_id,
 }
 
 # Schema for streaming Edge TTS service
 TTS_STREAM_SCHEMA = {
-    vol.Optional("config_entry_id"): cv.string,
+    **CONFIG_ENTRY_FIELD,
     vol.Required("text"): cv.string,
-    vol.Optional("voice", default=TTS_DEFAULT_VOICE): vol.In(list(EDGE_TTS_VOICES.keys())),
+    **TTS_VOICE_FIELD,
     vol.Optional("chunk_size", default=4096): vol.Coerce(int),
 }
 
 # Schema for Silicon Flow STT service
 STT_SCHEMA = {
-    vol.Optional("config_entry_id"): cv.string,
+    **CONFIG_ENTRY_FIELD,
     vol.Required(CONF_STT_FILE): cv.string,
     vol.Optional("model", default=RECOMMENDED_STT_MODEL): vol.In(SILICONFLOW_STT_MODELS),
 }
 
 # Schema for translation service
 TRANSLATION_SCHEMA = {
-    vol.Optional("config_entry_id"): cv.string,
+    **CONFIG_ENTRY_FIELD,
     vol.Optional("list_components", default=False): cv.boolean,
     vol.Optional("force_translation", default=False): cv.boolean,
     vol.Optional("target_component", default=""): cv.string,
@@ -81,7 +86,7 @@ TRANSLATION_SCHEMA = {
 
 # Schema for blueprints translation service
 BLUEPRINTS_TRANSLATION_SCHEMA = {
-    vol.Optional("config_entry_id"): cv.string,
+    **CONFIG_ENTRY_FIELD,
     vol.Optional("list_blueprints", default=False): cv.boolean,
     vol.Optional("target_blueprint", default=""): cv.string,
     vol.Optional("retranslate", default=False): cv.boolean,

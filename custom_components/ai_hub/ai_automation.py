@@ -7,10 +7,13 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 
+from .config_resolver import get_effective_conversation_config
 from .consts import DOMAIN
+from .http import build_json_headers, client_timeout
 
 _LOGGER = logging.getLogger(__name__)
 _AI_AUTOMATION_REGISTERED_KEY = f"{DOMAIN}_ai_automation_registered"
@@ -139,86 +142,55 @@ mode: single
     async def _call_siliconflow_api_for_yaml(self, prompt: str) -> str | None:
         """Call AI Hub API directly for YAML generation."""
         try:
-            import aiohttp
-
-            # Get API key from HASS configuration
-            api_key = self._get_api_key()
+            chat_url, model, api_key = self._get_llm_request_config()
             if not api_key:
                 _LOGGER.error("No AI Hub API key available")
                 return None
 
-            # Build request parameters
-            messages = [
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-
             request_params = {
-                "model": "Qwen/Qwen3-8B",  # Use default model
-                "messages": messages,
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
                 "stream": False,  # Non-streaming response
                 "max_tokens": 2000,
                 "temperature": 0.1  # Low temperature for stable YAML output
             }
 
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            }
+            session = async_get_clientsession(self.hass)
+            async with session.post(
+                chat_url,
+                json=request_params,
+                headers=build_json_headers(api_key),
+                timeout=client_timeout(30),
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    _LOGGER.error("API request failed: %s", error_text)
+                    return None
 
-            # Call SiliconFlow API
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://api.siliconflow.cn/v1/chat/completions",
-                    json=request_params,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        _LOGGER.error("API request failed: %s", error_text)
-                        return None
+                response_data = await response.json()
 
-                    response_data = await response.json()
+                if "choices" in response_data and len(response_data["choices"]) > 0:
+                    content = response_data["choices"][0]["message"]["content"]
+                    _LOGGER.info("AI Hub response received for YAML generation")
+                    return content
 
-                    # Extract response content
-                    if "choices" in response_data and len(response_data["choices"]) > 0:
-                        content = response_data["choices"][0]["message"]["content"]
-                        _LOGGER.info("AI Hub response received for YAML generation")
-                        return content
-                    else:
-                        _LOGGER.error("Invalid response format from AI Hub")
-                        return None
+                _LOGGER.error("Invalid response format from AI Hub")
+                return None
 
         except Exception as e:
             _LOGGER.error("Error calling AI Hub API: %s", e)
             return None
 
-    def _get_api_key(self) -> str | None:
-        """Get AI Hub API key from Home Assistant configuration."""
-        try:
-            from homeassistant.config_entries import ConfigEntries
-
-            from .consts import DOMAIN
-
-            config_entries: ConfigEntries = self.hass.config_entries
-            ai_hub_entries = config_entries.async_entries_for_domain(DOMAIN)
-
-            if ai_hub_entries:
-                entry = ai_hub_entries[0]
-                # API key is stored in runtime_data
-                api_key = entry.runtime_data
-                if api_key:
-                    return api_key
-
+    def _get_llm_request_config(self) -> tuple[str, str, str | None]:
+        """Get the active LLM endpoint, model, and API key."""
+        ai_hub_entries = self.hass.config_entries.async_entries_for_domain(DOMAIN)
+        if not ai_hub_entries:
             _LOGGER.warning("No AI Hub configuration found")
-            return None
+            return "", "Qwen/Qwen3-8B", None
 
-        except Exception as e:
-            _LOGGER.error("Error getting API key: %s", e)
-            return None
+        chat_url, configured_model, api_key = get_effective_conversation_config(ai_hub_entries[0])
+        model = configured_model or "Qwen/Qwen3-8B"
+        return chat_url, model, api_key
 
     def _extract_yaml_from_response(self, response: str) -> str | None:
         """Extract pure YAML code from AI response."""

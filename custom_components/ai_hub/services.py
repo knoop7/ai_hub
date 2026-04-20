@@ -48,29 +48,31 @@ _REGISTERED_ENTRY = None
 _SERVICE_CONTEXTS_KEY = f"{DOMAIN}_service_contexts"
 _SERVICES_REGISTERED_KEY = f"{DOMAIN}_services_registered"
 
-
-def _get_conversation_config(config_entry) -> tuple[str, str, str]:
-    """Get chat URL, model and API key from Conversation Agent subentry."""
-    chat_url, model, api_key = get_effective_conversation_config(config_entry)
-    return chat_url, model, api_key
-
-
-def _get_image_config(config_entry) -> tuple[str, str]:
-    """Get image URL and API key from AI Task subentry."""
-    image_url, api_key = get_effective_image_config(config_entry)
-    return image_url, api_key
+_get_conversation_config = get_effective_conversation_config
+_get_image_config = get_effective_image_config
+_get_stt_config = get_effective_stt_config
+_get_translation_config = get_effective_translation_config
 
 
-def _get_stt_config(config_entry) -> tuple[str, str]:
-    """Get STT URL and API key from STT subentry."""
-    stt_url, api_key = get_effective_stt_config(config_entry)
-    return stt_url, api_key
+def _has_configured_api_key(api_key: Any) -> bool:
+    """Return whether the resolved API key is a non-empty string."""
+    return isinstance(api_key, str) and bool(api_key.strip())
 
 
-def _get_translation_config(config_entry) -> tuple[str, str, str]:
-    """Get translation URL, model and API key from translation subentry."""
-    chat_url, model, api_key = get_effective_translation_config(config_entry)
-    return chat_url, model, api_key
+def _register_service(
+    hass: HomeAssistant,
+    service_name: str,
+    handler,
+    schema: dict[str, Any],
+) -> None:
+    """Register a response-capable AI Hub service."""
+    hass.services.async_register(
+        DOMAIN,
+        service_name,
+        handler,
+        schema=vol.Schema(schema),
+        supports_response=True,
+    )
 
 
 def _get_registered_context() -> tuple[HomeAssistant | None, object | None]:
@@ -141,38 +143,51 @@ def _resolve_service_entry(
     return hass, candidates[0], None
 
 
+def _resolve_service_config(
+    call: ServiceCall,
+    subentry_type: str,
+    config_getter,
+) -> tuple[HomeAssistant | None, Any | None, str | None]:
+    """Resolve the active config entry and derived runtime config for a service."""
+    hass, config_entry, error = _resolve_service_entry(call, subentry_type)
+    if error is not None or hass is None or config_entry is None:
+        return hass, None, error or "API密钥未配置"
+
+    return hass, config_getter(config_entry), None
+
+
 async def _handle_analyze_image(call: ServiceCall) -> dict:
     """Handle analyze image service calls."""
-    hass, config_entry, error = _resolve_service_entry(call, "conversation")
-    if error is not None or hass is None or config_entry is None:
+    hass, config, error = _resolve_service_config(call, "conversation", _get_conversation_config)
+    if error is not None or hass is None or config is None:
         return {"success": False, "error": error or "API密钥未配置"}
 
-    chat_url, _, effective_key = _get_conversation_config(config_entry)
-    if not effective_key or not effective_key.strip():
+    chat_url, _, effective_key = config
+    if not _has_configured_api_key(effective_key):
         return {"success": False, "error": "API密钥未配置"}
     return await handle_analyze_image(hass, call, effective_key, chat_url)
 
 
 async def _handle_generate_image(call: ServiceCall) -> dict:
     """Handle generate image service calls."""
-    hass, config_entry, error = _resolve_service_entry(call, "ai_task_data")
-    if error is not None or hass is None or config_entry is None:
+    hass, config, error = _resolve_service_config(call, "ai_task_data", _get_image_config)
+    if error is not None or hass is None or config is None:
         return {"success": False, "error": error or "API密钥未配置"}
 
-    image_url, effective_key = _get_image_config(config_entry)
-    if not effective_key or not effective_key.strip():
+    image_url, effective_key = config
+    if not _has_configured_api_key(effective_key):
         return {"success": False, "error": "API密钥未配置"}
     return await handle_generate_image(hass, call, effective_key, image_url)
 
 
 async def _handle_stt_transcribe(call: ServiceCall) -> dict:
     """Handle STT transcription service calls."""
-    hass, config_entry, error = _resolve_service_entry(call, "stt")
-    if error is not None or hass is None or config_entry is None:
+    hass, config, error = _resolve_service_config(call, "stt", _get_stt_config)
+    if error is not None or hass is None or config is None:
         return {"success": False, "error": error or "API密钥未配置"}
 
-    stt_url, api_key = _get_stt_config(config_entry)
-    if not api_key or not api_key.strip():
+    stt_url, api_key = config
+    if not _has_configured_api_key(api_key):
         return {"success": False, "error": "API密钥未配置"}
     return await handle_stt_transcribe(hass, call, api_key, stt_url)
 
@@ -201,17 +216,17 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     # ========== 组件翻译服务 ==========
     async def _handle_translate_components(call: ServiceCall) -> dict:
         try:
-            _, resolved_entry, error = _resolve_service_entry(call, "translation")
-            if error is not None or resolved_entry is None:
+            _, config, error = _resolve_service_config(call, "translation", _get_translation_config)
+            if error is not None or config is None:
                 return {"success": False, "error": error or "API密钥未配置"}
 
             list_components = call.data.get("list_components", False)
             target_component = call.data.get("target_component", "").strip()
             force_translation = call.data.get("force_translation", False)
 
-            chat_url, model, effective_key = _get_translation_config(resolved_entry)
+            chat_url, model, effective_key = config
 
-            if not list_components and (not effective_key or not effective_key.strip()):
+            if not list_components and not _has_configured_api_key(effective_key):
                 return {"success": False, "error": "API密钥未配置"}
 
             result = await async_translate_all_components(
@@ -231,8 +246,8 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     # ========== 蓝图翻译服务 ==========
     async def _handle_translate_blueprints(call: ServiceCall) -> dict:
         try:
-            _, resolved_entry, error = _resolve_service_entry(call, "translation")
-            if error is not None or resolved_entry is None:
+            _, config, error = _resolve_service_config(call, "translation", _get_translation_config)
+            if error is not None or config is None:
                 return {"success": False, "error": error or "API密钥未配置"}
 
             list_blueprints = call.data.get("list_blueprints", False)
@@ -240,9 +255,9 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             retranslate = call.data.get("retranslate", False)
             blueprints_path = hass.config.path("blueprints")
 
-            chat_url, model, effective_key = _get_translation_config(resolved_entry)
+            chat_url, model, effective_key = config
 
-            if not list_blueprints and (not effective_key or not effective_key.strip()):
+            if not list_blueprints and not _has_configured_api_key(effective_key):
                 return {"success": False, "error": "API密钥未配置"}
 
             result = await async_translate_all_blueprints(
@@ -260,34 +275,16 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
             return {"success": False, "error": f"Blueprint translation service error: {exc}"}
 
     # ========== 注册所有服务 ==========
-    hass.services.async_register(
-        DOMAIN, SERVICE_ANALYZE_IMAGE, _handle_analyze_image,
-        schema=vol.Schema(IMAGE_ANALYZER_SCHEMA), supports_response=True
-    )
-
-    hass.services.async_register(
-        DOMAIN, SERVICE_GENERATE_IMAGE, _handle_generate_image,
-        schema=vol.Schema(IMAGE_GENERATOR_SCHEMA), supports_response=True
-    )
-
-    hass.services.async_register(
-        DOMAIN, SERVICE_TTS_SAY, _handle_tts_say,
-        schema=vol.Schema(TTS_SCHEMA), supports_response=True
-    )
-
-    hass.services.async_register(
-        DOMAIN, SERVICE_STT_TRANSCRIBE, _handle_stt_transcribe,
-        schema=vol.Schema(STT_SCHEMA), supports_response=True
-    )
-
-    hass.services.async_register(
-        DOMAIN, SERVICE_TRANSLATE_COMPONENTS, _handle_translate_components,
-        schema=vol.Schema(TRANSLATION_SCHEMA), supports_response=True
-    )
-
-    hass.services.async_register(
-        DOMAIN, SERVICE_TRANSLATE_BLUEPRINTS, _handle_translate_blueprints,
-        schema=vol.Schema(BLUEPRINTS_TRANSLATION_SCHEMA), supports_response=True
+    _register_service(hass, SERVICE_ANALYZE_IMAGE, _handle_analyze_image, IMAGE_ANALYZER_SCHEMA)
+    _register_service(hass, SERVICE_GENERATE_IMAGE, _handle_generate_image, IMAGE_GENERATOR_SCHEMA)
+    _register_service(hass, SERVICE_TTS_SAY, _handle_tts_say, TTS_SCHEMA)
+    _register_service(hass, SERVICE_STT_TRANSCRIBE, _handle_stt_transcribe, STT_SCHEMA)
+    _register_service(hass, SERVICE_TRANSLATE_COMPONENTS, _handle_translate_components, TRANSLATION_SCHEMA)
+    _register_service(
+        hass,
+        SERVICE_TRANSLATE_BLUEPRINTS,
+        _handle_translate_blueprints,
+        BLUEPRINTS_TRANSLATION_SCHEMA,
     )
 
     hass.data[_SERVICES_REGISTERED_KEY] = True

@@ -5,8 +5,6 @@ from __future__ import annotations
 import io
 import json
 import logging
-from json import JSONDecodeError
-from json import loads as json_loads
 from typing import Any
 
 import aiohttp
@@ -29,9 +27,17 @@ from .consts import (
 )
 from .entity import AIHubBaseLLMEntity
 from .http import build_json_headers, client_timeout
+from .llm_model_utils import (
+    chat_log_has_media_attachments,
+    parse_structured_json_response,
+    select_media_model,
+)
+from .services_lib.image_utils import decode_base64_image, extract_generated_image_payload
 from .utils.serialization import ensure_string
 
 _LOGGER = logging.getLogger(__name__)
+
+
 def _get_conversation_model(config_entry: ConfigEntry) -> str:
     """Get the chat model from Conversation Agent subentry."""
     for subentry in config_entry.subentries.values():
@@ -102,33 +108,20 @@ class AIHubTaskEntity(
         # Get model from Conversation Agent (AI Task follows Conversation's model)
         configured_model = _get_conversation_model(self.entry)
 
-        # Check if we need to auto-switch for attachments
-        has_attachments = any(
-            hasattr(content, 'attachments') and content.attachments
-            for content in chat_log.content
-        )
-
         final_model = configured_model
-        if has_attachments:
+        if chat_log_has_media_attachments(chat_log):
             vision_models = ["glm-4.6v-flash", "glm-4.1v-thinking-flash", "glm-4v-flash"]  # Use free vision models
-            # Check if attachments contain media files
-            has_media_attachments = False
-            for content in chat_log.content:
-                if hasattr(content, 'attachments') and content.attachments:
-                    for attachment in content.attachments:
-                        mime_type = getattr(attachment, 'mime_type', '')
-                        if mime_type.startswith(('image/', 'video/')):
-                            has_media_attachments = True
-                            break
-                if has_media_attachments:
-                    break
-
-            if has_media_attachments and configured_model not in vision_models:
-                final_model = RECOMMENDED_IMAGE_ANALYSIS_MODEL  # GLM-4.1V-Thinking
+            final_model = select_media_model(
+                configured_model,
+                vision_models,
+                RECOMMENDED_IMAGE_ANALYSIS_MODEL,
+            )
+            if final_model != configured_model:
                 _LOGGER.info(
                     "Auto-switched AI Task from %s to vision model %s for media attachments",
                     configured_model,
-                    final_model)
+                    final_model,
+                )
 
         _LOGGER.info("AI Task using final model: %s (configured: %s)", final_model, configured_model)
 
@@ -149,24 +142,8 @@ class AIHubTaskEntity(
         # If structure is requested, parse as JSON
         if task.structure:
             try:
-                # Clean up the response to extract pure JSON
-                cleaned_text = text.strip()
-
-                # Remove common prefixes that might appear before JSON
-                if cleaned_text.startswith('json'):
-                    cleaned_text = cleaned_text[4:].strip()
-                elif cleaned_text.startswith('JSON'):
-                    cleaned_text = cleaned_text[4:].strip()
-
-                # Remove markdown code blocks if present
-                if cleaned_text.startswith('```'):
-                    lines = cleaned_text.split('\n')
-                    if len(lines) > 1:
-                        # Remove first line (```json) and last line (```)
-                        cleaned_text = '\n'.join(lines[1:-1]).strip()
-
-                data = json_loads(cleaned_text)
-            except JSONDecodeError as err:
+                data = parse_structured_json_response(text)
+            except json.JSONDecodeError as err:
                 _LOGGER.error(
                     "Failed to parse JSON response: %s. Response: %s",
                     err,
@@ -229,12 +206,8 @@ class AIHubTaskEntity(
                     result = await response.json()
                     _LOGGER.debug("Image generation response: %s", result)
 
-                    if not result.get("data") or len(result["data"]) == 0:
-                        raise HomeAssistantError("No image data in response")
-
-                    image_data = result["data"][0]
-                    image_url = image_data.get("url")
-
+                    image_payload = extract_generated_image_payload(result)
+                    image_url = image_payload.get("url")
                     if image_url:
                         # Download image from URL
                         _LOGGER.info("Downloading image from URL: %s", image_url)
@@ -247,14 +220,8 @@ class AIHubTaskEntity(
                             image_bytes = await img_response.read()
                             _LOGGER.info("Successfully downloaded image, size: %d bytes", len(image_bytes))
                     else:
-                        # Try to get base64 data if URL is not available
-                        b64_json = image_data.get("b64_json")
-                        if b64_json:
-                            _LOGGER.info("Using base64 image data")
-                            import base64
-                            image_bytes = base64.b64decode(b64_json)
-                        else:
-                            raise HomeAssistantError("No image URL or base64 data in response")
+                        _LOGGER.info("Using base64 image data")
+                        image_bytes = decode_base64_image(image_payload["image_base64"])
 
             # Convert to PNG for better compatibility (requires Pillow, optional)
             try:

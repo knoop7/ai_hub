@@ -21,6 +21,7 @@ from pathlib import Path
 
 import yaml
 
+from .batch_utils import build_batch_result, build_list_result, select_named_items
 from .translation import async_translate_text
 
 _LOGGER = logging.getLogger(__name__)
@@ -210,27 +211,32 @@ async def async_translate_all_blueprints(
 
             all_blueprints.append(blueprint_info)
 
-        return {
-            "mode": "list_only",
-            "total_blueprints": len(all_blueprints),
-            "available_translations": len(available_translations),
-            "all_blueprints": all_blueprints,
-            "blueprints_with_translations": available_translations,
-            "target_blueprint": target_blueprint
-        }
+        return build_list_result(
+            mode="list_only",
+            total_key="total_blueprints",
+            all_items_key="all_blueprints",
+            all_items=all_blueprints,
+            translated_key="blueprints_with_translations",
+            translated_items=available_translations,
+            extra={
+                "available_translations": len(available_translations),
+                "target_blueprint": target_blueprint,
+            },
+        )
 
-    translated = 0
-    skipped = 0
     translated_blueprints = []
     skipped_blueprints = []
 
     yaml_files = list(base_path.rglob("*.yaml"))
-
-    if target_blueprint:
-        target_files = [f for f in yaml_files if f.name == target_blueprint or f.name == f"{target_blueprint}.yaml"]
-        if not target_files:
-            return {"translated": 0, "skipped": 0, "error": f"Target blueprint not found: {target_blueprint}"}
-        yaml_files = target_files
+    yaml_files, error = select_named_items(
+        yaml_files,
+        target_blueprint,
+        matcher=lambda item, target: item.name == target or item.name == f"{target}.yaml",
+        not_found_error=f"Target blueprint not found: {target_blueprint}",
+    )
+    if error is not None:
+        return {"translated": 0, "skipped": 0, **error}
+    assert yaml_files is not None
 
     for yaml_file in yaml_files:
         try:
@@ -238,7 +244,6 @@ async def async_translate_all_blueprints(
                 try:
                     content = await asyncio.to_thread(yaml_file.read_text, encoding='utf-8')
                     if any('\u4e00' <= char <= '\u9fff' for char in content):
-                        skipped += 1
                         skipped_blueprints.append(str(yaml_file.relative_to(base_path)))
                         continue
                 except Exception:
@@ -246,21 +251,18 @@ async def async_translate_all_blueprints(
 
             result = await async_translate_blueprint_file(yaml_file, api_key, api_url, model)
             if result == "translated":
-                translated += 1
                 translated_blueprints.append(str(yaml_file.relative_to(base_path)))
             else:
-                skipped += 1
                 skipped_blueprints.append(str(yaml_file.relative_to(base_path)))
         except Exception as e:
             _LOGGER.error(f"Error processing {yaml_file}: {e}")
-            skipped += 1
             skipped_blueprints.append(str(yaml_file.relative_to(base_path)))
 
-    return {
-        "mode": "translation",
-        "translated": translated,
-        "skipped": skipped,
-        "translated_blueprints": translated_blueprints,
-        "skipped_blueprints": skipped_blueprints,
-        "target_blueprint": target_blueprint
-    }
+    return build_batch_result(
+        mode="translation",
+        translated_items=translated_blueprints,
+        skipped_items=skipped_blueprints,
+        translated_key="translated_blueprints",
+        skipped_key="skipped_blueprints",
+        extra={"target_blueprint": target_blueprint},
+    )

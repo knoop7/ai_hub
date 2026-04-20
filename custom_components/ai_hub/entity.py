@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import json
 import logging
 from collections.abc import AsyncGenerator, Callable
@@ -10,7 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
-from homeassistant.components import conversation, media_source
+from homeassistant.components import conversation
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_entry_flow, llm
 from homeassistant.helpers import device_registry as dr
@@ -38,6 +37,9 @@ from .consts import (
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
 )
+from .llm_attachment_processor import AttachmentProcessor
+from .llm_message_builder import ChatMessageBuilder
+from .llm_model_utils import chat_log_has_media_attachments, select_media_model
 from .markdown_filter import filter_markdown_streaming
 
 _LOGGER = logging.getLogger(__name__)
@@ -223,35 +225,19 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
 
         # Check if we need to switch to vision model
         final_model = configured_model
-        if chat_log:
-            # Detect if any content has attachments
-            has_attachments = any(
-                hasattr(content, 'attachments') and content.attachments
-                for content in chat_log.content
+        if chat_log and chat_log_has_media_attachments(chat_log):
+            vision_models = ["glm-4.1v-thinking", "glm-4v-flash"]
+            final_model = select_media_model(
+                configured_model,
+                vision_models,
+                RECOMMENDED_IMAGE_ANALYSIS_MODEL,
             )
-
-            # Check if attachments contain images/videos
-            has_media_attachments = False
-            if has_attachments:
-                for content in chat_log.content:
-                    if hasattr(content, 'attachments') and content.attachments:
-                        for attachment in content.attachments:
-                            mime_type = getattr(attachment, 'mime_type', '')
-                            if mime_type.startswith(('image/', 'video/')):
-                                has_media_attachments = True
-                                break
-                    if has_media_attachments:
-                        break
-
-            # Auto-switch to vision model if needed (prefer free model!)
-            if has_media_attachments:
-                vision_models = ["glm-4.1v-thinking", "glm-4v-flash"]
-                if configured_model not in vision_models:
-                    final_model = RECOMMENDED_IMAGE_ANALYSIS_MODEL  # GLM-4.1V-Thinking
-                    _LOGGER.debug(
-                        "Auto-switching to vision model %s for media attachments (original: %s)",
-                        final_model,
-                        configured_model)
+            if final_model != configured_model:
+                _LOGGER.debug(
+                    "Auto-switching to vision model %s for media attachments (original: %s)",
+                    final_model,
+                    configured_model,
+                )
 
         # Only use parameters that the working service uses (top_p causes API error!)
         # Ensure model is always a valid string
@@ -469,285 +455,13 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         self, chat_log: conversation.ChatLog
     ) -> list[dict[str, Any]]:
         """Convert chat log to AI Hub message format."""
-        options = self.subentry.data
-        max_history = options.get(CONF_MAX_HISTORY_MESSAGES, RECOMMENDED_MAX_HISTORY_MESSAGES)
-
-        messages = []
-
-        if not chat_log.content:
-            return []
-
-        # For debugging: Check if we have attachments and simplify format
-        last_content = chat_log.content[-1]
-        if last_content.role == "user" and last_content.attachments:
-            _LOGGER.debug("Simplifying to single message format with attachments (like working service)")
-            # Only send the last user message with attachments, like the working service
-            return [await self._convert_user_message(last_content)]
-
-        # Track tool_call IDs for matching with tool results
-        # Maps: original_id -> generated_id (if we had to generate one)
-        # Also tracks: index -> id for tool_calls without original ids
-        tool_call_id_map: dict[str, str] = {}
-        last_tool_call_ids: list[str] = []
-
-        # Standard conversation handling for messages without attachments
-        # First message is system message (index 0)
-        # History is content[1:-1] (excluding first system and last user input)
-        # Last message is current user input (index -1)
-
-        # Add system messages
-        for content in chat_log.content:
-            if content.role == "system":
-                messages.append({"role": "system", "content": _ensure_string(content.content)})
-
-        # Process history messages (excluding system and last user input)
-        history_content = chat_log.content[1:-1] if len(chat_log.content) > 1 else []
-
-        # Build history messages with ID tracking
-        history_messages = []
-        for content in history_content:
-            if content.role == "user":
-                history_messages.append(await self._convert_user_message(content))
-            elif content.role == "assistant":
-                msg, generated_ids = self._convert_assistant_message_with_id_tracking(content, tool_call_id_map)
-                history_messages.append(msg)
-                last_tool_call_ids = generated_ids
-            elif content.role == "tool_result":
-                msgs = self._convert_tool_message_with_id_matching(content, tool_call_id_map, last_tool_call_ids)
-                history_messages.extend(msgs)
-
-        # Limit history: keep only the most recent conversation turns
-        # Count user messages to determine conversation turns
-        if max_history > 0:
-            user_message_count = sum(1 for msg in history_messages if msg.get("role") == "user")
-            if user_message_count > max_history:
-                # Find the index to start keeping messages
-                # We want to keep the last max_history user turns and their associated messages
-                user_count = 0
-                start_index = len(history_messages)
-                for i in range(len(history_messages) - 1, -1, -1):
-                    if history_messages[i].get("role") == "user":
-                        user_count += 1
-                        if user_count >= max_history:
-                            start_index = i
-                            break
-                history_messages = history_messages[start_index:]
-
-        # Add history to messages
-        messages.extend(history_messages)
-
-        # Add current user input (with ID tracking for consistency)
-        if last_content.role == "user":
-            messages.append(await self._convert_user_message(last_content))
-        elif last_content.role == "assistant":
-            msg, _ = self._convert_assistant_message_with_id_tracking(last_content, tool_call_id_map)
-            messages.append(msg)
-        elif last_content.role == "tool_result":
-            msgs = self._convert_tool_message_with_id_matching(last_content, tool_call_id_map, last_tool_call_ids)
-            messages.extend(msgs)
-
-        return messages
-
-    async def _convert_user_message(
-        self, content: conversation.Content
-    ) -> dict[str, Any]:
-        """Convert user message to AI Hub format."""
-        message: dict[str, Any] = {"role": "user"}
-
-        if not content.attachments:
-            message["content"] = _ensure_string(content.content)
-            return message
-
-        # Process attachments
-        successful_images = await self._process_attachments(content.attachments)
-
-        if successful_images:
-            # Build content with images first, then text (like working services.py)
-            parts = successful_images + [{"type": "text", "text": _ensure_string(content.content)}]
-            message["content"] = parts
-            _LOGGER.debug(
-                "Final message content has %d parts (%d images + text)",
-                len(parts), len(successful_images)
-            )
-        else:
-            _LOGGER.warning("No images were processed successfully, falling back to text only")
-            message["content"] = _ensure_string(content.content)
-
-        return message
-
-    async def _process_attachments(
-        self, attachments: list[Any]
-    ) -> list[dict[str, Any]]:
-        """Process attachments and return list of successful image parts."""
-        successful_images = []
-        _LOGGER.debug("Processing %d attachments for user message", len(attachments))
-
-        for i, attachment in enumerate(attachments):
-            _LOGGER.debug("Processing attachment %d: %s", i, attachment)
-
-            if not (attachment.mime_type and attachment.mime_type.startswith("image/")):
-                _LOGGER.debug(
-                    "Skipping non-image attachment: %s (mime: %s)",
-                    attachment, getattr(attachment, 'mime_type', 'unknown')
-                )
-                continue
-
-            image_data = await self._get_image_data_from_attachment(attachment)
-            if image_data:
-                successful_images.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{image_data}"}
-                })
-                _LOGGER.debug("Successfully added image to message parts")
-            else:
-                _LOGGER.warning("Could not get image data from attachment: %s", attachment)
-
-        return successful_images
-
-    async def _get_image_data_from_attachment(self, attachment: Any) -> str | None:
-        """Extract base64 image data from an attachment."""
-        try:
-            mime_type = attachment.mime_type
-
-            # Strategy 1: Direct file path (most reliable)
-            if hasattr(attachment, 'path') and attachment.path:
-                return await self._read_image_from_path(attachment.path)
-
-            # Strategy 2: Media content ID
-            if hasattr(attachment, 'media_content_id') and attachment.media_content_id:
-                _LOGGER.debug("Attachment has media_content_id: %s", attachment.media_content_id)
-                image_bytes = await self._async_get_media_content(
-                    attachment.media_content_id, mime_type
-                )
-                if image_bytes:
-                    image_data = base64.b64encode(image_bytes).decode()
-                    _LOGGER.debug("Successfully resolved media content, base64 length: %d", len(image_data))
-                    return image_data
-                _LOGGER.warning("Failed to resolve media content for: %s", attachment.media_content_id)
-                return None
-
-            # Strategy 3: Direct content
-            if hasattr(attachment, 'content') and attachment.content:
-                if isinstance(attachment.content, bytes):
-                    image_data = base64.b64encode(attachment.content).decode()
-                    _LOGGER.debug("Converted bytes to base64, length: %d", len(image_data))
-                    return image_data
-                elif isinstance(attachment.content, str):
-                    _LOGGER.debug("Using existing base64 content, length: %d", len(attachment.content))
-                    return attachment.content
-
-            _LOGGER.warning("Attachment format not supported: %s", attachment)
-            return None
-
-        except Exception as err:
-            _LOGGER.error("Failed to process image attachment %s: %s", attachment, err, exc_info=True)
-            return None
-
-    async def _read_image_from_path(self, path: str) -> str | None:
-        """Read image from file path and return base64 encoded data."""
-        import asyncio
-
-        try:
-            _LOGGER.debug("Reading file directly from path: %s", path)
-            image_bytes = await asyncio.to_thread(self._read_file_bytes, str(path))
-            image_data = base64.b64encode(image_bytes).decode()
-            _LOGGER.debug("Successfully read file directly, base64 length: %d", len(image_data))
-            return image_data
-        except Exception as err:
-            _LOGGER.error("Failed to read file %s: %s", path, err, exc_info=True)
-            return None
-
-    def _convert_assistant_message_with_id_tracking(
-        self, content: conversation.Content, id_map: dict[str, str]
-    ) -> tuple[dict[str, Any], list[str]]:
-        """Convert assistant message with ID tracking for tool calls.
-
-        Returns:
-            Tuple of (message dict, list of tool_call IDs used in this message)
-        """
-        generated_ids: list[str] = []
-
-        # Use base conversion
-        message = self._convert_assistant_message(content)
-
-        # Extract and track the IDs that were used
-        if content.tool_calls and "tool_calls" in message:
-            for i, tc in enumerate(message["tool_calls"]):
-                tool_id = tc["id"]
-                generated_ids.append(tool_id)
-                # Map original ID (if any) to the used ID
-                original_id = content.tool_calls[i].id if content.tool_calls[i].id else None
-                if original_id:
-                    id_map[original_id] = tool_id
-                else:
-                    id_map[f"_index_{i}"] = tool_id
-
-        return message, generated_ids
-
-    def _convert_tool_message_with_id_matching(
-        self, content: conversation.Content, id_map: dict[str, str], last_tool_call_ids: list[str]
-    ) -> list[dict[str, Any]]:
-        """Convert tool result message with ID matching.
-
-        Tries to match the tool_call_id with IDs from the most recent assistant message.
-        Returns a list so that image-bearing results can be followed up with a
-        multimodal user message.
-        """
-        original_id = content.tool_call_id
-
-        # First use base conversion (may return 1 or 2 messages)
-        messages = self._convert_tool_message(content)
-        if not messages:
-            return messages
-
-        tool_message = messages[0]
-
-        # Then try to fix the ID if needed - only on the tool message itself
-        if original_id and isinstance(original_id, str) and original_id.strip():
-            # Check if this ID needs remapping
-            if original_id in id_map:
-                tool_message["tool_call_id"] = id_map[original_id]
-        elif last_tool_call_ids:
-            # No valid original ID - use the first available ID from last assistant's tool_calls
-            tool_message["tool_call_id"] = last_tool_call_ids[0]
-            # Remove it so the next tool result uses the next ID
-            if len(last_tool_call_ids) > 1:
-                last_tool_call_ids.pop(0)
-
-        return messages
-
-    def _convert_assistant_message(
-        self, content: conversation.Content
-    ) -> dict[str, Any]:
-        """Convert assistant message to AI Hub format."""
-        message: dict[str, Any] = {"role": "assistant"}
-
-        if content.tool_calls:
-            tool_calls_list = []
-            for tool_call in content.tool_calls:
-                # Ensure tool_call id is always a valid non-empty string
-                tool_id = tool_call.id if tool_call.id else None
-                if not tool_id or not isinstance(tool_id, str) or not tool_id.strip():
-                    tool_id = ulid.ulid_now()
-
-                tool_calls_list.append({
-                    "id": tool_id,
-                    "type": "function",
-                    "function": {
-                        "name": str(tool_call.tool_name) if tool_call.tool_name else "",
-                        "arguments": (
-                            json.dumps(tool_call.tool_args, ensure_ascii=False)
-                            if tool_call.tool_args
-                            else "{}"
-                        ),
-                    },
-                })
-            message["tool_calls"] = tool_calls_list
-            message["content"] = _ensure_string(content.content)
-        else:
-            message["content"] = _ensure_string(content.content)
-
-        return message
+        attachment_processor = AttachmentProcessor(self.hass, self.entity_id)
+        builder = ChatMessageBuilder(
+            attachment_processor,
+            self.subentry.data.get(CONF_MAX_HISTORY_MESSAGES, RECOMMENDED_MAX_HISTORY_MESSAGES),
+            tool_message_converter=self._convert_tool_message,
+        )
+        return await builder.async_convert_chat_log_to_messages(chat_log)
 
     def _convert_tool_message(
         self, content: conversation.Content
@@ -823,38 +537,13 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         self, tool: llm.Tool, custom_serializer: Callable[[Any], Any] | None
     ) -> dict[str, Any]:
         """Format tool for AI Hub API."""
-        # Ensure tool name and description are valid strings
-        tool_name = str(tool.name) if tool.name else ""
-        tool_description = str(tool.description) if tool.description else ""
-
-        return {
-            "type": "function",
-            "function": {
-                "name": tool_name,
-                "description": tool_description,
-                "parameters": self._convert_schema(tool.parameters, custom_serializer),
-            },
-        }
+        return ChatMessageBuilder.format_tool(tool, custom_serializer)
 
     def _convert_schema(
         self, schema: dict[str, Any], custom_serializer: Callable[[Any], Any] | None
     ) -> dict[str, Any]:
         """Convert schema to AI Hub format."""
-        # AI Hub uses standard JSON Schema
-        # Use voluptuous_openapi to convert the schema properly
-        try:
-            return convert(
-                schema,
-                custom_serializer=custom_serializer if custom_serializer else llm.selector_serializer,
-            )
-        except Exception as err:
-            _LOGGER.warning("Failed to convert schema with custom_serializer: %s", err)
-            # Fall back to basic conversion without custom_serializer
-            try:
-                return convert(schema, custom_serializer=llm.selector_serializer)
-            except Exception:
-                # If all else fails, return as-is
-                return schema
+        return ChatMessageBuilder.convert_schema(schema, custom_serializer)
 
     async def _transform_stream(
         self,
@@ -969,121 +658,6 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
 
             if tool_calls:
                 yield {"tool_calls": tool_calls}
-
-    async def _async_download_image_from_url(self, url: str) -> bytes | None:
-        """Download image from URL."""
-        try:
-            session = async_get_clientsession(self.hass)
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
-                if response.status == 200:
-                    return await response.read()
-                else:
-                    _LOGGER.warning("Failed to download image from URL: %s, status: %s", url, response.status)
-                    return None
-        except Exception as err:
-            _LOGGER.warning("Error downloading image from URL %s: %s", url, err)
-            return None
-
-    async def _async_get_media_content(self, media_content_id: str, mime_type: str) -> bytes | None:
-        """Get media content from Home Assistant media source."""
-        _LOGGER.debug("Getting media content for ID: %s, mime_type: %s", media_content_id, mime_type)
-
-        try:
-            # Route to appropriate handler based on URL format
-            if media_content_id.startswith("media-source://"):
-                return await self._resolve_media_source(media_content_id)
-            elif media_content_id.startswith(("/api/image/serve/", "api/image/serve/")):
-                return await self._fetch_served_image(media_content_id)
-            elif media_content_id.startswith(("http://", "https://")):
-                _LOGGER.debug("Processing direct URL: %s", media_content_id)
-                return await self._async_download_image_from_url(media_content_id)
-            else:
-                _LOGGER.warning("Unsupported media content ID format: %s", media_content_id)
-                return None
-
-        except Exception as err:
-            _LOGGER.error("Unexpected error getting media content %s: %s", media_content_id, err, exc_info=True)
-            return None
-
-    async def _resolve_media_source(self, media_content_id: str) -> bytes | None:
-        """Resolve and download content from a media-source:// URL."""
-        _LOGGER.debug("Processing media-source URL: %s", media_content_id)
-
-        if not media_source.is_media_source_id(media_content_id):
-            _LOGGER.warning("Invalid media source ID: %s", media_content_id)
-            return None
-
-        # Resolve media source
-        try:
-            media_item = await media_source.async_resolve_media(
-                self.hass, media_content_id, self.entity_id
-            )
-            _LOGGER.debug("Resolved media item: %s", media_item)
-        except Exception as err:
-            _LOGGER.error("Error resolving media source %s: %s", media_content_id, err, exc_info=True)
-            return None
-
-        if not (media_item and hasattr(media_item, 'url') and media_item.url):
-            _LOGGER.warning("Could not resolve media source or no URL: %s", media_content_id)
-            return None
-
-        # Build full URL if it's a relative path
-        media_url = self._build_full_url(media_item.url)
-        _LOGGER.debug("Media item URL: %s", media_url)
-
-        return await self._download_from_url(media_url)
-
-    def _build_full_url(self, url: str) -> str:
-        """Build full URL from a potentially relative path."""
-        if not url.startswith('/'):
-            return url
-
-        try:
-            if hasattr(self.hass.config, 'external_url') and self.hass.config.external_url:
-                base_url = self.hass.config.external_url.rstrip('/')
-            elif hasattr(self.hass.config, 'internal_url') and self.hass.config.internal_url:
-                base_url = self.hass.config.internal_url.rstrip('/')
-            else:
-                base_url = "http://localhost:8123"
-        except Exception as err:
-            _LOGGER.warning("Could not get Home Assistant URL, using localhost: %s", err)
-            base_url = "http://localhost:8123"
-
-        return f"{base_url}{url}"
-
-    async def _fetch_served_image(self, url: str) -> bytes | None:
-        """Fetch image from /api/image/serve/ endpoint."""
-        if not url.startswith("/"):
-            url = f"/{url}"
-
-        _LOGGER.debug("Processing serve URL: %s", url)
-        return await self._download_from_url(url)
-
-    async def _download_from_url(self, url: str) -> bytes | None:
-        """Download content from a URL using Home Assistant's session."""
-        try:
-            session = async_get_clientsession(self.hass)
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
-                _LOGGER.debug("Response status: %s", response.status)
-                if response.status == 200:
-                    content = await response.read()
-                    _LOGGER.debug("Successfully downloaded content, size: %d bytes", len(content))
-                    return content
-                else:
-                    _LOGGER.warning("Failed to download from %s, status: %s", url, response.status)
-                    return None
-        except Exception as err:
-            _LOGGER.error("Error downloading from %s: %s", url, err, exc_info=True)
-            return None
-
-    def _read_file_bytes(self, file_path: str) -> bytes:
-        """Read file bytes synchronously (to be used with asyncio.to_thread)."""
-        try:
-            with open(file_path, "rb") as f:
-                return f.read()
-        except Exception as err:
-            raise Exception(f"Failed to read file {file_path}: {err}")
-
 
 class AIHubEntityBase(Entity, _AIHubEntityMixin):
     """Base entity for AI Hub integration.

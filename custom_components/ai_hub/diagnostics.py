@@ -53,6 +53,7 @@ from .consts import (
     TIMEOUT_STT_API,
     TIMEOUT_TTS_API,
 )
+from .api_health import async_probe_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -275,47 +276,27 @@ async def _get_api_status_diagnostics(
 
     Tests connectivity to various API endpoints used by the integration.
     """
-    import aiohttp
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
     status: dict[str, Any] = {}
     session = async_get_clientsession(hass)
 
     for target in collect_api_monitor_targets(entry):
-        try:
-            start_time = datetime.now()
-            async with session.get(
-                target["monitor_url"],
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as response:
-                latency = (datetime.now() - start_time).total_seconds() * 1000
-                status[target["key"]] = {
-                    "label": target["label"],
-                    "url": target["url"],
-                    "monitor_url": target["monitor_url"],
-                    "sources": target["sources"],
-                    "status": "reachable",
-                    "http_status": response.status,
-                    "latency_ms": round(latency, 2),
-                }
-        except aiohttp.ClientError as e:
-            status[target["key"]] = {
-                "label": target["label"],
-                "url": target["url"],
-                "monitor_url": target["monitor_url"],
-                "sources": target["sources"],
-                "status": "unreachable",
-                "error": str(e),
-            }
-        except Exception as e:
-            status[target["key"]] = {
-                "label": target["label"],
-                "url": target["url"],
-                "monitor_url": target["monitor_url"],
-                "sources": target["sources"],
-                "status": "error",
-                "error": str(e),
-            }
+        probe = await async_probe_url(session, target["monitor_url"], timeout_seconds=10)
+        status[target["key"]] = {
+            "label": target["label"],
+            "url": target["url"],
+            "monitor_url": target["monitor_url"],
+            "sources": target["sources"],
+            "status": "reachable" if probe.get("reachable") else (
+                "unreachable" if probe.get("error_type") in {"client", "timeout"} else "error"
+            ),
+        }
+        if probe.get("reachable"):
+            status[target["key"]]["http_status"] = probe["http_status"]
+            status[target["key"]]["latency_ms"] = probe["latency_ms"]
+        else:
+            status[target["key"]]["error"] = probe.get("error")
 
     return status
 

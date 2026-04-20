@@ -21,9 +21,15 @@ _LOGGER = logging.getLogger(__name__)
 class ChatMessageBuilder:
     """Convert Home Assistant chat logs into provider messages."""
 
-    def __init__(self, attachment_processor: AttachmentProcessor, max_history: int) -> None:
+    def __init__(
+        self,
+        attachment_processor: AttachmentProcessor,
+        max_history: int,
+        tool_message_converter: Callable[[conversation.Content], list[dict[str, Any]]] | None = None,
+    ) -> None:
         self._attachment_processor = attachment_processor
         self._max_history = max_history
+        self._tool_message_converter = tool_message_converter or self._convert_tool_message_list
 
     async def async_convert_chat_log_to_messages(self, chat_log: conversation.ChatLog) -> list[dict[str, Any]]:
         """Convert chat log to AI Hub message format."""
@@ -52,7 +58,7 @@ class ChatMessageBuilder:
                 history_messages.append(msg)
                 last_tool_call_ids = generated_ids
             elif content.role == "tool_result":
-                history_messages.append(
+                history_messages.extend(
                     self._convert_tool_message_with_id_matching(content, tool_call_id_map, last_tool_call_ids)
                 )
 
@@ -77,7 +83,7 @@ class ChatMessageBuilder:
             msg, _ = self._convert_assistant_message_with_id_tracking(last_content, tool_call_id_map)
             messages.append(msg)
         elif last_content.role == "tool_result":
-            messages.append(self._convert_tool_message_with_id_matching(last_content, tool_call_id_map, last_tool_call_ids))
+            messages.extend(self._convert_tool_message_with_id_matching(last_content, tool_call_id_map, last_tool_call_ids))
 
         return messages
 
@@ -118,17 +124,21 @@ class ChatMessageBuilder:
         content: conversation.Content,
         id_map: dict[str, str],
         last_tool_call_ids: list[str],
-    ) -> dict[str, Any]:
+    ) -> list[dict[str, Any]]:
         original_id = content.tool_call_id
-        message = self._convert_tool_message(content)
+        messages = self._tool_message_converter(content)
+        if not messages:
+            return messages
+
+        tool_message = messages[0]
         if original_id and isinstance(original_id, str) and original_id.strip():
             if original_id in id_map:
-                message["tool_call_id"] = id_map[original_id]
+                tool_message["tool_call_id"] = id_map[original_id]
         elif last_tool_call_ids:
-            message["tool_call_id"] = last_tool_call_ids[0]
+            tool_message["tool_call_id"] = last_tool_call_ids[0]
             if len(last_tool_call_ids) > 1:
                 last_tool_call_ids.pop(0)
-        return message
+        return messages
 
     @staticmethod
     def _convert_assistant_message(content: conversation.Content) -> dict[str, Any]:
@@ -163,6 +173,10 @@ class ChatMessageBuilder:
             "tool_call_id": tool_call_id,
             "content": json.dumps(content.tool_result, ensure_ascii=False, default=str) if content.tool_result is not None else "{}",
         }
+
+    @staticmethod
+    def _convert_tool_message_list(content: conversation.Content) -> list[dict[str, Any]]:
+        return [ChatMessageBuilder._convert_tool_message(content)]
 
     @staticmethod
     def format_tool(tool: llm.Tool, custom_serializer: Callable[[Any], Any] | None) -> dict[str, Any]:

@@ -61,7 +61,6 @@ class _AIHubServiceButton(ButtonEntity):
     def __init__(
         self,
         hass: HomeAssistant,
-        entry: ConfigEntry,
         subentry: config_entry_flow.ConfigSubentry,
         button_type: str,
     ) -> None:
@@ -116,32 +115,6 @@ class _AIHubServiceButton(ButtonEntity):
                 self._button_type,
                 e
             )
-
-
-class AIHubTranslationButton(_AIHubServiceButton):
-    """AI Hub Translation button - legacy wrapper."""
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry: ConfigEntry,
-        subentry: config_entry_flow.ConfigSubentry,
-    ) -> None:
-        super().__init__(hass, entry, subentry, "translate")
-
-
-class AIHubBlueprintTranslationButton(_AIHubServiceButton):
-    """AI Hub Blueprint Translation button - legacy wrapper."""
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry: ConfigEntry,
-        subentry: config_entry_flow.ConfigSubentry,
-    ) -> None:
-        super().__init__(hass, entry, subentry, "blueprint_translate")
-
-
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -155,8 +128,8 @@ async def async_setup_entry(
     for subentry in entry.subentries.values():
         if subentry.subentry_type == "translation":
             # Unified translation: add both component and blueprint translation buttons
-            buttons.append(AIHubTranslationButton(hass, entry, subentry))
-            buttons.append(AIHubBlueprintTranslationButton(hass, entry, subentry))
+            buttons.append(_AIHubServiceButton(hass, subentry, "translate"))
+            buttons.append(_AIHubServiceButton(hass, subentry, "blueprint_translate"))
 
     for button in buttons:
         async_add_entities([button], config_subentry_id=button._subentry.subentry_id)

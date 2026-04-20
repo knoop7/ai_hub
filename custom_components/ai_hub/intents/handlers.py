@@ -11,6 +11,7 @@ from homeassistant.helpers import area_registry as ar, device_registry as dr, en
 from homeassistant.helpers import intent
 
 from .loader import get_global_config
+from .response_utils import create_intent_result, format_response_message
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,9 +71,15 @@ class LocalIntentHandler:
             self._config = get_global_config()
         return self._config
 
+    def _get_global_device_control_config(self) -> dict[str, Any]:
+        """Return the GlobalDeviceControl config block."""
+        if not self.local_config:
+            return {}
+        return self.local_config.get('GlobalDeviceControl', {})
+
     def _get_default_area_name(self) -> str:
         """获取默认区域名称."""
-        global_config = self.local_config.get('GlobalDeviceControl', {}) if self.local_config else {}
+        global_config = self._get_global_device_control_config()
         return global_config.get('default_area_name', '全屋')
 
     def _format_error_suffix(self, error_count: int) -> str:
@@ -83,32 +90,18 @@ class LocalIntentHandler:
 
     def _get_response_template(self, key: str, fallback: str) -> str:
         """Read response templates from config."""
-        global_config = self.local_config.get('GlobalDeviceControl', {}) if self.local_config else {}
+        global_config = self._get_global_device_control_config()
         responses = global_config.get('responses', {})
         return responses.get(key, fallback)
 
     def _format_response_message(self, key: str, fallback: str, **kwargs: Any) -> str:
         """Format a configured response template with safe defaults."""
         template = self._get_response_template(key, fallback)
-        values = {
-            'area': kwargs.get('area', ''),
-            'device': kwargs.get('device', ''),
-            'count': kwargs.get('count', 0),
-            'temperature': kwargs.get('temperature', ''),
-            'brightness': kwargs.get('brightness', ''),
-            'color': kwargs.get('color', ''),
-            'volume': kwargs.get('volume', ''),
-            'position': kwargs.get('position', ''),
-            'speed': kwargs.get('speed', ''),
-            'query': kwargs.get('query', ''),
-            'fail_msg': kwargs.get('fail_msg', ''),
-            'error': kwargs.get('error', ''),
-        }
-        return template.format(**values)
+        return format_response_message(template, **kwargs)
 
     def _get_temperature_limits(self) -> tuple[int, int]:
         """Get configured temperature range."""
-        global_config = self.local_config.get('GlobalDeviceControl', {}) if self.local_config else {}
+        global_config = self._get_global_device_control_config()
         temperature_config = global_config.get('temperature', {})
         return (
             temperature_config.get('min_temperature', 16),
@@ -117,13 +110,13 @@ class LocalIntentHandler:
 
     def _get_domain_service(self, domain: str, operation: str, fallback: str) -> str:
         """Read service names from config instead of hardcoding them in handlers."""
-        global_config = self.local_config.get('GlobalDeviceControl', {}) if self.local_config else {}
+        global_config = self._get_global_device_control_config()
         domain_services = global_config.get('domain_services', {})
         return domain_services.get(domain, {}).get(operation, fallback)
 
     def _get_default_device_name(self, domain: str, fallback: str) -> str:
         """Read default device labels from config."""
-        global_config = self.local_config.get('GlobalDeviceControl', {}) if self.local_config else {}
+        global_config = self._get_global_device_control_config()
         default_device_names = global_config.get('default_device_names', {})
         return default_device_names.get(domain, fallback)
 
@@ -132,7 +125,7 @@ class LocalIntentHandler:
         if not self.local_config:
             return False
 
-        global_config = self.local_config.get('GlobalDeviceControl', {})
+        global_config = self._get_global_device_control_config()
         if not global_config:
             return False
 
@@ -171,7 +164,7 @@ class LocalIntentHandler:
         if not self.should_handle(text):
             return None
 
-        global_config = self.local_config.get('GlobalDeviceControl', {})
+        global_config = self._get_global_device_control_config()
         text_lower = text.lower().strip()
 
         # 1. 检查是否为参数控制命令
@@ -497,7 +490,7 @@ class LocalIntentHandler:
         if error_count == 0:
             return ""
 
-        global_config = self.local_config.get('GlobalDeviceControl', {}) if self.local_config else {}
+        global_config = self._get_global_device_control_config()
         failure_config = global_config.get('failure_message', {})
         unique_failed = list(set(failed_devices))
         max_devices = failure_config.get('max_devices_list', 3)
@@ -511,17 +504,7 @@ class LocalIntentHandler:
 
     def _create_response(self, language: str, message: str, is_error: bool = False):
         """创建响应结果."""
-        response = intent.IntentResponse(language=language)
-        if is_error:
-            response.async_set_error(intent.IntentResponseErrorCode.UNKNOWN, message)
-        else:
-            response.async_set_speech(message)
-
-        return {
-            "response": response,
-            "success": not is_error,
-            "message": message
-        }
+        return create_intent_result(language, message, is_error=is_error)
 
     # ========== 参数控制方法 ==========
 
@@ -972,11 +955,7 @@ class LocalIntentHandler:
         if not devices:
             return None
 
-        rgb_values = (
-            self.local_config.get('GlobalDeviceControl', {})
-            .get('color_rgb_values', {})
-            .get(color_key)
-        )
+        rgb_values = self._get_global_device_control_config().get('color_rgb_values', {}).get(color_key)
         service_data = {'rgb_color': rgb_values} if rgb_values else {'color_name': color_key}
 
         success, errors, failed = await self._execute_device_operations(
