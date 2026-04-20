@@ -110,15 +110,7 @@ class AIHubConversationAgent(
         # ========== 步骤1: 本地意图处理 ==========
         # 只处理 HA 原生不支持的功能（如全局设备控制）
 
-        # 1a. 检查是否是自动化创建请求
-        try:
-            automation_result = await self._handle_automation_request(user_input)
-            if automation_result:
-                return automation_result
-        except Exception as e:
-            _LOGGER.debug("Automation handling failed: %s", e)
-
-        # 1b. 仅对明确的全局控制优先走本地处理，避免覆盖 HA Core
+        # 仅对明确的全局控制优先走本地处理，避免覆盖 HA Core
         intent_handler = None
         try:
             from .intents import get_global_intent_handler
@@ -297,112 +289,6 @@ class AIHubConversationAgent(
         except Exception as e:
             _LOGGER.debug(f"Device operation check failed: {e}")
             return False
-
-    async def _handle_automation_request(
-        self,
-        user_input: conversation.ConversationInput
-    ) -> conversation.ConversationResult | None:
-        """Handle automation creation requests."""
-        user_text = user_input.text.lower()
-
-        # Use config cache to get automation keywords
-        try:
-            automation_keywords = self._config_cache.get_automation_config('automation_keywords', [])
-
-            if not automation_keywords:
-                _LOGGER.debug("No automation_keywords found in config")
-                return None
-
-        except Exception as e:
-            _LOGGER.debug("Failed to load automation keywords: %s", e)
-            return None
-
-        if not any(keyword in user_text for keyword in automation_keywords):
-            return None
-
-        try:
-            from .ai_automation import get_automation_manager
-            manager = get_automation_manager(self.hass)
-
-            # Extract automation description
-            description = self._extract_automation_description(user_input.text)
-            if not description:
-                return None
-
-            # Create automation
-            result = await manager.create_automation_from_description(description)
-
-            # Create response
-            intent_response = intent.IntentResponse(language=user_input.language)
-
-            if result.get("success", False):
-                config_data = result.get("config", {})
-                automation_name = config_data.get("alias", "新自动化")
-
-                # Use configured success message
-                responses = self._config_cache.get_responses_config()
-                success_template = responses.get('automation', {}).get('creation_success')
-                if success_template:
-                    try:
-                        message = success_template.format(automation_name=automation_name)
-                    except KeyError:
-                        message = success_template
-                else:
-                    message = f"我已经为您创建了自动化: {automation_name}"
-
-                # Can add more configuration details
-                if config_data.get("trigger"):
-                    unknown_platform = self._config_cache.get_error_message("automation_trigger_unknown")
-                    triggers = [t.get("platform", unknown_platform) for t in config_data["trigger"]]
-                    message += f"\\n触发条件: {', '.join(triggers)}"
-
-                intent_response.async_set_speech(message)
-            else:
-                # Use configured error message
-                responses = self._config_cache.get_responses_config()
-                error_template = responses.get('automation', {}).get('creation_error')
-                if error_template:
-                    try:
-                        error_msg = error_template.format(error=result.get('error', '未知错误'))
-                    except KeyError:
-                        error_msg = error_template
-                else:
-                    error_msg = f"创建自动化失败: {result.get('error', '未知错误')}"
-
-                intent_response.async_set_error(
-                    intent.IntentResponseErrorCode.UNKNOWN,
-                    error_msg
-                )
-
-            return conversation.ConversationResult(
-                response=intent_response,
-                conversation_id=user_input.conversation_id
-            )
-
-        except Exception as e:
-            _LOGGER.error("Error handling automation request: %s", e)
-            return None
-
-    def _extract_automation_description(self, user_text: str) -> str | None:
-        """Extract automation description from user input."""
-        # Use config cache to get automation prefixes
-        try:
-            prefixes = self._config_cache.get_automation_config('automation_prefixes', [])
-
-        except Exception as e:
-            _LOGGER.debug("Failed to load automation prefixes: %s", e)
-            prefixes = []
-
-        description = user_text
-        for prefix in prefixes:
-            if prefix in description:
-                description = description.replace(prefix, "").strip()
-
-        # If description is too short or empty, return None
-        if len(description) < 5:
-            return None
-
-        return description
 
     def _is_local_special_function(self, intent_type: str, intent_info: dict[str, Any]) -> bool:
         """Check if this is a true local special function"""

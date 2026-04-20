@@ -67,19 +67,6 @@ class ConfigCache:
         defaults = self._get_defaults()
         return defaults.get('local_features', ["所有设备", "全部设备", "所有灯", "全部灯"])
 
-    def get_automation_config(self, key: str, default_value=None) -> Any:
-        """获取自动化配置."""
-        config = self._get_ai_hub_intent_config()
-        if config:
-            if key in config:
-                return config[key]
-            defaults = config.get('defaults', {})
-            if key in defaults:
-                return defaults[key]
-
-        # 如果都没有，返回传入的默认值
-        return default_value
-
     def get_responses_config(self) -> dict[str, Any]:
         """获取响应配置."""
         config = self._get_ai_hub_intent_config()
