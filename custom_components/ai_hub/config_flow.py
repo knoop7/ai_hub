@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -99,16 +98,6 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
     options: dict[str, Any]
     last_rendered_recommended: bool = False
 
-    def _async_schedule_entry_reload(self) -> None:
-        """Reload the parent entry so conversation fallback state stays in sync."""
-
-        async def _delayed_reload() -> None:
-            entry_id = self._get_entry().entry_id
-            await asyncio.sleep(1)
-            await self.hass.config_entries.async_reload(entry_id)
-
-        self.hass.async_create_task(_delayed_reload())
-
     @property
     def _is_new(self) -> bool:
         """Return if this is a new subentry."""
@@ -135,8 +124,6 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
                     processed_input[CONF_LLM_HASS_API] = llm.LLM_API_ASSIST
 
                 if self._is_new:
-                    if self._subentry_type == "conversation":
-                        self._async_schedule_entry_reload()
                     return self.async_create_entry(
                         title=processed_input.pop(
                             CONF_NAME,
@@ -148,8 +135,6 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
                         data=processed_input,
                     )
 
-                if self._subentry_type == "conversation":
-                    self._async_schedule_entry_reload()
                 return self.async_update_and_abort(
                     self._get_entry(),
                     self._get_reconfigure_subentry(),

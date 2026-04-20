@@ -10,6 +10,7 @@ dialogue interactions, supporting:
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 import json
 import logging
@@ -20,6 +21,7 @@ from typing import Any, Literal
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import intent, llm
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -86,13 +88,6 @@ async def async_setup_entry(
         if subentry.subentry_type == "conversation"
     ]
 
-    if not conversation_subentries and _has_registered_conversation_entity(hass, config_entry):
-        _LOGGER.debug(
-            "Skipping fallback local conversation agent because a registered conversation entity already exists for entry: %s",
-            config_entry.entry_id,
-        )
-        return
-
     if not conversation_subentries:
         async_add_entities([AIHubLocalConversationAgent(config_entry)])
         _LOGGER.debug(
@@ -100,6 +95,8 @@ async def async_setup_entry(
             config_entry.entry_id,
         )
         return
+
+    _remove_fallback_entity_registry_entry(hass, config_entry)
 
     for subentry in conversation_subentries:
         _LOGGER.debug("Processing subentry: %s, type: %s", subentry.subentry_id, subentry.subentry_type)
@@ -111,20 +108,33 @@ async def async_setup_entry(
         _LOGGER.debug("Created conversation agent for subentry: %s", subentry.subentry_id)
 
 
-def _has_registered_conversation_entity(
+def _remove_fallback_entity_registry_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
-) -> bool:
-    """Return whether a non-fallback conversation entity is already registered."""
+) -> None:
+    """Remove stale fallback entity and device once a formal agent exists."""
     entity_registry = er.async_get(hass)
-    fallback_unique_id = f"{config_entry.entry_id}_local_assist"
-    for entity_entry in er.async_entries_for_config_entry(entity_registry, config_entry.entry_id):
-        if entity_entry.domain != conversation.DOMAIN:
-            continue
-        if entity_entry.unique_id == fallback_unique_id:
-            continue
-        return True
-    return False
+    fallback_entity_id = entity_registry.async_get_entity_id(
+        conversation.DOMAIN,
+        DOMAIN,
+        f"{config_entry.entry_id}_local_assist",
+    )
+    if not fallback_entity_id:
+        return
+
+    entity_registry.async_remove(fallback_entity_id)
+    _LOGGER.debug("Removed stale fallback local conversation entity: %s", fallback_entity_id)
+
+    device_registry = dr.async_get(hass)
+    fallback_device = device_registry.async_get_device(
+        identifiers={(DOMAIN, f"{config_entry.entry_id}_local_assist")},
+    )
+    if fallback_device is not None:
+        device_registry.async_remove_device(fallback_device.id)
+        _LOGGER.debug(
+            "Removed stale fallback local conversation device: %s",
+            fallback_device.id,
+        )
 
 
 class AIHubConversationAgent(
@@ -157,7 +167,8 @@ class AIHubConversationAgent(
         # 初始化配置缓存
         self._config_cache = get_config_cache()
 
-        # Enable control feature if LLM Hass API is configured
+        # Formal agents expose control when LLM tools are enabled, while the
+        # fallback local agent forces control support explicitly.
         if force_control_feature or self.subentry.data.get(CONF_LLM_HASS_API):
             self._attr_supported_features = (
                 conversation.ConversationEntityFeature.CONTROL
@@ -397,52 +408,6 @@ class AIHubConversationAgent(
         # Return result from chat log
         return conversation.async_get_result_from_chat_log(user_input, chat_log)
 
-    def _is_device_operation(self, tool_name: str) -> bool:
-        """Check if this is a device control operation"""
-        try:
-            from .intents import is_device_operation
-            return is_device_operation(tool_name)
-        except Exception as e:
-            _LOGGER.debug(f"Device operation check failed: {e}")
-            return False
-
-    def _is_local_special_function(self, intent_type: str, intent_info: dict[str, Any]) -> bool:
-        """Check if this is a true local special function"""
-        # Check if this is an "all devices" operation (not natively supported by HA)
-        if self._is_all_device_operation(intent_info):
-            return True
-
-        # Check for other special functions that need local processing
-        # Can dynamically determine based on configuration or patterns
-        return self._has_local_intent_config(intent_type, intent_info)
-
-    def _is_all_device_operation(self, intent_info: dict[str, Any]) -> bool:
-        """Check if this is an 'all devices' operation"""
-        text = intent_info.get("text", "").lower()
-
-        # Use config cache to get global keywords, avoid hardcoding
-        try:
-            global_keywords = self._config_cache.get_global_keywords()
-        except Exception as e:
-            _LOGGER.debug(f"Failed to read global_keywords, using defaults: {e}")
-            global_keywords = ["所有", "全部", "一切"]
-
-        return any(keyword in text for keyword in global_keywords)
-
-    def _has_local_intent_config(self, intent_type: str, intent_info: dict[str, Any]) -> bool:
-        """Check if intent is defined in local config as needing special handling"""
-        text = intent_info.get("text", "").lower()
-
-        # Use config cache to get local feature keywords, avoid hardcoding
-        try:
-            local_features = self._config_cache.get_local_features()
-            _LOGGER.debug(f"Loaded local feature keywords from config cache: {len(local_features)} items")
-        except Exception as e:
-            _LOGGER.debug(f"Failed to read local config, using defaults: {e}")
-            local_features = ["所有设备", "全部设备", "所有灯", "全部灯"]
-
-        return any(feature in text for feature in local_features)
-
     def _should_skip_ha_standard_processing(self, text: str) -> bool:
         """Check whether to skip Home Assistant standard processing and go directly to local intent
 
@@ -519,7 +484,6 @@ class AIHubLocalConversationAgent(AIHubConversationAgent):
             warn_on_missing_api_key=False,
             force_control_feature=True,
         )
-        self.default_model = RECOMMENDED_CHAT_MODEL
 
     async def _async_handle_message(
         self,
