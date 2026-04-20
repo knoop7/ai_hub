@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .consts import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 _AI_AUTOMATION_REGISTERED_KEY = f"{DOMAIN}_ai_automation_registered"
@@ -201,7 +201,7 @@ mode: single
         try:
             from homeassistant.config_entries import ConfigEntries
 
-            from .const import DOMAIN
+            from .consts import DOMAIN
 
             config_entries: ConfigEntries = self.hass.config_entries
             ai_hub_entries = config_entries.async_entries_for_domain(DOMAIN)

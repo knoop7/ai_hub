@@ -30,7 +30,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import (
+from .consts import (
     DOMAIN,
     TIMEOUT_HEALTH_CHECK,
 )

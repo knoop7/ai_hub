@@ -8,7 +8,7 @@ import aiohttp
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
 
-from .const import AI_HUB_CHAT_URL
+from .consts import AI_HUB_CHAT_URL
 from .http import build_json_headers, client_timeout
 
 SILICONFLOW_REGISTER_URL = "https://cloud.siliconflow.cn/i/U3e0rmsr"

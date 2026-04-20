@@ -37,7 +37,7 @@ except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test 
                 redacted[key] = value
         return redacted
 
-from .const import (
+from .consts import (
     AI_HUB_CHAT_URL,
     AI_HUB_IMAGE_GEN_URL,
     CONF_API_KEY,

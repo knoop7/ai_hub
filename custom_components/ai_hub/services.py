@@ -14,7 +14,7 @@ from .config_resolver import (
     get_effective_stt_config,
     get_effective_translation_config,
 )
-from .const import (
+from .consts import (
     DOMAIN,
     SERVICE_ANALYZE_IMAGE,
     SERVICE_GENERATE_IMAGE,

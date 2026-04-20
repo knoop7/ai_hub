@@ -24,7 +24,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import get_configured_api_key
-from .const import (
+from .consts import (
     CONF_CUSTOM_API_KEY,
     DOMAIN,
     SILICONFLOW_ASR_URL,

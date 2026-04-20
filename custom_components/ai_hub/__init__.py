@@ -27,7 +27,7 @@ except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test 
 
     Platform = None  # type: ignore[assignment]
 
-from .const import DOMAIN
+from .consts import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -218,7 +218,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Create default subentries
         from homeassistant.helpers import llm
 
-        from .const import (
+        from .consts import (
             CONF_CHAT_MODEL,
             CONF_LLM_HASS_API,
             CONF_MAX_TOKENS,
@@ -288,7 +288,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.version == 2 and entry.minor_version == 1:
         # Migrate from version 2.1 to 2.2
         # Update subentry titles
-        from .const import DEFAULT_AI_TASK_NAME, DEFAULT_CONVERSATION_NAME
+        from .consts import DEFAULT_AI_TASK_NAME, DEFAULT_CONVERSATION_NAME
 
         for subentry in entry.subentries.values():
             # Update old titles to new format

@@ -40,7 +40,7 @@ except ImportError:
     except ImportError:
         raise Exception('edge_tts is required. Please install edge_tts.')
 
-from .const import (
+from .consts import (
     CONF_TTS_LANG,
     CONF_TTS_VOICE,
     DOMAIN,

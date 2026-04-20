@@ -20,7 +20,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import intent, llm
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN
+from .consts import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN
 from .entity import AIHubBaseLLMEntity
 from .intents import get_config_cache
 
@@ -66,7 +66,7 @@ class AIHubConversationAgent(
         self, entry: ConfigEntry, subentry: ConfigSubentry
     ) -> None:
         """Initialize the agent."""
-        from .const import RECOMMENDED_CHAT_MODEL
+        from .consts import RECOMMENDED_CHAT_MODEL
 
         super().__init__(entry, subentry, RECOMMENDED_CHAT_MODEL)
 

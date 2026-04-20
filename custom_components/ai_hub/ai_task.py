@@ -16,7 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import (
+from .consts import (
     AI_HUB_IMAGE_GEN_URL,
     CONF_CHAT_MODEL,
     CONF_IMAGE_MODEL,
@@ -82,7 +82,7 @@ class AIHubTaskEntity(
         model = conversation_model
         is_recommended = subentry.data.get("recommended", False)
 
-        from .const import AI_HUB_IMAGE_MODELS
+        from .consts import AI_HUB_IMAGE_MODELS
 
         if (
             model in VISION_MODELS

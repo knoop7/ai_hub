@@ -20,7 +20,7 @@ from homeassistant.util import ulid
 from voluptuous_openapi import convert
 
 from .providers import LLMMessage, create_provider
-from .const import (
+from .consts import (
     AI_HUB_CHAT_URL,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,

@@ -21,7 +21,7 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .const import (
+from .consts import (
     AI_HUB_CHAT_MODELS,
     AI_HUB_CHAT_URL,
     AI_HUB_IMAGE_GEN_URL,
