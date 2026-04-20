@@ -40,7 +40,7 @@
       "step": {
         "init": {
           "title": "Configure Conversation Agent",
-          "description": "Customize the behavior and parameters of the conversation agent. Enable recommended mode to use the best settings, or disable it to customize all parameters. After submitting, the configuration information will be switched.",
+          "description": "Customize the behavior and parameters of the conversation agent. Enable recommended mode to use the best settings, or disable it to customize all parameters. After submitting, the configuration information will be switched. [Register]({register_url}) | [Get API Key]({api_key_url})",
           "data": {
             "name": "Name",
             "recommended": "Recommended Mode",
@@ -186,9 +186,6 @@
         }
       }
     }
-  },
-  "runtime": {
-    "local_assist_only": "Current mode only supports local intents"
   },
   "services": {
     "generate_image": {

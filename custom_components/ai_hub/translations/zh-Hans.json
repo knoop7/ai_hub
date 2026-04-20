@@ -40,7 +40,7 @@
       "step": {
         "init": {
           "title": "配置对话助手",
-          "description": "自定义对话助手的行为和参数。开启推荐模式将使用最佳配置，或关闭以自定义所有参数。提交后将切换配置信息。",
+          "description": "自定义对话助手的行为和参数。开启推荐模式将使用最佳配置，或关闭以自定义所有参数。提交后将切换配置信息。[注册]({register_url}) | [获取 API Key]({api_key_url})",
           "data": {
             "name": "名称",
             "recommended": "推荐模式",
@@ -186,9 +186,6 @@
         }
       }
     }
-  },
-  "runtime": {
-    "local_assist_only": "当前模式仅支持本地意图"
   },
   "services": {
     "generate_image": {

@@ -10,11 +10,8 @@ dialogue interactions, supporting:
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import replace
-import json
 import logging
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Literal
 
@@ -34,43 +31,6 @@ _LOGGER = logging.getLogger(__name__)
 
 MATCH_ALL: Literal["*"] = "*"
 FALLBACK_AGENT_NAME = "AI Hub Local Assist"
-_TRANSLATIONS_CACHE: dict[str, dict[str, Any]] = {}
-
-
-def _load_translation_file(language_code: str) -> dict[str, Any]:
-    """Load a translation file from disk."""
-    translations_path = Path(__file__).parent / "translations" / f"{language_code}.json"
-    try:
-        with translations_path.open("r", encoding="utf-8") as file_handle:
-            data = json.load(file_handle)
-            return data if isinstance(data, dict) else {}
-    except Exception as err:
-        _LOGGER.debug("Failed to load runtime translations from %s: %s", translations_path, err)
-        return {}
-
-
-async def _async_prime_runtime_translations() -> None:
-    """Preload translation files so runtime speech does not hit disk."""
-    if "en" not in _TRANSLATIONS_CACHE:
-        _TRANSLATIONS_CACHE["en"] = await asyncio.to_thread(_load_translation_file, "en")
-    if "zh-Hans" not in _TRANSLATIONS_CACHE:
-        _TRANSLATIONS_CACHE["zh-Hans"] = await asyncio.to_thread(
-            _load_translation_file,
-            "zh-Hans",
-        )
-
-
-def _get_local_assist_only_message(language: str | None) -> str:
-    """Load the fallback local-assist message from translations files."""
-    normalized_language = (language or "").lower()
-    language_code = "en" if normalized_language.startswith("en") else "zh-Hans"
-    fallback = "Current mode only supports local intents" if language_code == "en" else "当前模式仅支持本地意图"
-
-    translations = _TRANSLATIONS_CACHE.get(language_code, {})
-
-    runtime = translations.get("runtime") if isinstance(translations, dict) else None
-    message = runtime.get("local_assist_only") if isinstance(runtime, dict) else None
-    return message if isinstance(message, str) else fallback
 
 
 async def async_setup_entry(
@@ -79,7 +39,6 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up conversation entities."""
-    await _async_prime_runtime_translations()
     _LOGGER.debug("Setting up conversation entities, subentries: %s", config_entry.subentries)
 
     conversation_subentries = [
@@ -499,7 +458,10 @@ class AIHubLocalConversationAgent(AIHubConversationAgent):
             return local_or_builtin_result
 
         empty_response = intent.IntentResponse(language=user_input.language)
-        empty_response.async_set_speech(_get_local_assist_only_message(user_input.language))
+        if (user_input.language or "").lower().startswith("en"):
+            empty_response.async_set_speech("Current mode only supports local intents")
+        else:
+            empty_response.async_set_speech("当前模式仅支持本地意图")
         return conversation.ConversationResult(
             response=empty_response,
             conversation_id=user_input.conversation_id,

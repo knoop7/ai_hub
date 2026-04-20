@@ -154,6 +154,7 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
             step_id="init",
             data_schema=vol.Schema(schema),
             errors=errors,
+            description_placeholders=FLOW_DESCRIPTION_PLACEHOLDERS,
         )
 
     async_step_reconfigure = async_step_init
