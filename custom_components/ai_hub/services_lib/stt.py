@@ -22,7 +22,7 @@ import aiohttp
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 
-from ..const import (
+from ..consts import (
     CONF_STT_FILE,
     DEFAULT_REQUEST_TIMEOUT,
     RECOMMENDED_STT_MODEL,

@@ -23,7 +23,7 @@ from pathlib import Path
 
 import aiohttp
 
-from ..const import AI_HUB_CHAT_URL, RECOMMENDED_CHAT_MODEL
+from ..consts import AI_HUB_CHAT_URL, RECOMMENDED_CHAT_MODEL
 
 _LOGGER = logging.getLogger(__name__)
 

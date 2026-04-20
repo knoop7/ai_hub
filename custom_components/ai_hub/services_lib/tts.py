@@ -21,7 +21,7 @@ import tempfile
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 
-from ..const import (
+from ..consts import (
     DOMAIN,
     EDGE_TTS_VOICES,
     TTS_DEFAULT_VOICE,

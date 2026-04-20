@@ -26,7 +26,7 @@ from homeassistant.components import camera
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
-from ..const import (
+from ..consts import (
     DOMAIN,
     ERROR_GETTING_RESPONSE,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,

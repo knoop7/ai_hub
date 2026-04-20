@@ -29,6 +29,7 @@ from .consts import (
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
+    CONF_ENABLE_THINKING,
     CONF_FORCE_TRANSLATION,
     CONF_IMAGE_MODEL,
     CONF_IMAGE_URL,
@@ -57,6 +58,7 @@ from .consts import (
     RECOMMENDED_AI_TASK_TEMPERATURE,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
+    RECOMMENDED_ENABLE_THINKING,
     RECOMMENDED_IMAGE_MODEL,
     RECOMMENDED_LLM_PROVIDER,
     RECOMMENDED_MAX_HISTORY_MESSAGES,
@@ -212,6 +214,11 @@ def _build_conversation_schema(options: Mapping[str, Any], recommended_only: boo
                     default=options.get(CONF_MAX_HISTORY_MESSAGES, RECOMMENDED_MAX_HISTORY_MESSAGES),
                     description={"suggested_value": options.get(CONF_MAX_HISTORY_MESSAGES)},
                 ): int,
+                vol.Optional(
+                    CONF_ENABLE_THINKING,
+                    default=options.get(CONF_ENABLE_THINKING, RECOMMENDED_ENABLE_THINKING),
+                    description={"suggested_value": options.get(CONF_ENABLE_THINKING)},
+                ): bool,
             }
         )
     return schema

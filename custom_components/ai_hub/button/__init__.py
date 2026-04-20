@@ -13,7 +13,7 @@ from homeassistant.helpers import config_entry_flow
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from ..const import DOMAIN
+from ..consts import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 

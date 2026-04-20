@@ -15,7 +15,7 @@
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
-from ..const import (
+from ..consts import (
     CONF_STT_FILE,
     EDGE_TTS_VOICES,
     IMAGE_SIZES,
