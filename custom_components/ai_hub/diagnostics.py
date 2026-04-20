@@ -138,25 +138,30 @@ def collect_api_monitor_targets(entry: ConfigEntry) -> list[dict[str, Any]]:
     """Collect API endpoints that should appear in diagnostics and health checks."""
     targets: dict[str, dict[str, Any]] = {}
 
-    def add_target(url: str, label: str, source: str) -> None:
-        normalized = _normalize_monitor_url(url)
+    def add_target(configured_url: str, label: str, source: str) -> None:
+        normalized = _normalize_monitor_url(configured_url)
         if normalized is None:
             return
 
-        parsed = urlparse(normalized)
-        key = f"{label.lower().replace(' ', '_')}_{parsed.netloc.replace('.', '_').replace(':', '_')}"
+        parsed = urlparse(configured_url)
+        path_key = parsed.path.strip("/").replace("/", "_") or "root"
+        key = (
+            f"{label.lower().replace(' ', '_')}_"
+            f"{parsed.netloc.replace('.', '_').replace(':', '_')}_{path_key}"
+        )
 
-        if normalized not in targets:
-            targets[normalized] = {
+        if configured_url not in targets:
+            targets[configured_url] = {
                 "key": key,
                 "label": label,
-                "url": normalized,
+                "url": configured_url,
+                "monitor_url": normalized,
                 "sources": [source],
             }
             return
 
-        if source not in targets[normalized]["sources"]:
-            targets[normalized]["sources"].append(source)
+        if source not in targets[configured_url]["sources"]:
+            targets[configured_url]["sources"].append(source)
 
     for subentry in entry.subentries.values():
         if subentry.subentry_type == "conversation":
@@ -280,13 +285,14 @@ async def _get_api_status_diagnostics(
         try:
             start_time = datetime.now()
             async with session.get(
-                target["url"],
+                target["monitor_url"],
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 latency = (datetime.now() - start_time).total_seconds() * 1000
                 status[target["key"]] = {
                     "label": target["label"],
                     "url": target["url"],
+                    "monitor_url": target["monitor_url"],
                     "sources": target["sources"],
                     "status": "reachable",
                     "http_status": response.status,
@@ -296,6 +302,7 @@ async def _get_api_status_diagnostics(
             status[target["key"]] = {
                 "label": target["label"],
                 "url": target["url"],
+                "monitor_url": target["monitor_url"],
                 "sources": target["sources"],
                 "status": "unreachable",
                 "error": str(e),
@@ -304,6 +311,7 @@ async def _get_api_status_diagnostics(
             status[target["key"]] = {
                 "label": target["label"],
                 "url": target["url"],
+                "monitor_url": target["monitor_url"],
                 "sources": target["sources"],
                 "status": "error",
                 "error": str(e),

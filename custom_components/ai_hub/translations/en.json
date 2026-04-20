@@ -190,6 +190,10 @@
       "name": "Generate Image",
       "description": "Generate image using AI Hub SiliconFlow model",
       "fields": {
+        "config_entry_id": {
+          "name": "Config Entry",
+          "description": "Specify which AI Hub config entry ID to use; recommended when multiple entries exist"
+        },
         "prompt": {
           "name": "Prompt",
           "description": "Describe the image content to generate"
@@ -208,6 +212,10 @@
       "name": "Analyze Image",
       "description": "Analyze image content using AI Hub",
       "fields": {
+        "config_entry_id": {
+          "name": "Config Entry",
+          "description": "Specify which AI Hub config entry ID to use; recommended when multiple entries exist"
+        },
         "image_file": {
           "name": "Image File",
           "description": "Path to the image file to analyze"
@@ -242,6 +250,10 @@
       "name": "Edge TTS Speech Synthesis",
       "description": "Convert text to speech using Edge TTS",
       "fields": {
+        "config_entry_id": {
+          "name": "Config Entry",
+          "description": "Optional; helps select a specific AI Hub config entry when multiple entries exist"
+        },
         "text": {
           "name": "Text",
           "description": "Text content to convert to speech"
@@ -260,6 +272,10 @@
       "name": "Silicon Flow ASR Transcription",
       "description": "Convert speech to text using Silicon Flow ASR",
       "fields": {
+        "config_entry_id": {
+          "name": "Config Entry",
+          "description": "Specify which AI Hub config entry ID to use; recommended when multiple entries exist"
+        },
         "audio_file": {
           "name": "Audio File",
           "description": "Path to audio file to transcribe (supports mp3, wav, flac formats)"
@@ -274,6 +290,10 @@
       "name": "Blueprint Translation",
       "description": "Translate Home Assistant Blueprint file interface from English to Chinese",
       "fields": {
+        "config_entry_id": {
+          "name": "Config Entry",
+          "description": "Specify which AI Hub config entry ID to use; recommended when multiple entries exist"
+        },
         "list_blueprints": {
           "name": "List Blueprints",
           "description": "Only list imported Blueprint files and their translation status, do not execute translation operation"
@@ -282,9 +302,31 @@
           "name": "Target Blueprint",
           "description": "Specify the Blueprint file name to translate (without extension), leave empty to translate all Blueprints"
         },
+        "retranslate": {
+          "name": "Retranslate",
+          "description": "Force re-translation and overwrite existing translations regardless of whether Chinese translation file exists"
+        }
+      }
+    },
+    "translate_components": {
+      "name": "Component Translation",
+      "description": "Translate Home Assistant custom component strings from English to Chinese",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config Entry",
+          "description": "Specify which AI Hub config entry ID to use; recommended when multiple entries exist"
+        },
+        "list_components": {
+          "name": "List Components",
+          "description": "Only list translatable custom components and their translation status without translating"
+        },
         "force_translation": {
           "name": "Force Translation",
-          "description": "Force re-translation and overwrite existing translations regardless of whether Chinese translation file exists"
+          "description": "Retranslate and overwrite existing Chinese translations even if they already exist"
+        },
+        "target_component": {
+          "name": "Target Component",
+          "description": "Specify the component directory name to translate; leave empty to translate all components"
         }
       }
     }

@@ -143,12 +143,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     # Store in entry.runtime_data
     entry.runtime_data = api_key
 
-    # Forward setup to platforms
-    _LOGGER.debug("Setting up AI Hub platforms: %s", PLATFORMS)
-
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _LOGGER.debug("Platforms setup completed")
-
     # Sync auto-generated intent lists before loading local intent config
     from .intents.loader import async_sync_intent_lists
     await async_sync_intent_lists(hass)
@@ -165,6 +159,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     from .services import async_setup_services
     await async_setup_services(hass, entry)
 
+    # Forward setup to platforms last. If any initialization above fails and Home
+    # Assistant retries the config entry, delaying platform setup prevents the
+    # entity component from seeing the same entry as already configured.
+    _LOGGER.debug("Setting up AI Hub platforms: %s", PLATFORMS)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    _LOGGER.debug("Platforms setup completed")
+
     # Listen for options updates
     entry.async_on_unload(entry.add_update_listener(async_update_options))
 
@@ -178,18 +179,30 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
     """Unload a config entry."""
-    # Unload services first
+    remaining_entries = [
+        config_entry
+        for config_entry in hass.config_entries.async_entries(DOMAIN)
+        if config_entry.entry_id != entry.entry_id
+    ]
+
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if not unload_ok:
+        return False
+
     from .services import async_unload_services
-    await async_unload_services(hass)
+    await async_unload_services(hass, entry.entry_id)
 
-    # Clean up runtime data
-    ai_hub_data = get_ai_hub_data(hass)
-    if ai_hub_data is not None:
-        ai_hub_data.cleanup()
-        hass.data.pop(DOMAIN, None)
+    if not remaining_entries:
+        from .ai_automation import async_unload_ai_automation
 
-    # Unload all platforms
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        await async_unload_ai_automation(hass)
+
+        ai_hub_data = get_ai_hub_data(hass)
+        if ai_hub_data is not None:
+            ai_hub_data.cleanup()
+            hass.data.pop(DOMAIN, None)
+
+    return True
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

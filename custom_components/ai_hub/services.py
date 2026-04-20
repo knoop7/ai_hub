@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -44,6 +45,8 @@ _LOGGER = logging.getLogger(__name__)
 
 _REGISTERED_HASS: HomeAssistant | None = None
 _REGISTERED_ENTRY = None
+_SERVICE_CONTEXTS_KEY = f"{DOMAIN}_service_contexts"
+_SERVICES_REGISTERED_KEY = f"{DOMAIN}_services_registered"
 
 
 def _get_conversation_config(config_entry) -> tuple[str, str, str]:
@@ -75,11 +78,74 @@ def _get_registered_context() -> tuple[HomeAssistant | None, object | None]:
     return _REGISTERED_HASS, _REGISTERED_ENTRY
 
 
+def _get_service_contexts(hass: HomeAssistant) -> dict[str, object]:
+    """Return the service context registry for this Home Assistant instance."""
+    return hass.data.setdefault(_SERVICE_CONTEXTS_KEY, {})
+
+
+def _set_active_entry(hass: HomeAssistant) -> None:
+    """Update the fallback active entry used by module-level test helpers."""
+    global _REGISTERED_HASS, _REGISTERED_ENTRY
+
+    contexts = _get_service_contexts(hass)
+    _REGISTERED_HASS = hass
+    _REGISTERED_ENTRY = next(reversed(contexts.values()), None) if contexts else None
+
+
+def _entry_has_subentry_type(config_entry: Any, subentry_type: str) -> bool:
+    """Return whether the config entry contains the requested subentry type."""
+    return any(
+        subentry.subentry_type == subentry_type
+        for subentry in getattr(config_entry, "subentries", {}).values()
+    )
+
+
+def _resolve_service_entry(
+    call: ServiceCall,
+    subentry_type: str | None = None,
+) -> tuple[HomeAssistant | None, Any | None, str | None]:
+    """Resolve which config entry should handle a service call."""
+    hass, fallback_entry = _get_registered_context()
+    if hass is None:
+        return None, None, "AI Hub 未初始化"
+
+    contexts = _get_service_contexts(hass)
+    explicit_entry_id = call.data.get("config_entry_id")
+
+    if explicit_entry_id:
+        config_entry = contexts.get(explicit_entry_id)
+        if config_entry is None:
+            return hass, None, f"未找到 AI Hub 配置项: {explicit_entry_id}"
+        if subentry_type and not _entry_has_subentry_type(config_entry, subentry_type):
+            return hass, None, f"指定的配置项不包含 {subentry_type} 子项"
+        return hass, config_entry, None
+
+    candidates = list(contexts.values())
+    if subentry_type is not None:
+        candidates = [
+            config_entry
+            for config_entry in candidates
+            if _entry_has_subentry_type(config_entry, subentry_type)
+        ]
+
+    if not candidates:
+        if fallback_entry is not None and (
+            subentry_type is None or _entry_has_subentry_type(fallback_entry, subentry_type)
+        ):
+            return hass, fallback_entry, None
+        return hass, None, "没有可用的 AI Hub 配置"
+
+    if len(candidates) > 1:
+        return hass, None, "检测到多个 AI Hub 配置，请在服务中指定 config_entry_id"
+
+    return hass, candidates[0], None
+
+
 async def _handle_analyze_image(call: ServiceCall) -> dict:
     """Handle analyze image service calls."""
-    hass, config_entry = _get_registered_context()
-    if hass is None or config_entry is None:
-        return {"success": False, "error": "API密钥未配置"}
+    hass, config_entry, error = _resolve_service_entry(call, "conversation")
+    if error is not None or hass is None or config_entry is None:
+        return {"success": False, "error": error or "API密钥未配置"}
 
     chat_url, _, effective_key = _get_conversation_config(config_entry)
     if not effective_key or not effective_key.strip():
@@ -89,9 +155,9 @@ async def _handle_analyze_image(call: ServiceCall) -> dict:
 
 async def _handle_generate_image(call: ServiceCall) -> dict:
     """Handle generate image service calls."""
-    hass, config_entry = _get_registered_context()
-    if hass is None or config_entry is None:
-        return {"success": False, "error": "API密钥未配置"}
+    hass, config_entry, error = _resolve_service_entry(call, "ai_task_data")
+    if error is not None or hass is None or config_entry is None:
+        return {"success": False, "error": error or "API密钥未配置"}
 
     image_url, effective_key = _get_image_config(config_entry)
     if not effective_key or not effective_key.strip():
@@ -101,9 +167,9 @@ async def _handle_generate_image(call: ServiceCall) -> dict:
 
 async def _handle_stt_transcribe(call: ServiceCall) -> dict:
     """Handle STT transcription service calls."""
-    hass, config_entry = _get_registered_context()
-    if hass is None or config_entry is None:
-        return {"success": False, "error": "API密钥未配置"}
+    hass, config_entry, error = _resolve_service_entry(call, "stt")
+    if error is not None or hass is None or config_entry is None:
+        return {"success": False, "error": error or "API密钥未配置"}
 
     stt_url, api_key = _get_stt_config(config_entry)
     if not api_key or not api_key.strip():
@@ -114,14 +180,13 @@ async def _handle_stt_transcribe(call: ServiceCall) -> dict:
 async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     """Set up services for AI Hub integration."""
 
-    global _REGISTERED_HASS, _REGISTERED_ENTRY
-    _REGISTERED_HASS = hass
-    _REGISTERED_ENTRY = config_entry
+    contexts = _get_service_contexts(hass)
+    contexts[config_entry.entry_id] = config_entry
+    _set_active_entry(hass)
 
-    api_key = config_entry.runtime_data
-    def has_api_key() -> bool:
-        """Check if any API key is available (main or custom)."""
-        return api_key is not None and api_key.strip() != ""
+    if hass.data.get(_SERVICES_REGISTERED_KEY):
+        _LOGGER.debug("AI Hub services already registered; updated active context")
+        return
 
     # ========== 图像分析服务 ==========
     # ========== TTS 语音合成服务（统一） ==========
@@ -130,20 +195,21 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
         stream = call.data.get("stream", False)
         if stream:
             return await handle_tts_stream(hass, call)
-        else:
-            if not has_api_key():
-                return {"success": False, "error": "API密钥未配置"}
-            return await handle_tts_speech(hass, call, api_key)
+        return await handle_tts_speech(hass, call)
 
     # ========== STT 语音转文字服务 ==========
     # ========== 组件翻译服务 ==========
     async def _handle_translate_components(call: ServiceCall) -> dict:
         try:
+            _, resolved_entry, error = _resolve_service_entry(call, "translation")
+            if error is not None or resolved_entry is None:
+                return {"success": False, "error": error or "API密钥未配置"}
+
             list_components = call.data.get("list_components", False)
             target_component = call.data.get("target_component", "").strip()
             force_translation = call.data.get("force_translation", False)
 
-            chat_url, model, effective_key = _get_translation_config(config_entry)
+            chat_url, model, effective_key = _get_translation_config(resolved_entry)
 
             if not list_components and (not effective_key or not effective_key.strip()):
                 return {"success": False, "error": "API密钥未配置"}
@@ -165,12 +231,16 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
     # ========== 蓝图翻译服务 ==========
     async def _handle_translate_blueprints(call: ServiceCall) -> dict:
         try:
+            _, resolved_entry, error = _resolve_service_entry(call, "translation")
+            if error is not None or resolved_entry is None:
+                return {"success": False, "error": error or "API密钥未配置"}
+
             list_blueprints = call.data.get("list_blueprints", False)
             target_blueprint = call.data.get("target_blueprint", "").strip()
             retranslate = call.data.get("retranslate", False)
             blueprints_path = hass.config.path("blueprints")
 
-            chat_url, model, effective_key = _get_translation_config(config_entry)
+            chat_url, model, effective_key = _get_translation_config(resolved_entry)
 
             if not list_blueprints and (not effective_key or not effective_key.strip()):
                 return {"success": False, "error": "API密钥未配置"}
@@ -220,15 +290,27 @@ async def async_setup_services(hass: HomeAssistant, config_entry) -> None:
         schema=vol.Schema(BLUEPRINTS_TRANSLATION_SCHEMA), supports_response=True
     )
 
+    hass.data[_SERVICES_REGISTERED_KEY] = True
     _LOGGER.info("AI Hub services registered successfully")
 
 
-async def async_unload_services(hass: HomeAssistant) -> None:
+async def async_unload_services(hass: HomeAssistant, entry_id: str | None = None) -> None:
     """Unload all services for AI Hub integration.
 
     Args:
         hass: Home Assistant instance
     """
+    contexts = _get_service_contexts(hass)
+    if entry_id is not None:
+        contexts.pop(entry_id, None)
+        _set_active_entry(hass)
+        if contexts:
+            _LOGGER.debug("Skipping AI Hub service unload; other entries still active")
+            return
+
+    if not hass.data.get(_SERVICES_REGISTERED_KEY):
+        return
+
     hass.services.async_remove(DOMAIN, SERVICE_ANALYZE_IMAGE)
     hass.services.async_remove(DOMAIN, SERVICE_GENERATE_IMAGE)
     hass.services.async_remove(DOMAIN, SERVICE_TTS_SAY)
@@ -240,5 +322,8 @@ async def async_unload_services(hass: HomeAssistant) -> None:
     if _REGISTERED_HASS is hass:
         _REGISTERED_HASS = None
         _REGISTERED_ENTRY = None
+
+    hass.data.pop(_SERVICES_REGISTERED_KEY, None)
+    hass.data.pop(_SERVICE_CONTEXTS_KEY, None)
 
     _LOGGER.info("AI Hub services unloaded successfully")

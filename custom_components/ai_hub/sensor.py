@@ -170,9 +170,14 @@ class AIHubHealthCheckSensor(SensorEntity):
         session = async_get_clientsession(self.hass)
         self._api_statuses = {}
 
+        current_entry = self.hass.config_entries.async_get_entry(self._entry.entry_id)
+        if current_entry is not None:
+            self._entry = current_entry
+
         for target in collect_api_monitor_targets(self._entry):
-            api_status = await self._check_api(session, target["url"], target["label"])
+            api_status = await self._check_api(session, target["monitor_url"], target["label"])
             api_status["url"] = target["url"]
+            api_status["monitor_url"] = target["monitor_url"]
             api_status["sources"] = target["sources"]
             self._api_statuses[target["key"]] = api_status
 

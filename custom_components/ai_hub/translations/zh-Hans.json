@@ -188,8 +188,12 @@
   "services": {
     "generate_image": {
       "name": "生成图像",
-      "description": "使用AI Hub CogView模型生成图像",
+      "description": "使用AI Hub图像生成接口生成图像",
       "fields": {
+        "config_entry_id": {
+          "name": "配置项",
+          "description": "指定要使用的 AI Hub 配置项 ID；存在多个配置项时建议填写"
+        },
         "prompt": {
           "name": "提示词",
           "description": "描述要生成的图像内容"
@@ -208,6 +212,10 @@
       "name": "分析图像",
       "description": "使用AI Hub分析图像内容",
       "fields": {
+        "config_entry_id": {
+          "name": "配置项",
+          "description": "指定要使用的 AI Hub 配置项 ID；存在多个配置项时建议填写"
+        },
         "image_file": {
           "name": "图像文件",
           "description": "要分析的图像文件路径"
@@ -242,6 +250,10 @@
       "name": "Edge TTS语音合成",
       "description": "使用Edge TTS将文本转换为语音",
       "fields": {
+        "config_entry_id": {
+          "name": "配置项",
+          "description": "可选；用于在多个 AI Hub 配置项并存时明确指定调用来源"
+        },
         "text": {
           "name": "文本",
           "description": "要转换为语音的文本内容"
@@ -260,6 +272,10 @@
       "name": "硅基流动ASR转录",
       "description": "使用硅基流动ASR将语音转换为文本",
       "fields": {
+        "config_entry_id": {
+          "name": "配置项",
+          "description": "指定要使用的 AI Hub 配置项 ID；存在多个配置项时建议填写"
+        },
         "audio_file": {
           "name": "音频文件",
           "description": "要转录的音频文件路径（支持mp3、wav、flac格式）"
@@ -274,6 +290,10 @@
       "name": "蓝图翻译",
       "description": "将Home Assistant蓝图文件界面从英文翻译为中文",
       "fields": {
+        "config_entry_id": {
+          "name": "配置项",
+          "description": "指定要使用的 AI Hub 配置项 ID；存在多个配置项时建议填写"
+        },
         "list_blueprints": {
           "name": "列出蓝图",
           "description": "仅列出已导入的蓝图文件及其翻译状态，不执行翻译操作"
@@ -282,8 +302,8 @@
           "name": "目标蓝图",
           "description": "指定要翻译的蓝图文件名（不含扩展名），留空则翻译所有蓝图"
         },
-        "force_translation": {
-          "name": "强制翻译",
+        "retranslate": {
+          "name": "重新翻译",
           "description": "强制重新翻译并覆盖现有翻译，无论中文翻译文件是否存在"
         }
       }
@@ -292,9 +312,21 @@
       "name": "集成翻译",
       "description": "自动将Home Assistant集成的英文翻译为中文",
       "fields": {
-        "custom_components_path": {
-          "name": "路径",
-          "description": "自定义集成目录路径，默认为配置目录"
+        "config_entry_id": {
+          "name": "配置项",
+          "description": "指定要使用的 AI Hub 配置项 ID；存在多个配置项时建议填写"
+        },
+        "list_components": {
+          "name": "列出组件",
+          "description": "仅列出可翻译的自定义集成及其翻译状态，不执行翻译"
+        },
+        "force_translation": {
+          "name": "强制翻译",
+          "description": "即使已有中文翻译也重新翻译并覆盖现有文件"
+        },
+        "target_component": {
+          "name": "目标组件",
+          "description": "指定要翻译的组件目录名；留空则翻译所有组件"
         }
       }
     }

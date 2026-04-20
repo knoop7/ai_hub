@@ -13,6 +13,7 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+_AI_AUTOMATION_REGISTERED_KEY = f"{DOMAIN}_ai_automation_registered"
 
 
 class AIAutomationManager:
@@ -439,6 +440,9 @@ def get_automation_manager(hass: HomeAssistant) -> AIAutomationManager:
 
 async def async_setup_ai_automation(hass: HomeAssistant) -> None:
     """Set up AI automation services."""
+    if hass.data.get(_AI_AUTOMATION_REGISTERED_KEY):
+        return
+
     manager = get_automation_manager(hass)
 
     async def create_automation_service(call: ServiceCall) -> dict[str, Any]:
@@ -461,4 +465,14 @@ async def async_setup_ai_automation(hass: HomeAssistant) -> None:
         })
     )
 
+    hass.data[_AI_AUTOMATION_REGISTERED_KEY] = True
     _LOGGER.info("AI automation services registered")
+
+
+async def async_unload_ai_automation(hass: HomeAssistant) -> None:
+    """Unload AI automation services."""
+    if not hass.data.get(_AI_AUTOMATION_REGISTERED_KEY):
+        return
+
+    hass.services.async_remove(DOMAIN, "create_automation")
+    hass.data.pop(_AI_AUTOMATION_REGISTERED_KEY, None)
