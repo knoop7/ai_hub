@@ -40,9 +40,9 @@
 
 ## 🌟 功能介绍 / Features
 
-AI Hub 是 Home Assistant 的自定义集成，提供对话助手、AI任务、TTS、STT，以及组件/蓝图汉化能力，并支持 OpenAI-compatible、Anthropic-compatible 与 SiliconFlow 等服务。
+AI Hub 是 Home Assistant 的自定义集成，提供对话助手、AI任务、TTS、STT，以及组件/蓝图汉化能力。
 
-AI Hub is a custom integration for Home Assistant that provides conversation, AI tasks, TTS, STT, and component/blueprint localization, with support for OpenAI-compatible, Anthropic-compatible, and SiliconFlow-backed services.
+AI Hub is a custom integration for Home Assistant that provides conversation, AI tasks, TTS, STT, and component/blueprint localization.
 
 > **说明**: 微信等即时消息功能已从本项目移除，统一由 [cn_im_hub](https://github.com/ha-china/cn_im_hub) 提供。
 >
@@ -58,16 +58,16 @@ AI Hub is a custom integration for Home Assistant that provides conversation, AI
 
 | 中文 | English |
 |------|---------|
-| **流式输出**: 支持流式回复，并在工具可用时继续执行工具回合 | **Streaming Output**: Supports streaming replies and continues tool turns when tools are available |
+| **回复自然**: 支持日常问答、设备控制和状态查询 | **Natural Replies**: Supports daily conversations, device control, and state queries |
 | **家居控制**: 对接 Home Assistant LLM API，支持控制和查询设备状态 | **Home Control**: Integrates with Home Assistant LLM API to control devices and query states |
 | **图片理解**: 消息携带图片时自动切换到视觉模型（GLM-4.1V-9B-Thinking） | **Image Understanding**: Automatically switches to vision model (GLM-4.1V-9B-Thinking) when message contains an image |
-| **上下文记忆**: 支持连续对话，上下文保留受历史消息条数和模型/服务端能力共同影响 | **Context Memory**: Supports multi-turn conversations; context retention depends on history limits and model/backend capability |
+| **连续对话**: 支持多轮对话，适合日常家居语音场景 | **Multi-turn Conversation**: Supports follow-up conversations for daily smart home use |
 
 #### 🤖 AI 任务 / AI Tasks
 
 | 中文 | English |
 |------|---------|
-| **结构化数据生成**: 指定 JSON 结构，尽量按结构返回数据并在失败时提供错误提示 | **Structured Data Generation**: Accepts a JSON structure target and returns structured data when possible, with explicit errors on failure |
+| **任务生成**: 可用于生成文本内容、整理信息和处理复杂指令 | **Task Assistance**: Useful for content generation, organizing information, and handling more complex prompts |
 | **图片生成**: 使用 Kolors 等模型生成图片，支持 URL 或 base64 返回 | **Image Generation**: Generate images using Kolors and other models, supporting URL or base64 result |
 | **多模态支持**: 复用对话消息格式，便于复杂任务处理 | **Multimodal Support**: Reuses conversation message format for complex tasks |
 
@@ -78,7 +78,7 @@ AI Hub is a custom integration for Home Assistant that provides conversation, AI
 | **高质量语音**: 集成微软 Edge TTS，支持多语言、多风格 | **High-Quality Voice**: Integrates Microsoft Edge TTS, supporting multiple languages and styles |
 | **丰富语音库**: 支持晓晓、云健、Aria、Jenny 等 400+ 种语音模型 | **Rich Voice Library**: Supports 400+ voices including Xiaoxiao, Yun Jian, Aria, Jenny, and more |
 | **Prosody 参数**: 支持语速(rate)、音量(volume)、音调(pitch)调节 | **Prosody Parameters**: Supports rate, volume, and pitch adjustments |
-| **流式输出**: 支持流式 TTS 输出，适合 LLM 对话场景 | **Streaming Output**: Supports streaming TTS output for LLM conversation scenarios |
+| **对话播报**: 适合搭配语音助手和日常播报场景 | **Conversation Playback**: Suitable for voice assistants and everyday announcement scenarios |
 | **多种格式**: 输出 MP3 格式音频 | **Audio Format**: Outputs MP3 format audio |
 
 #### 🎤 语音识别 / STT (SiliconFlow)
@@ -87,7 +87,7 @@ AI Hub is a custom integration for Home Assistant that provides conversation, AI
 |------|---------|
 | **高精度识别**: 集成硅基流动语音识别服务，支持 SenseVoice、TeleSpeechASR 等模型 | **High Accuracy Recognition**: Integrates SiliconFlow speech recognition service, supporting SenseVoice, TeleSpeechASR and more models |
 | **自动语言检测**: 自动识别中文、英文、日文、韩文等多种语言，无需手动指定 | **Auto Language Detection**: Automatically detects Chinese, English, Japanese, Korean, and other languages without manual specification |
-| **格式兼容**: 支持 WAV/MP3/FLAC/M4A/OGG/WebM 等多种音频格式 | **Format Compatibility**: Supports WAV/MP3/FLAC/M4A/OGG/WebM and other audio formats |
+| **格式兼容**: 支持常见音频格式，便于接入不同来源的录音 | **Format Compatibility**: Supports common audio formats for different recording sources |
 | **实时处理**: 适合语音控制、Voice Assistant 等场景 | **Real-Time Processing**: Suitable for voice control, Voice Assistant, and other scenarios |
 
 #### 🌐 HACS 集成汉化 / HACS Integration Localization
@@ -198,11 +198,10 @@ AI Hub supports sub-entry configuration for independent functionality:
 2. **描述问题**: 输入对图片的描述或问题 / Input what you want to ask/analyze about the image
 3. **获取分析**: 模型会自动进行视觉分析并回答 / The model analyzes and responds automatically
 
-#### 工具调用 / Tool Invocation
+#### 设备控制 / Device Control
 
-- **启用工具**: 在对话助手子条目中启用"LLM Hass API" / Enable "LLM Hass API" in the conversation sub-entry
-- **控制设备**: 模型可以调用 Home Assistant 工具来控制设备或查询状态 / The model can call Home Assistant APIs to control/query devices
-- **模型建议**: 建议优先选择支持 Tools / Function Calling 的模型 / Prefer models that support Tools / Function Calling
+- **启用家居能力**: 在对话助手子条目中启用"LLM Hass API" / Enable "LLM Hass API" in the conversation sub-entry
+- **控制与查询**: 可以直接控制设备或查询状态 / Control devices or check their status directly
 
 ### B. AI 任务使用 / AI Tasks
 
@@ -226,11 +225,11 @@ automation:
           model: "Kwai-Kolors/Kolors"
 ```
 
-#### 结构化数据生成 / Structured Data Generation
+#### 任务处理 / Task Assistance
 
-生成指定格式的结构化数据：
+可用于整理信息、生成内容或处理复杂需求：
 
-Generate formatted JSON data:
+Useful for organizing information, generating content, or handling more complex requests:
 
 ```yaml
 # 调用AI任务生成JSON数据 / Call AI task to generate JSON data
