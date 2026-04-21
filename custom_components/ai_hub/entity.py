@@ -337,7 +337,15 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
 
             provider_timeout = getattr(getattr(provider, "config", None), "timeout", 60)
 
-            if tools:
+            if provider_name == "openai_compatible" and not tools:
+                await self._async_run_provider_stream(
+                    chat_log,
+                    provider_name,
+                    provider,
+                    llm_messages,
+                    tools,
+                )
+            elif tools:
                 await self._async_run_provider_completion(
                     chat_log,
                     provider_name,
@@ -374,17 +382,18 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         provider_name: str,
         provider: Any,
         llm_messages: list[LLMMessage],
+        tools: list[dict[str, Any]] | None = None,
     ) -> None:
         """Run a provider in streaming mode for text-only turns."""
         _LOGGER.debug(
             "Invoking provider=%s stream=%s tools=%d",
             provider_name,
             True,
-            0,
+            len(tools or []),
         )
         async for _ in chat_log.async_add_delta_content_stream(
             self.entity_id,
-            self._transform_provider_stream(provider.complete_stream(llm_messages)),
+            self._transform_provider_stream(provider.complete_stream(llm_messages, tools=tools)),
         ):
             pass
 
@@ -416,12 +425,20 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
 
     async def _transform_provider_stream(
         self,
-        stream: AsyncGenerator[str, None],
+        stream: AsyncGenerator[Any, None],
     ) -> AsyncGenerator[conversation.AssistantContentDeltaDict, None]:
-        """Convert provider text chunks into Home Assistant streaming deltas."""
+        """Convert provider chunks into Home Assistant streaming deltas."""
         has_started = False
         async for chunk in stream:
             if not chunk:
+                continue
+            if isinstance(chunk, dict):
+                if "role" not in chunk and not has_started:
+                    yield {"role": "assistant"}
+                    has_started = True
+                elif chunk.get("role") == "assistant":
+                    has_started = True
+                yield chunk
                 continue
             if not has_started:
                 yield {"role": "assistant"}

@@ -40,14 +40,6 @@ def _get_ssl_setting(url: str) -> bool:
     """Allow custom HTTP and self-signed HTTPS endpoints."""
     parsed = urlparse(url)
     return parsed.scheme != "http" and parsed.netloc == "api.openai.com"
-
-
-def _supports_native_tools(url: str) -> bool:
-    """Return whether a URL should use native tool calling by default."""
-    parsed = urlparse(url)
-    return parsed.netloc == "api.openai.com"
-
-
 def _normalize_openai_api_url(url: str | None) -> str:
     """Normalize OpenAI-compatible URLs to a chat completions endpoint.
 
@@ -600,13 +592,6 @@ class OpenAICompatibleProvider(LLMProvider):
         url = self._get_api_url()
         ssl = _get_ssl_setting(url)
 
-        if tools and not _supports_native_tools(url):
-            _LOGGER.info(
-                "OpenAI-compatible custom endpoint uses emulated tool mode by default: %s",
-                url,
-            )
-            return await self._complete_with_emulated_tools(messages, tools, **kwargs)
-
         if tools and _NATIVE_TOOL_SUPPORT_BY_URL.get(url) is False:
             _LOGGER.info(
                 "OpenAI-compatible endpoint is marked as no-native-tools; using emulated tool mode: %s",
@@ -656,7 +641,7 @@ class OpenAICompatibleProvider(LLMProvider):
         messages: list[LLMMessage],
         tools: list[dict[str, Any]] | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[str | dict[str, Any], None]:
         """Generate a streaming completion.
 
         Args:
@@ -673,6 +658,7 @@ class OpenAICompatibleProvider(LLMProvider):
         ssl = _get_ssl_setting(url)
 
         buffer = ""
+        tool_call_buffer: dict[int, dict[str, Any]] = {}
         async for chunk_text in async_stream_response_text(
             url,
             payload=request,
@@ -701,9 +687,47 @@ class OpenAICompatibleProvider(LLMProvider):
                         content = delta.get("content", "")
                         if content:
                             yield content
+                        if "tool_calls" in delta:
+                            for tc_delta in delta["tool_calls"]:
+                                index = tc_delta.get("index", 0)
+                                if index not in tool_call_buffer:
+                                    tool_call_buffer[index] = {
+                                        "id": tc_delta.get("id") or f"stream_{uuid4().hex}",
+                                        "type": "function",
+                                        "function": {"name": "", "arguments": ""},
+                                    }
+                                if tc_delta.get("id"):
+                                    tool_call_buffer[index]["id"] = tc_delta["id"]
+                                if "function" in tc_delta:
+                                    function_data = tc_delta["function"]
+                                    if function_data.get("name"):
+                                        tool_call_buffer[index]["function"]["name"] = function_data["name"]
+                                    if function_data.get("arguments"):
+                                        tool_call_buffer[index]["function"]["arguments"] += function_data["arguments"]
                     except json.JSONDecodeError:
                         _LOGGER.debug("SSE parse failed: %s", data_str)
                         continue
+
+        if tool_call_buffer:
+            tool_calls = []
+            for tool_call in tool_call_buffer.values():
+                try:
+                    arguments = tool_call["function"].get("arguments", "")
+                    parsed_args = json.loads(arguments) if arguments else {}
+                except json.JSONDecodeError:
+                    parsed_args = {}
+                tool_calls.append(
+                    {
+                        "id": tool_call["id"],
+                        "type": "function",
+                        "function": {
+                            "name": tool_call["function"].get("name", "tool"),
+                            "arguments": json.dumps(parsed_args, ensure_ascii=False),
+                        },
+                    }
+                )
+            if tool_calls:
+                yield {"tool_calls": tool_calls}
 
     async def health_check(self) -> bool:
         """Check if the API is reachable."""

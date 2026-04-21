@@ -38,8 +38,6 @@ class ChatMessageBuilder:
             return messages
 
         last_content = chat_log.content[-1]
-        if last_content.role == "user" and last_content.attachments:
-            return [await self._convert_user_message(last_content)]
 
         tool_call_id_map: dict[str, str] = {}
         last_tool_call_ids: list[str] = []
@@ -70,7 +68,7 @@ class ChatMessageBuilder:
                 for i in range(len(history_messages) - 1, -1, -1):
                     if history_messages[i].get("role") == "user":
                         user_count += 1
-                        if user_count >= self._max_history:
+                        if user_count > self._max_history:
                             start_index = i
                             break
                 history_messages = history_messages[start_index:]
