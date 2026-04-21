@@ -16,7 +16,7 @@ from uuid import uuid4
 import asyncio
 import aiohttp
 
-from . import LLMMessage, LLMProvider, LLMResponse, register_provider
+from . import LLMMessage, LLMProvider, LLMResponse
 
 _LOGGER = logging.getLogger(__name__)
 _NATIVE_TOOL_SUPPORT_BY_URL: dict[str, bool] = {}
@@ -704,7 +704,3 @@ class OpenAICompatibleProvider(LLMProvider):
         except Exception as e:
             _LOGGER.debug("OpenAI compatible health check failed: %s", e)
             return False
-
-
-# Register the provider
-register_provider("openai_compatible", OpenAICompatibleProvider)

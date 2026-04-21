@@ -168,9 +168,9 @@ async def async_translate_blueprint_file(
 
         return "translated"
 
-    except Exception as e:
-        _LOGGER.error(f"Error translating blueprint {yaml_file}: {e}")
-        return f"skipped (error: {e})"
+    except Exception as err:
+        _LOGGER.error("Error translating blueprint %s: %s", yaml_file, err)
+        return f"skipped (error: {err})"
 
 
 async def async_translate_all_blueprints(
@@ -254,8 +254,8 @@ async def async_translate_all_blueprints(
                 translated_blueprints.append(str(yaml_file.relative_to(base_path)))
             else:
                 skipped_blueprints.append(str(yaml_file.relative_to(base_path)))
-        except Exception as e:
-            _LOGGER.error(f"Error processing {yaml_file}: {e}")
+        except Exception as err:
+            _LOGGER.error("Error processing %s: %s", yaml_file, err)
             skipped_blueprints.append(str(yaml_file.relative_to(base_path)))
 
     return build_batch_result(

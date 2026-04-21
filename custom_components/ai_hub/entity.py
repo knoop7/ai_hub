@@ -6,7 +6,6 @@ import json
 import logging
 from collections.abc import AsyncGenerator, Callable
 from typing import Any
-from urllib.parse import urlparse
 
 import aiohttp
 from homeassistant.components import conversation
@@ -36,7 +35,9 @@ from .consts import (
     RECOMMENDED_MAX_HISTORY_MESSAGES,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
+    TIMEOUT_CHAT_API,
 )
+from .http import resolve_provider_name, resolve_ssl_setting
 from .llm_attachment_processor import AttachmentProcessor
 from .llm_message_builder import ChatMessageBuilder
 from .llm_model_utils import chat_log_has_media_attachments, select_media_model
@@ -63,36 +64,6 @@ def _ensure_string(value: Any) -> str:
         return json.dumps(value, ensure_ascii=False)
     # For other types, convert to string
     return str(value)
-
-
-def _get_request_ssl_setting(api_url: str, default_url: str) -> bool | None:
-    """Return request SSL behavior for API calls.
-
-    Custom LLM endpoints may use plain HTTP or self-signed certificates.
-    Keep verification enabled for the default hosted endpoint and disable it
-    only for user-supplied custom URLs.
-    """
-    parsed = urlparse(api_url)
-    if parsed.scheme == "http":
-        return False
-
-    if api_url != default_url and parsed.scheme == "https":
-        return False
-
-    return None
-
-
-def _get_provider_name(api_url: str, configured_provider: str | None = None) -> str:
-    """Select provider implementation from URL."""
-    if configured_provider in {"openai_compatible", "anthropic_compatible"}:
-        return configured_provider
-
-    parsed = urlparse(api_url)
-    if "anthropic" in parsed.path.lower() or parsed.netloc == "api.anthropic.com":
-        return "anthropic_compatible"
-    return "openai_compatible"
-
-
 class _AIHubEntityMixin:
     """Mixin class providing common initialization logic for AI Hub entities.
 
@@ -316,7 +287,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             api_url = AI_HUB_CHAT_URL
             _LOGGER.warning("API URL was invalid, using default: %s", api_url)
 
-        provider_name = _get_provider_name(api_url, options.get(CONF_LLM_PROVIDER))
+        provider_name = resolve_provider_name(api_url, options.get(CONF_LLM_PROVIDER))
 
         request_params = {
             "model": model_name,
@@ -372,6 +343,20 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             )
 
             if provider is not None:
+                _LOGGER.debug(
+                    "Invoking provider=%s stream=%s tools=%d",
+                    provider_name,
+                    not bool(tools),
+                    len(tools),
+                )
+                if not tools:
+                    async for _ in chat_log.async_add_delta_content_stream(
+                        self.entity_id,
+                        self._transform_provider_stream(provider.complete_stream(llm_messages, tools=tools)),
+                    ):
+                        pass
+                    return
+
                 response = await provider.complete(llm_messages, tools=tools)
                 tool_calls = self._convert_provider_tool_calls(response.tool_calls)
                 assistant_content = conversation.AssistantContent(
@@ -389,7 +374,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",
             }
-            request_ssl = _get_request_ssl_setting(api_url, AI_HUB_CHAT_URL)
+            request_ssl = resolve_ssl_setting(api_url, AI_HUB_CHAT_URL)
 
             # Use Home Assistant's shared session for better performance
             session = async_get_clientsession(self.hass)
@@ -397,7 +382,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 api_url,
                 json=request_params,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=60),
+                timeout=aiohttp.ClientTimeout(total=TIMEOUT_CHAT_API),
                 ssl=request_ssl,
             ) as response:
                 if response.status != 200:
@@ -419,6 +404,23 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         except Exception as err:
             _LOGGER.error("Error calling AI Hub API: %s", err)
             raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: {err}") from err
+
+    async def _transform_provider_stream(
+        self,
+        stream: AsyncGenerator[str, None],
+    ) -> AsyncGenerator[conversation.AssistantContentDeltaDict, None]:
+        """Convert provider text chunks into Home Assistant streaming deltas."""
+        has_started = False
+        async for chunk in stream:
+            if not chunk:
+                continue
+            if not has_started:
+                yield {"role": "assistant"}
+                has_started = True
+
+            filtered_content = filter_markdown_streaming(chunk)
+            if filtered_content:
+                yield {"content": filtered_content}
 
     def _convert_provider_tool_calls(
         self,

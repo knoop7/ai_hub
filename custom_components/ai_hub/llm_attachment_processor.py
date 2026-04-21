@@ -10,6 +10,7 @@ from typing import Any
 from homeassistant.components import media_source
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
+from .consts import TIMEOUT_MEDIA_DOWNLOAD
 from .http import client_timeout
 
 _LOGGER = logging.getLogger(__name__)
@@ -82,7 +83,7 @@ class AttachmentProcessor:
     async def _async_download_image_from_url(self, url: str) -> bytes | None:
         try:
             session = async_get_clientsession(self.hass)
-            async with session.get(url, timeout=client_timeout(30)) as response:
+            async with session.get(url, timeout=client_timeout(TIMEOUT_MEDIA_DOWNLOAD)) as response:
                 if response.status == 200:
                     return await response.read()
                 _LOGGER.warning("Failed to download image from URL: %s, status: %s", url, response.status)
@@ -144,7 +145,7 @@ class AttachmentProcessor:
     async def _download_from_url(self, url: str) -> bytes | None:
         try:
             session = async_get_clientsession(self.hass)
-            async with session.get(url, timeout=client_timeout(30)) as response:
+            async with session.get(url, timeout=client_timeout(TIMEOUT_MEDIA_DOWNLOAD)) as response:
                 if response.status == 200:
                     return await response.read()
                 _LOGGER.warning("Failed to download from %s, status: %s", url, response.status)

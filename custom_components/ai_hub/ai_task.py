@@ -23,6 +23,8 @@ from .consts import (
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
     RECOMMENDED_IMAGE_MODEL,
+    SUBENTRY_AI_TASK,
+    SUBENTRY_CONVERSATION,
     VISION_MODELS,
 )
 from .entity import AIHubBaseLLMEntity
@@ -41,7 +43,7 @@ _LOGGER = logging.getLogger(__name__)
 def _get_conversation_model(config_entry: ConfigEntry) -> str:
     """Get the chat model from Conversation Agent subentry."""
     for subentry in config_entry.subentries.values():
-        if subentry.subentry_type == "conversation":
+        if subentry.subentry_type == SUBENTRY_CONVERSATION:
             return subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
     return RECOMMENDED_CHAT_MODEL
 
@@ -53,7 +55,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up AI task entities."""
     for subentry in config_entry.subentries.values():
-        if subentry.subentry_type != "ai_task_data":
+        if subentry.subentry_type != SUBENTRY_AI_TASK:
             continue
 
         async_add_entities(

@@ -15,8 +15,6 @@ from homeassistant.config_entries import (
     SubentryFlowResult,
 )
 from homeassistant.const import CONF_API_KEY, CONF_NAME
-from homeassistant.helpers import llm
-
 from .config_flow_schema import (
     SUBENTRY_TYPES,
     ai_hub_config_option_schema,
@@ -27,7 +25,14 @@ from .config_flow_validation import (
     FLOW_DESCRIPTION_PLACEHOLDERS,
     validate_input,
 )
-from .consts import CONF_LLM_HASS_API, CONF_RECOMMENDED, DEFAULT_TITLE, DOMAIN
+from .consts import (
+    CONF_LLM_HASS_API,
+    CONF_RECOMMENDED,
+    DEFAULT_TITLE,
+    DOMAIN,
+    LLM_API_ASSIST,
+    SUBENTRY_CONVERSATION,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -120,8 +125,8 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
             if user_input[CONF_RECOMMENDED] == self.last_rendered_recommended:
                 processed_input = user_input.copy()
 
-                if self._subentry_type == "conversation":
-                    processed_input[CONF_LLM_HASS_API] = llm.LLM_API_ASSIST
+                if self._subentry_type == SUBENTRY_CONVERSATION:
+                    processed_input[CONF_LLM_HASS_API] = [LLM_API_ASSIST]
 
                 if self._is_new:
                     return self.async_create_entry(

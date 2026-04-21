@@ -8,11 +8,17 @@ import aiohttp
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
 
-from .consts import AI_HUB_CHAT_URL
+from .consts import (
+    AI_HUB_CHAT_URL,
+    CONFIG_FLOW_TEST_MAX_TOKENS,
+    CONFIG_FLOW_TEST_MESSAGE,
+    RECOMMENDED_CHAT_MODEL,
+    SILICONFLOW_API_KEY_URL,
+    SILICONFLOW_REGISTER_URL,
+    TIMEOUT_CONFIG_FLOW_VALIDATION,
+)
 from .http import build_json_headers, client_timeout
 
-SILICONFLOW_REGISTER_URL = "https://cloud.siliconflow.cn/i/U3e0rmsr"
-SILICONFLOW_API_KEY_URL = "https://cloud.siliconflow.cn/account/ak"
 FLOW_DESCRIPTION_PLACEHOLDERS = {
     "register_url": SILICONFLOW_REGISTER_URL,
     "api_key_url": SILICONFLOW_API_KEY_URL,
@@ -27,9 +33,9 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
         return
 
     payload = {
-        "model": "Qwen/Qwen3-8B",
-        "messages": [{"role": "user", "content": "Hi"}],
-        "max_tokens": 10,
+        "model": RECOMMENDED_CHAT_MODEL,
+        "messages": [{"role": "user", "content": CONFIG_FLOW_TEST_MESSAGE}],
+        "max_tokens": CONFIG_FLOW_TEST_MAX_TOKENS,
     }
 
     async with aiohttp.ClientSession() as session:
@@ -37,7 +43,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
             AI_HUB_CHAT_URL,
             json=payload,
             headers=build_json_headers(api_key),
-            timeout=client_timeout(10),
+            timeout=client_timeout(TIMEOUT_CONFIG_FLOW_VALIDATION),
         ) as response:
             if response.status == 401:
                 raise ValueError("invalid_auth")

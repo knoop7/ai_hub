@@ -32,10 +32,17 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .consts import (
     DOMAIN,
+    EDGE_TTS_BASE_URL,
+    SILICONFLOW_ROOT_URL,
+    SUBENTRY_AI_TASK,
+    SUBENTRY_CONVERSATION,
+    SUBENTRY_STT,
+    SUBENTRY_TRANSLATION,
+    SUBENTRY_TTS,
     TIMEOUT_HEALTH_CHECK,
 )
 from .api_health import async_probe_url
-from .diagnostics import collect_api_monitor_targets, get_diagnostics_collector
+from .diagnostics import collect_api_monitor_targets
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,17 +53,12 @@ SCAN_INTERVAL = timedelta(minutes=5)
 DIAGNOSTIC_DEVICE_ID = "diagnostic"
 
 
-def _uses_siliconflow(entry: ConfigEntry) -> bool:
-    """Return whether any configured subentry uses SiliconFlow services."""
+def _has_subentry_type(entry: ConfigEntry, *subentry_types: str) -> bool:
+    """Return whether the config entry contains any of the requested subentry types."""
     return any(
-        subentry.subentry_type in {"conversation", "ai_task_data", "stt", "translation"}
+        subentry.subentry_type in subentry_types
         for subentry in entry.subentries.values()
     )
-
-
-def _uses_edge_tts(entry: ConfigEntry) -> bool:
-    """Return whether any configured subentry uses Edge TTS."""
-    return any(subentry.subentry_type == "tts" for subentry in entry.subentries.values())
 
 
 def _get_diagnostic_device_info(entry: ConfigEntry) -> dr.DeviceInfo:
@@ -81,10 +83,16 @@ async def async_setup_entry(
     # Main integration health sensor (always added)
     entities.append(AIHubHealthCheckSensor(hass, entry))
 
-    if _uses_edge_tts(entry):
+    if _has_subentry_type(entry, SUBENTRY_TTS):
         entities.append(EdgeTTSHealthSensor(hass, entry))
 
-    if _uses_siliconflow(entry):
+    if _has_subentry_type(
+        entry,
+        SUBENTRY_CONVERSATION,
+        SUBENTRY_AI_TASK,
+        SUBENTRY_STT,
+        SUBENTRY_TRANSLATION,
+    ):
         entities.append(SiliconFlowHealthSensor(hass, entry))
 
     async_add_entities(entities)
@@ -113,7 +121,6 @@ class AIHubHealthCheckSensor(SensorEntity):
 
         self._api_statuses: dict[str, dict[str, Any]] = {}
         self._last_check: datetime | None = None
-        self._diagnostics = get_diagnostics_collector()
 
     async def async_added_to_hass(self) -> None:
         """Run initial update when entity is added."""
@@ -154,15 +161,6 @@ class AIHubHealthCheckSensor(SensorEntity):
             "last_check": self._last_check.isoformat() if self._last_check else None,
             "apis": self._api_statuses,
         }
-
-        # Add diagnostics summary
-        try:
-            summary = self._diagnostics.get_summary()
-            attrs["uptime_seconds"] = summary.get("uptime_seconds")
-            attrs["total_errors"] = summary.get("total_errors", 0)
-            attrs["api_summary"] = summary.get("api_summary", {})
-        except Exception as e:
-            _LOGGER.debug("Failed to get diagnostics summary: %s", e)
 
         return attrs
 
@@ -305,13 +303,13 @@ class _BaseHealthSensor(SensorEntity):
 class SiliconFlowHealthSensor(_BaseHealthSensor):
     """Sensor for SiliconFlow API health and latency."""
 
-    _check_url = "https://api.siliconflow.cn"
+    _check_url = SILICONFLOW_ROOT_URL
     _name_suffix = "siliconflow"
 
 
 class EdgeTTSHealthSensor(_BaseHealthSensor):
     """Sensor for Edge TTS API health and latency."""
 
-    _check_url = "https://speech.platform.bing.com"
+    _check_url = EDGE_TTS_BASE_URL
     _name_suffix = "edge_tts"
     _attr_icon = "mdi:text-to-speech"

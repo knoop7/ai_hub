@@ -99,33 +99,6 @@ analyze_image:
       selector:
         boolean:
 
-create_automation:
-  name: 创建自动化
-  description: 通过自然语言描述创建Home Assistant自动化
-  fields:
-    description:
-      name: 自动化描述
-      description: 描述你想要的自动化行为，例如"当检测到有人移动时打开客厅的灯"
-      required: true
-      example: "每天晚上8点自动关闭所有灯光"
-      selector:
-        text:
-          multiline: true
-    name:
-      name: 自动化名称
-      description: 为自动化指定一个名称
-      required: false
-      example: "晚间关灯自动化"
-      selector:
-        text:
-    area_id:
-      name: 区域ID
-      description: 指定自动化相关的区域
-      required: false
-      example: "living_room"
-      selector:
-        text:
-
 translate_components:
   name: 集成汉化
   description: 汉化指定的自定义集成的英文翻译为中文（需要SiliconFlow API密钥）

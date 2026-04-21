@@ -129,6 +129,36 @@ class TestAIHubConversationAgent:
         with patch.object(conversation, "async_unset_agent"):
             await agent.async_will_remove_from_hass()
 
+    @pytest.mark.asyncio
+    async def test_short_follow_up_clarification_falls_through_to_llm(self, mock_hass, mock_config_entry):
+        """Short contextual follow-ups should not be swallowed by HA clarification prompts."""
+        subentry = list(mock_config_entry.subentries.values())[0]
+        agent = AIHubConversationAgent(mock_config_entry, subentry)
+        agent.hass = mock_hass
+
+        user_input = MagicMock()
+        user_input.text = "打开"
+        user_input.language = "zh-CN"
+        user_input.conversation_id = "conv-1"
+
+        chat_log = MagicMock()
+        chat_log.content = [
+            MagicMock(role="user"),
+            MagicMock(role="assistant"),
+            MagicMock(role="user"),
+        ]
+
+        ha_response = MagicMock()
+        ha_response.response_type = conversation.intent.IntentResponseType.QUERY_ANSWER
+        ha_response.speech = {"plain": {"speech": "您想打开什么？"}}
+        ha_response.error = None
+
+        with patch("homeassistant.components.conversation.async_handle_intents", AsyncMock(return_value=ha_response)):
+            with patch("custom_components.ai_hub.conversation.get_global_intent_handler", return_value=None, create=True):
+                result = await agent._async_handle_local_and_builtin_intents(user_input, chat_log)
+
+        assert result is None
+
     def test_extract_automation_description(self, mock_hass, mock_config_entry):
         """Test automation description extraction."""
         subentry = list(mock_config_entry.subentries.values())[0]

@@ -23,7 +23,14 @@ from pathlib import Path
 
 import aiohttp
 
-from ..consts import AI_HUB_CHAT_URL, RECOMMENDED_CHAT_MODEL
+from ..consts import (
+    AI_HUB_CHAT_URL,
+    RECOMMENDED_CHAT_MODEL,
+    TIMEOUT_TRANSLATION_API,
+    TRANSLATION_MAX_TOKENS,
+    TRANSLATION_SYSTEM_PROMPT,
+    TRANSLATION_TEMPERATURE,
+)
 from .batch_utils import build_batch_result, build_list_result, select_named_items
 
 _LOGGER = logging.getLogger(__name__)
@@ -104,22 +111,22 @@ async def _async_translate_simple_text(
     payload = {
         "model": chat_model,
         "messages": [
-            {"role": "system", "content": "Translate English to Chinese. Return only the translation."},
+            {"role": "system", "content": TRANSLATION_SYSTEM_PROMPT},
             {"role": "user", "content": text}
         ],
-        "temperature": 0.3,
-        "max_tokens": 2048
+        "temperature": TRANSLATION_TEMPERATURE,
+        "max_tokens": TRANSLATION_MAX_TOKENS
     }
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, json=payload,
-                                    timeout=aiohttp.ClientTimeout(total=30)) as response:
+                                    timeout=aiohttp.ClientTimeout(total=TIMEOUT_TRANSLATION_API)) as response:
                 response.raise_for_status()
                 result = await response.json()
                 return result["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        _LOGGER.error(f"Translation failed for '{text}': {e}")
+    except Exception as err:
+        _LOGGER.error("Translation failed for '%s': %s", text, err)
         return text
 
 
@@ -153,8 +160,8 @@ async def async_translate_component(
 
         _LOGGER.info(f"Successfully translated {component_name}")
         return "translated"
-    except Exception as e:
-        _LOGGER.error(f"Failed to translate {component_name}: {e}")
+    except Exception as err:
+        _LOGGER.error("Failed to translate %s: %s", component_name, err)
         return "error"
 
 

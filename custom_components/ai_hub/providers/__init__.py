@@ -272,15 +272,6 @@ def _register_builtin_providers(registry: UnifiedProviderRegistry) -> None:
 # ============================================================================
 
 
-def get_provider_registry() -> UnifiedProviderRegistry:
-    """Get the global provider registry (alias for get_registry).
-
-    Returns:
-        UnifiedProviderRegistry instance
-    """
-    return get_registry()
-
-
 def register_provider(
     name: str,
     provider_class: type[LLMProvider],
@@ -320,21 +311,26 @@ def create_provider(
         _LOGGER.warning("Unknown provider: %s", name)
         return None
 
-    # Create appropriate config based on provider type
-    if info.provider_type == ProviderType.LLM:
-        config = LLMConfig(**config_dict)
-    elif info.provider_type == ProviderType.TTS:
+    config = _build_provider_config(info.provider_type, config_dict)
+    return info.provider_class(config)
+
+
+def _build_provider_config(
+    provider_type: ProviderType,
+    config_dict: dict[str, Any],
+) -> BaseProviderConfig:
+    """Build the typed provider config for a registry entry."""
+    if provider_type == ProviderType.LLM:
+        return LLMConfig(**config_dict)
+    if provider_type == ProviderType.TTS:
         from .tts_base import TTSConfig
 
-        config = TTSConfig(**config_dict)
-    elif info.provider_type == ProviderType.STT:
+        return TTSConfig(**config_dict)
+    if provider_type == ProviderType.STT:
         from .stt_base import STTConfig
 
-        config = STTConfig(**config_dict)
-    else:
-        config = BaseProviderConfig(**config_dict)
-
-    return info.provider_class(config)
+        return STTConfig(**config_dict)
+    return BaseProviderConfig(**config_dict)
 
 
 def create_default_provider(
@@ -409,7 +405,6 @@ __all__ = [
     "LLMResponse",
     # Registry functions
     "get_registry",
-    "get_provider_registry",
     "register_provider",
     "create_provider",
     "create_default_provider",

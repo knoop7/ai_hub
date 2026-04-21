@@ -24,6 +24,15 @@ LOGGER = _LOGGER
 
 DOMAIN: Final = "ai_hub"
 
+SUBENTRY_CONVERSATION: Final = "conversation"
+SUBENTRY_AI_TASK: Final = "ai_task_data"
+SUBENTRY_TTS: Final = "tts"
+SUBENTRY_STT: Final = "stt"
+SUBENTRY_TRANSLATION: Final = "translation"
+
+LEGACY_CONVERSATION_TITLES: Final = ("对话助手", "Conversation Agent")
+LEGACY_AI_TASK_TITLES: Final = ("AI任务", "AI Task")
+
 
 def get_localized_name(hass: HomeAssistant, zh_name: str, en_name: str) -> str:
     """Return localized name based on Home Assistant language setting."""

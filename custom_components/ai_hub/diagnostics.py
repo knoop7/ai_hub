@@ -46,9 +46,14 @@ from .consts import (
     CONF_IMAGE_URL,
     CONF_STT_URL,
     DOMAIN,
+    EDGE_TTS_BASE_URL,
     RETRY_BASE_DELAY,
     RETRY_MAX_ATTEMPTS,
+    SILICONFLOW_ROOT_URL,
+    SUBENTRY_AI_TASK,
+    SUBENTRY_CONVERSATION,
     TIMEOUT_CHAT_API,
+    TIMEOUT_HEALTH_CHECK,
     TIMEOUT_IMAGE_API,
     TIMEOUT_STT_API,
     TIMEOUT_TTS_API,
@@ -101,7 +106,7 @@ async def async_get_config_entry_diagnostics(
             "api_status": await _get_api_status_diagnostics(hass, entry),
             "timeout_config": _get_timeout_config(),
             "retry_config": _get_retry_config(),
-            "statistics": await _get_statistics_diagnostics(hass, entry),
+            "statistics": _get_statistics_diagnostics(hass, entry),
             "system_info": _get_system_info(hass),
         }
     }
@@ -165,13 +170,13 @@ def collect_api_monitor_targets(entry: ConfigEntry) -> list[dict[str, Any]]:
             targets[configured_url]["sources"].append(source)
 
     for subentry in entry.subentries.values():
-        if subentry.subentry_type == "conversation":
+        if subentry.subentry_type == SUBENTRY_CONVERSATION:
             add_target(
                 subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
                 "Conversation API",
                 subentry.title,
             )
-        elif subentry.subentry_type == "ai_task_data":
+        elif subentry.subentry_type == SUBENTRY_AI_TASK:
             add_target(
                 subentry.data.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL),
                 "AI Task Image API",
@@ -179,7 +184,7 @@ def collect_api_monitor_targets(entry: ConfigEntry) -> list[dict[str, Any]]:
             )
         elif subentry.subentry_type == "stt":
             add_target(
-                subentry.data.get(CONF_STT_URL, "https://api.siliconflow.cn"),
+                subentry.data.get(CONF_STT_URL, SILICONFLOW_ROOT_URL),
                 "STT API",
                 subentry.title,
             )
@@ -190,7 +195,7 @@ def collect_api_monitor_targets(entry: ConfigEntry) -> list[dict[str, Any]]:
                 subentry.title,
             )
         elif subentry.subentry_type == "tts":
-            add_target("https://speech.platform.bing.com", "Edge TTS API", subentry.title)
+            add_target(EDGE_TTS_BASE_URL, "Edge TTS API", subentry.title)
 
     return sorted(targets.values(), key=lambda target: target["label"])
 
@@ -282,7 +287,7 @@ async def _get_api_status_diagnostics(
     session = async_get_clientsession(hass)
 
     for target in collect_api_monitor_targets(entry):
-        probe = await async_probe_url(session, target["monitor_url"], timeout_seconds=10)
+        probe = await async_probe_url(session, target["monitor_url"], timeout_seconds=TIMEOUT_HEALTH_CHECK)
         status[target["key"]] = {
             "label": target["label"],
             "url": target["url"],
@@ -319,21 +324,17 @@ def _get_retry_config() -> dict[str, Any]:
     }
 
 
-async def _get_statistics_diagnostics(
+def _get_statistics_diagnostics(
     hass: HomeAssistant,
     entry: ConfigEntry,
 ) -> dict[str, Any]:
-    """Get usage statistics diagnostics.
-
-    Note: This is a placeholder for future implementation.
-    Statistics tracking would need to be implemented separately.
-    """
+    """Return minimal runtime statistics that are actually available."""
     # Get integration data if available
     integration_data = hass.data.get(DOMAIN, {})
 
     stats: dict[str, Any] = {
-        "note": "Statistics tracking not yet implemented",
         "integration_data_available": bool(integration_data),
+        "entry_has_runtime_data": entry.entry_id in integration_data,
     }
 
     # Check for any cached statistics
@@ -358,135 +359,3 @@ def _get_system_info(hass: HomeAssistant) -> dict[str, Any]:
         "units": hass.config.units.name if hass.config.units else "unknown",
         "timestamp": datetime.now().isoformat(),
     }
-
-
-class DiagnosticsCollector:
-    """Helper class for collecting diagnostics data during runtime.
-
-    This class can be used to accumulate diagnostic information
-    during the lifetime of the integration, such as error counts,
-    API call statistics, and performance metrics.
-
-    Example usage:
-        collector = DiagnosticsCollector()
-        collector.record_api_call("chat", success=True, latency_ms=150)
-        collector.record_error("chat", "Timeout error")
-
-        # Later, get the collected data
-        data = collector.get_summary()
-    """
-
-    def __init__(self) -> None:
-        """Initialize the diagnostics collector."""
-        self._api_calls: dict[str, list[dict[str, Any]]] = {}
-        self._errors: list[dict[str, Any]] = []
-        self._start_time = datetime.now()
-
-    def record_api_call(
-        self,
-        api_name: str,
-        success: bool,
-        latency_ms: float | None = None,
-        **extra: Any,
-    ) -> None:
-        """Record an API call.
-
-        Args:
-            api_name: Name of the API (e.g., "chat", "stt", "tts")
-            success: Whether the call was successful
-            latency_ms: Latency in milliseconds
-            **extra: Additional data to record
-        """
-        if api_name not in self._api_calls:
-            self._api_calls[api_name] = []
-
-        record = {
-            "timestamp": datetime.now().isoformat(),
-            "success": success,
-            "latency_ms": latency_ms,
-            **extra,
-        }
-
-        self._api_calls[api_name].append(record)
-
-        # Keep only last 100 records per API
-        if len(self._api_calls[api_name]) > 100:
-            self._api_calls[api_name] = self._api_calls[api_name][-100:]
-
-    def record_error(
-        self,
-        context: str,
-        error: str,
-        **extra: Any,
-    ) -> None:
-        """Record an error.
-
-        Args:
-            context: Context where the error occurred
-            error: Error message
-            **extra: Additional data to record
-        """
-        record = {
-            "timestamp": datetime.now().isoformat(),
-            "context": context,
-            "error": error,
-            **extra,
-        }
-
-        self._errors.append(record)
-
-        # Keep only last 50 errors
-        if len(self._errors) > 50:
-            self._errors = self._errors[-50:]
-
-    def get_summary(self) -> dict[str, Any]:
-        """Get a summary of collected diagnostics.
-
-        Returns:
-            Dictionary containing diagnostic summary
-        """
-        uptime = datetime.now() - self._start_time
-
-        api_summary: dict[str, Any] = {}
-        for api_name, calls in self._api_calls.items():
-            total = len(calls)
-            successful = sum(1 for c in calls if c.get("success"))
-            latencies = [c["latency_ms"] for c in calls if c.get("latency_ms") is not None]
-
-            api_summary[api_name] = {
-                "total_calls": total,
-                "successful_calls": successful,
-                "success_rate": round(successful / total * 100, 2) if total > 0 else 0,
-                "avg_latency_ms": round(sum(latencies) / len(latencies), 2) if latencies else None,
-                "min_latency_ms": round(min(latencies), 2) if latencies else None,
-                "max_latency_ms": round(max(latencies), 2) if latencies else None,
-            }
-
-        return {
-            "uptime_seconds": uptime.total_seconds(),
-            "api_summary": api_summary,
-            "recent_errors": self._errors[-10:],  # Last 10 errors
-            "total_errors": len(self._errors),
-        }
-
-    def clear(self) -> None:
-        """Clear all collected data."""
-        self._api_calls.clear()
-        self._errors.clear()
-        self._start_time = datetime.now()
-
-
-# Global diagnostics collector instance
-_diagnostics_collector: DiagnosticsCollector | None = None
-
-
-def get_diagnostics_collector() -> DiagnosticsCollector:
-    """Get or create the global diagnostics collector.
-
-    Returns:
-        DiagnosticsCollector instance
-    """
-    global _diagnostics_collector
-    if _diagnostics_collector is None:
-        _diagnostics_collector = DiagnosticsCollector()
-    return _diagnostics_collector

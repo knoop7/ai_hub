@@ -39,12 +39,12 @@ class ChineseIntentHandler(intent.IntentHandler):
             response.async_set_speech("好的，正在处理您的请求")
             return response
 
-        except Exception as e:
-            _LOGGER.error(f"Intent handling failed {self.intent_type}: {e}")
+        except Exception as err:
+            _LOGGER.error("Intent handling failed %s: %s", self.intent_type, err)
             response = intent.IntentResponse()
             response.async_set_error(
                 intent.IntentResponseErrorCode.UNKNOWN,
-                f"意图处理失败: {str(e)}"
+                f"意图处理失败: {str(err)}"
             )
             return response
 
@@ -155,7 +155,7 @@ class LocalIntentHandler:
         if has_action_word and is_short_text and not has_global_keyword and not has_target_hint:
             should_handle = False
 
-        _LOGGER.debug(f"Local intent check: '{text}' -> {should_handle}")
+        _LOGGER.debug("Local intent check: '%s' -> %s", text, should_handle)
 
         return should_handle
 

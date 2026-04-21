@@ -56,7 +56,6 @@ class AIHubData:
 
     api_key: str | None = None
     tts_cache: Any = None
-    automation_manager: Any = None
     provider_registry: Any = None
     diagnostics_collector: Any = None
     stats: dict[str, Any] = field(default_factory=dict)
@@ -65,7 +64,6 @@ class AIHubData:
         """Clean up resources."""
         if self.tts_cache is not None:
             self.tts_cache.clear()
-        self.automation_manager = None
         self.provider_registry = None
 
 
@@ -151,10 +149,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     from .intents import async_setup_intents
     await async_setup_intents(hass)
 
-    # Set up AI automation services
-    from .ai_automation import async_setup_ai_automation
-    await async_setup_ai_automation(hass)
-
     # Set up services
     from .services import async_setup_services
     await async_setup_services(hass, entry)
@@ -193,10 +187,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bo
     await async_unload_services(hass, entry.entry_id)
 
     if not remaining_entries:
-        from .ai_automation import async_unload_ai_automation
-
-        await async_unload_ai_automation(hass)
-
         ai_hub_data = get_ai_hub_data(hass)
         if ai_hub_data is not None:
             ai_hub_data.cleanup()
@@ -228,6 +218,9 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_TOP_P,
             DEFAULT_AI_TASK_NAME,
             DEFAULT_CONVERSATION_NAME,
+            LEGACY_AI_TASK_TITLES,
+            LEGACY_CONVERSATION_TITLES,
+            LLM_API_ASSIST,
             RECOMMENDED_AI_TASK_MAX_TOKENS,
             RECOMMENDED_AI_TASK_MODEL,
             RECOMMENDED_AI_TASK_TEMPERATURE,
@@ -236,6 +229,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             RECOMMENDED_MAX_TOKENS,
             RECOMMENDED_TEMPERATURE,
             RECOMMENDED_TOP_P,
+            SUBENTRY_AI_TASK,
+            SUBENTRY_CONVERSATION,
         )
 
         # Create conversation subentry from old options
@@ -246,7 +241,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_TOP_P: new_options.get(CONF_TOP_P, RECOMMENDED_TOP_P),
             CONF_MAX_TOKENS: new_options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
             CONF_PROMPT: new_options.get(CONF_PROMPT, llm.DEFAULT_INSTRUCTIONS_PROMPT),
-            CONF_LLM_HASS_API: new_options.get(CONF_LLM_HASS_API, [llm.LLM_API_ASSIST]),
+            CONF_LLM_HASS_API: new_options.get(CONF_LLM_HASS_API, [LLM_API_ASSIST]),
         }
 
         # Create AI task subentry with defaults
@@ -269,7 +264,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Add subentries
         conversation_subentry = ConfigSubentry(
             data=conversation_data,
-            subentry_type="conversation",
+            subentry_type=SUBENTRY_CONVERSATION,
             title=DEFAULT_CONVERSATION_NAME,
             unique_id=None,
         )
@@ -277,7 +272,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         ai_task_subentry = ConfigSubentry(
             data=ai_task_data,
-            subentry_type="ai_task_data",
+            subentry_type=SUBENTRY_AI_TASK,
             title=DEFAULT_AI_TASK_NAME,
             unique_id=None,
         )
@@ -292,13 +287,13 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         for subentry in entry.subentries.values():
             # Update old titles to new format
-            if subentry.subentry_type == "conversation":
-                if subentry.title in ("对话助手", "Conversation Agent"):
+            if subentry.subentry_type == SUBENTRY_CONVERSATION:
+                if subentry.title in LEGACY_CONVERSATION_TITLES:
                     hass.config_entries.async_update_subentry(
                         entry, subentry.subentry_id, title=DEFAULT_CONVERSATION_NAME
                     )
-            elif subentry.subentry_type == "ai_task_data":
-                if subentry.title in ("AI任务", "AI Task"):
+            elif subentry.subentry_type == SUBENTRY_AI_TASK:
+                if subentry.title in LEGACY_AI_TASK_TITLES:
                     hass.config_entries.async_update_subentry(
                         entry, subentry.subentry_id, title=DEFAULT_AI_TASK_NAME
                     )

@@ -7,7 +7,6 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.const import CONF_NAME
-from homeassistant.helpers import llm
 from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
@@ -53,6 +52,7 @@ from .consts import (
     DEFAULT_TRANSLATION_NAME,
     DEFAULT_TTS_NAME,
     EDGE_TTS_VOICES,
+    LLM_API_ASSIST,
     RECOMMENDED_AI_TASK_MAX_TOKENS,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_AI_TASK_TEMPERATURE,
@@ -70,17 +70,22 @@ from .consts import (
     RECOMMENDED_TRANSLATION_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
     SILICONFLOW_ASR_URL,
+    SUBENTRY_AI_TASK,
+    SUBENTRY_CONVERSATION,
+    SUBENTRY_STT,
+    SUBENTRY_TRANSLATION,
+    SUBENTRY_TTS,
     SILICONFLOW_STT_MODELS,
     TTS_DEFAULT_LANG,
     TTS_DEFAULT_VOICE,
 )
 
 SUBENTRY_TYPES = {
-    "conversation": "conversation",
-    "ai_task_data": "ai_task_data",
-    "tts": "tts",
-    "stt": "stt",
-    "translation": "translation",
+    "conversation": SUBENTRY_CONVERSATION,
+    "ai_task_data": SUBENTRY_AI_TASK,
+    "tts": SUBENTRY_TTS,
+    "stt": SUBENTRY_STT,
+    "translation": SUBENTRY_TRANSLATION,
 }
 
 
@@ -128,7 +133,7 @@ async def ai_hub_config_option_schema(
     if options.get(CONF_RECOMMENDED):
         if subentry_type == SUBENTRY_TYPES["conversation"]:
             schema.update(_build_conversation_schema(options, recommended_only=True))
-            options[CONF_LLM_HASS_API] = llm.LLM_API_ASSIST
+            options[CONF_LLM_HASS_API] = [LLM_API_ASSIST]
         elif subentry_type == SUBENTRY_TYPES["ai_task_data"]:
             schema.update(_build_ai_task_schema(options, recommended_only=True))
         elif subentry_type == SUBENTRY_TYPES["stt"]:
@@ -138,7 +143,7 @@ async def ai_hub_config_option_schema(
         return schema
 
     if subentry_type == SUBENTRY_TYPES["conversation"]:
-        options[CONF_LLM_HASS_API] = llm.LLM_API_ASSIST
+        options[CONF_LLM_HASS_API] = [LLM_API_ASSIST]
         schema.update(_build_conversation_schema(options, recommended_only=False))
     elif subentry_type == SUBENTRY_TYPES["ai_task_data"]:
         schema.update(_build_ai_task_schema(options, recommended_only=False))

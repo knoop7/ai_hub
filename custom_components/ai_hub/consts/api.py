@@ -8,13 +8,21 @@ API_URLS: Final = {
     "chat": "https://api.siliconflow.cn/v1/chat/completions",
     "image": "https://api.siliconflow.cn/v1/images/generations",
     "siliconflow_base": "https://api.siliconflow.cn/v1",
+    "siliconflow_root": "https://api.siliconflow.cn",
     "siliconflow_asr": "https://api.siliconflow.cn/v1/audio/transcriptions",
+    "edge_tts_base": "https://speech.platform.bing.com",
+    "siliconflow_register": "https://cloud.siliconflow.cn/i/U3e0rmsr",
+    "siliconflow_api_key": "https://cloud.siliconflow.cn/account/ak",
 }
 
 AI_HUB_CHAT_URL: Final = API_URLS["chat"]
 AI_HUB_IMAGE_GEN_URL: Final = API_URLS["image"]
 SILICONFLOW_API_BASE: Final = API_URLS["siliconflow_base"]
+SILICONFLOW_ROOT_URL: Final = API_URLS["siliconflow_root"]
 SILICONFLOW_ASR_URL: Final = API_URLS["siliconflow_asr"]
+EDGE_TTS_BASE_URL: Final = API_URLS["edge_tts_base"]
+SILICONFLOW_REGISTER_URL: Final = API_URLS["siliconflow_register"]
+SILICONFLOW_API_KEY_URL: Final = API_URLS["siliconflow_api_key"]
 
 TIMEOUTS: Final = {
     "default": 30.0,
@@ -25,6 +33,9 @@ TIMEOUTS: Final = {
     "translation_api": 60.0,
     "media_download": 30.0,
     "health_check": 10.0,
+    "config_flow_validation": 10.0,
+    "camera_image": 10.0,
+    "automation_api": 30.0,
 }
 
 DEFAULT_REQUEST_TIMEOUT: Final = 30000
@@ -36,6 +47,9 @@ TIMEOUT_TTS_API: Final = TIMEOUTS["tts_api"]
 TIMEOUT_TRANSLATION_API: Final = TIMEOUTS["translation_api"]
 TIMEOUT_MEDIA_DOWNLOAD: Final = TIMEOUTS["media_download"]
 TIMEOUT_HEALTH_CHECK: Final = TIMEOUTS["health_check"]
+TIMEOUT_CONFIG_FLOW_VALIDATION: Final = TIMEOUTS["config_flow_validation"]
+TIMEOUT_CAMERA_IMAGE: Final = TIMEOUTS["camera_image"]
+TIMEOUT_AUTOMATION_API: Final = TIMEOUTS["automation_api"]
 
 RETRY_CONFIG: Final = {
     "max_attempts": 3,
@@ -68,3 +82,13 @@ STT_MIN_AUDIO_SIZE: Final = AUDIO_LIMITS["stt_min_size"]
 STT_MAX_AUDIO_SIZE: Final = AUDIO_LIMITS["stt_max_size"]
 STT_WARNING_AUDIO_SIZE: Final = AUDIO_LIMITS["stt_warning_size"]
 STT_MAX_FILE_SIZE_MB: Final = AUDIO_LIMITS["stt_max_file_size_mb"]
+
+DEFAULT_IMAGE_SIZE: Final = "1024x1024"
+IMAGE_PROCESS_MAX_SIZE: Final = 1024
+IMAGE_PROCESS_QUALITY: Final = 85
+
+STT_DYNAMIC_TIMEOUT_BASE: Final = 15
+STT_DYNAMIC_TIMEOUT_PER_100KB: Final = 3
+STT_DYNAMIC_TIMEOUT_CONNECT: Final = 5
+STT_DYNAMIC_TIMEOUT_MIN_READ: Final = 10
+STT_DYNAMIC_TIMEOUT_MAX: Final = 60

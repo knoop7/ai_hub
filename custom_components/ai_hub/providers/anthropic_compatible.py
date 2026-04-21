@@ -11,19 +11,12 @@ from urllib.parse import urlparse
 import aiohttp
 
 from ..http import build_json_headers, client_timeout, resolve_ssl_setting
-from . import LLMMessage, LLMProvider, LLMResponse, register_provider
+from . import LLMMessage, LLMProvider, LLMResponse
 
 _LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_API_URL = "https://api.anthropic.com/v1/messages"
 _ANTHROPIC_VERSION = "2023-06-01"
-
-
-def _get_ssl_setting(url: str) -> bool:
-    """Allow custom HTTP and self-signed HTTPS endpoints."""
-    return resolve_ssl_setting(url, _DEFAULT_API_URL) is not False
-
-
 class AnthropicCompatibleProvider(LLMProvider):
     """Anthropic Messages API provider."""
 
@@ -367,6 +360,3 @@ class AnthropicCompatibleProvider(LLMProvider):
         except Exception as err:
             _LOGGER.debug("Anthropic health check failed: %s", err)
             return False
-
-
-register_provider("anthropic_compatible", AnthropicCompatibleProvider)

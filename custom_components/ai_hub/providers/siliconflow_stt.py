@@ -11,13 +11,22 @@ from typing import Any
 
 import aiohttp
 
+from ..consts import (
+    SILICONFLOW_ASR_URL,
+    SILICONFLOW_ROOT_URL,
+    STT_DYNAMIC_TIMEOUT_BASE,
+    STT_DYNAMIC_TIMEOUT_CONNECT,
+    STT_DYNAMIC_TIMEOUT_MAX,
+    STT_DYNAMIC_TIMEOUT_MIN_READ,
+    STT_DYNAMIC_TIMEOUT_PER_100KB,
+    STT_MAX_AUDIO_SIZE,
+    STT_MIN_AUDIO_SIZE,
+    TIMEOUT_HEALTH_CHECK,
+)
 from .base import ProviderType
 from .stt_base import AudioMetadata, STTConfig, STTProvider, STTResult
 
 _LOGGER = logging.getLogger(__name__)
-
-# SiliconFlow API configuration
-SILICONFLOW_ASR_URL = "https://api.siliconflow.cn/v1/audio/transcriptions"
 
 # Supported models
 SILICONFLOW_STT_MODELS = [
@@ -26,11 +35,6 @@ SILICONFLOW_STT_MODELS = [
 
 # Default model
 DEFAULT_MODEL = "FunAudioLLM/SenseVoiceSmall"
-
-# Audio constraints
-MIN_AUDIO_SIZE = 1000  # bytes
-MAX_AUDIO_SIZE = 10 * 1024 * 1024  # 10MB
-
 
 def _create_wav_header(audio_data: bytes, metadata: AudioMetadata) -> bytes:
     """Create WAV header for raw PCM audio data."""
@@ -64,15 +68,13 @@ def _create_wav_header(audio_data: bytes, metadata: AudioMetadata) -> bytes:
 def _calculate_timeout(audio_size_bytes: int) -> aiohttp.ClientTimeout:
     """Calculate dynamic timeout based on audio size."""
     audio_size_kb = audio_size_bytes / 1024
-    base_timeout = 15
-    timeout_per_100kb = 3
-    calculated_timeout = base_timeout + (audio_size_kb / 100) * timeout_per_100kb
-    total_timeout = min(max(calculated_timeout, 15), 60)
+    calculated_timeout = STT_DYNAMIC_TIMEOUT_BASE + (audio_size_kb / 100) * STT_DYNAMIC_TIMEOUT_PER_100KB
+    total_timeout = min(max(calculated_timeout, STT_DYNAMIC_TIMEOUT_BASE), STT_DYNAMIC_TIMEOUT_MAX)
 
     return aiohttp.ClientTimeout(
         total=total_timeout,
-        connect=5,
-        sock_read=max(total_timeout * 0.8, 10),
+        connect=STT_DYNAMIC_TIMEOUT_CONNECT,
+        sock_read=max(total_timeout * 0.8, STT_DYNAMIC_TIMEOUT_MIN_READ),
     )
 
 
@@ -213,12 +215,12 @@ class SiliconFlowSTTProvider(STTProvider):
             raise ValueError(error)
 
         # Check for very small audio (likely empty)
-        if len(audio_data) < MIN_AUDIO_SIZE:
+        if len(audio_data) < STT_MIN_AUDIO_SIZE:
             _LOGGER.debug("Audio too small, returning empty result")
             return STTResult(text="")
 
         # Check max size
-        if len(audio_data) > MAX_AUDIO_SIZE:
+        if len(audio_data) > STT_MAX_AUDIO_SIZE:
             raise ValueError("Audio file too large (max 10MB)")
 
         # Prepare audio
@@ -281,9 +283,9 @@ class SiliconFlowSTTProvider(STTProvider):
     async def health_check(self) -> bool:
         """Check if the SiliconFlow API is reachable."""
         try:
-            timeout = aiohttp.ClientTimeout(total=10)
+            timeout = aiohttp.ClientTimeout(total=TIMEOUT_HEALTH_CHECK)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get("https://api.siliconflow.cn") as response:
+                async with session.get(SILICONFLOW_ROOT_URL) as response:
                     return response.status < 500
         except Exception as e:
             _LOGGER.debug("SiliconFlow health check failed: %s", e)

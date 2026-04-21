@@ -27,10 +27,16 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from ..consts import (
+    DEFAULT_IMAGE_SIZE,
     DOMAIN,
     ERROR_GETTING_RESPONSE,
+    IMAGE_PROCESS_MAX_SIZE,
+    IMAGE_PROCESS_QUALITY,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
     RECOMMENDED_IMAGE_MODEL,
+    TIMEOUT_CAMERA_IMAGE,
+    TIMEOUT_CHAT_API,
+    TIMEOUT_IMAGE_API,
 )
 from .image_utils import extract_generated_image_payload
 
@@ -65,7 +71,7 @@ async def load_image_from_camera(hass: HomeAssistant, entity_id: str) -> bytes:
         if not hass.states.get(entity_id):
             raise ServiceValidationError(f"摄像头实体不存在: {entity_id}")
 
-        image = await camera.async_get_image(hass, entity_id, timeout=10)
+        image = await camera.async_get_image(hass, entity_id, timeout=TIMEOUT_CAMERA_IMAGE)
 
         if not image or not image.content:
             raise ServiceValidationError(f"无法从摄像头获取图像: {entity_id}")
@@ -76,7 +82,11 @@ async def load_image_from_camera(hass: HomeAssistant, entity_id: str) -> bytes:
         raise ServiceValidationError(f"获取摄像头图像失败: {err}")
 
 
-async def process_image(image_data: bytes, max_size: int = 1024, quality: int = 85) -> bytes:
+async def process_image(
+    image_data: bytes,
+    max_size: int = IMAGE_PROCESS_MAX_SIZE,
+    quality: int = IMAGE_PROCESS_QUALITY,
+) -> bytes:
     """Process image: resize and compress to optimize for API."""
     try:
         from PIL import Image
@@ -210,7 +220,7 @@ async def handle_analyze_image(
                 chat_url,
                 json=payload,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=60),
+                timeout=aiohttp.ClientTimeout(total=TIMEOUT_CHAT_API),
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()
@@ -244,7 +254,7 @@ async def handle_generate_image(
             }
 
         prompt = call.data["prompt"]
-        size = call.data.get("size", "1024x1024")
+        size = call.data.get("size", DEFAULT_IMAGE_SIZE)
         model = call.data.get("model", RECOMMENDED_IMAGE_MODEL)
 
         headers = {
@@ -259,7 +269,7 @@ async def handle_generate_image(
                 image_url,
                 json=payload,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=120),
+                timeout=aiohttp.ClientTimeout(total=TIMEOUT_IMAGE_API),
             ) as response:
                 if response.status != 200:
                     error_text = await response.text()

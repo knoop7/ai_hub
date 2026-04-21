@@ -23,7 +23,7 @@ from homeassistant.helpers import intent, llm
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .consts import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN
+from .consts import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN, LLM_API_ASSIST, SUBENTRY_CONVERSATION
 from .entity import AIHubBaseLLMEntity
 from .intents import get_config_cache
 
@@ -44,7 +44,7 @@ async def async_setup_entry(
     conversation_subentries = [
         subentry
         for subentry in config_entry.subentries.values()
-        if subentry.subentry_type == "conversation"
+        if subentry.subentry_type == SUBENTRY_CONVERSATION
     ]
 
     if not conversation_subentries:
@@ -233,11 +233,14 @@ class AIHubConversationAgent(
                     else False
                 )
                 response_has_content = bool(plain_speech)
-                normalized_speech = plain_speech.strip() if isinstance(plain_speech, str) else ""
-                is_truncated_query_answer = (
+                prior_turn_count = sum(
+                    1
+                    for content in getattr(chat_log, "content", [])[:-1]
+                    if getattr(content, "role", None) in {"user", "assistant"}
+                )
+                should_return_ha_response = not (
                     response_type == intent.IntentResponseType.QUERY_ANSWER
-                    and isinstance(plain_speech, str)
-                    and len(normalized_speech) <= 3
+                    and prior_turn_count >= 2
                 )
 
                 if (
@@ -245,7 +248,7 @@ class AIHubConversationAgent(
                     and not is_error_type
                     and not is_no_match
                     and response_has_content
-                    and not is_truncated_query_answer
+                    and should_return_ha_response
                 ):
                     _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
                     return conversation.ConversationResult(
@@ -263,11 +266,11 @@ class AIHubConversationAgent(
                         )
 
                 _LOGGER.debug(
-                    "HA 内置意图未匹配、返回错误或结果异常(has_error=%s, is_error_type=%s, is_no_match=%s, is_truncated_query_answer=%s)，交给 LLM 处理",
+                    "HA 内置意图未匹配、返回错误或结果异常(has_error=%s, is_error_type=%s, is_no_match=%s, should_return_ha_response=%s)，交给 LLM 处理",
                     has_error,
                     is_error_type,
                     is_no_match,
-                    is_truncated_query_answer,
+                    should_return_ha_response,
                 )
             elif intent_handler and intent_handler.should_handle(user_input.text):
                 _LOGGER.debug("HA intents returned None, falling back to local intent: %s", user_input.text)
@@ -293,17 +296,26 @@ class AIHubConversationAgent(
 
         try:
             # High-performance LLM API config retrieval
-            llm_apis = options.get(CONF_LLM_HASS_API, [])
+            llm_apis_value = options.get(CONF_LLM_HASS_API, [])
+            if isinstance(llm_apis_value, str):
+                llm_apis = [llm_apis_value] if llm_apis_value.strip() else []
+            elif isinstance(llm_apis_value, (list, tuple, set)):
+                llm_apis = [item for item in llm_apis_value if isinstance(item, str) and item.strip()]
+            else:
+                llm_apis = []
+
+            valid_api_ids = {api.id for api in llm.async_get_apis(self.hass)}
+            llm_apis = [api_id for api_id in llm_apis if api_id in valid_api_ids]
 
             if not llm_apis:
                 _LOGGER.warning("LLM API config not found, checking LLM_API_ASSIST")
                 # Try using the default LLM API ASSIST
                 try:
-                    default_llm_api = llm.LLM_API_ASSIST
+                    default_llm_api = LLM_API_ASSIST
                     llm_apis = [default_llm_api]
                     _LOGGER.debug("Using default LLM API")
-                except Exception as e:
-                    _LOGGER.error(f"LLM_API_ASSIST retrieval failed: {e}")
+                except Exception as err:
+                    _LOGGER.error("LLM_API_ASSIST retrieval failed: %s", err)
                     empty_response = intent.IntentResponse(language=user_input.language)
                     error_msg = self._config_cache.get_error_message("llm_config_error")
                     empty_response.async_set_speech(error_msg)
@@ -314,6 +326,11 @@ class AIHubConversationAgent(
 
             # Provide LLM data (tools, home info, etc.)
             user_prompt = options.get(CONF_PROMPT, "")
+            _LOGGER.debug(
+                "Preparing LLM data for '%s' with APIs=%s",
+                user_input.text,
+                llm_apis,
+            )
             await chat_log.async_provide_llm_data(
                 user_input.as_llm_context(DOMAIN),
                 llm_apis,
@@ -321,7 +338,7 @@ class AIHubConversationAgent(
                 user_input.extra_system_prompt,
             )
         except conversation.ConverseError as err:
-            _LOGGER.error(f"LLM conversation error: {err}")
+            _LOGGER.error("LLM conversation error: %s", err)
             return err.as_conversation_result()
 
         # Process the chat log with AI Hub
@@ -419,8 +436,8 @@ class AIHubConversationAgent(
 
             return should_skip
 
-        except Exception as e:
-            _LOGGER.debug(f"Error checking whether to skip HA processing: {e}")
+        except Exception as err:
+            _LOGGER.debug("Error checking whether to skip HA processing: %s", err)
             return False
 
 
@@ -435,7 +452,7 @@ class AIHubLocalConversationAgent(AIHubConversationAgent):
             subentry_id=f"{entry.entry_id}_local_assist",
             title=FALLBACK_AGENT_NAME,
             data={},
-            subentry_type="conversation",
+            subentry_type=SUBENTRY_CONVERSATION,
         )
         super().__init__(
             entry,

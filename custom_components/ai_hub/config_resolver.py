@@ -1,4 +1,4 @@
-"""Helpers to resolve effective config for an entry and subentries."""
+"""Helpers to resolve effective entry config for subentries."""
 
 from __future__ import annotations
 
@@ -14,6 +14,10 @@ from .consts import (
     CONF_STT_URL,
     RECOMMENDED_CHAT_MODEL,
     SILICONFLOW_ASR_URL,
+    SUBENTRY_AI_TASK,
+    SUBENTRY_CONVERSATION,
+    SUBENTRY_STT,
+    SUBENTRY_TRANSLATION,
 )
 
 
@@ -25,17 +29,6 @@ def _get_subentry_by_type(entry: Any, subentry_type: str) -> Any | None:
     return None
 
 
-def get_effective_api_key(entry: Any, subentry_type: str | None = None) -> str | None:
-    """Return the effective API key for a subentry, falling back to the entry key."""
-    if subentry_type:
-        subentry = _get_subentry_by_type(entry, subentry_type)
-        if subentry is not None:
-            custom_api_key = subentry.data.get(CONF_CUSTOM_API_KEY, "").strip()
-            if custom_api_key:
-                return custom_api_key
-    return entry.runtime_data
-
-
 def _get_subentry_value(entry: Any, subentry_type: str, key: str, default: Any) -> Any:
     """Return a value from the first matching subentry, or the default."""
     subentry = _get_subentry_by_type(entry, subentry_type)
@@ -44,27 +37,21 @@ def _get_subentry_value(entry: Any, subentry_type: str, key: str, default: Any) 
     return subentry.data.get(key, default)
 
 
-def get_effective_conversation_config(entry: Any) -> tuple[str, str, str | None]:
-    """Return effective conversation endpoint, model, and API key."""
-    chat_url = _get_subentry_value(entry, "conversation", CONF_CHAT_URL, AI_HUB_CHAT_URL)
-    model = _get_subentry_value(entry, "conversation", CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
-    return chat_url, model, get_effective_api_key(entry, "conversation")
+def resolve_entry_config(
+    entry: Any,
+    subentry_type: str,
+    *values: tuple[str, Any],
+) -> tuple[Any, ...]:
+    """Return resolved subentry values followed by the effective API key."""
+    effective_api_key = entry.runtime_data
+    subentry = _get_subentry_by_type(entry, subentry_type)
+    if subentry is not None:
+        custom_api_key = subentry.data.get(CONF_CUSTOM_API_KEY, "").strip()
+        if custom_api_key:
+            effective_api_key = custom_api_key
 
-
-def get_effective_image_config(entry: Any) -> tuple[str, str | None]:
-    """Return effective image endpoint and API key."""
-    image_url = _get_subentry_value(entry, "ai_task_data", CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL)
-    return image_url, get_effective_api_key(entry, "ai_task_data")
-
-
-def get_effective_stt_config(entry: Any) -> tuple[str, str | None]:
-    """Return effective STT endpoint and API key."""
-    stt_url = _get_subentry_value(entry, "stt", CONF_STT_URL, SILICONFLOW_ASR_URL)
-    return stt_url, get_effective_api_key(entry, "stt")
-
-
-def get_effective_translation_config(entry: Any) -> tuple[str, str, str | None]:
-    """Return effective translation endpoint, model, and API key."""
-    chat_url = _get_subentry_value(entry, "translation", CONF_CHAT_URL, AI_HUB_CHAT_URL)
-    model = _get_subentry_value(entry, "translation", CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
-    return chat_url, model, get_effective_api_key(entry, "translation")
+    resolved_values = tuple(
+        _get_subentry_value(entry, subentry_type, key, default)
+        for key, default in values
+    )
+    return (*resolved_values, effective_api_key)

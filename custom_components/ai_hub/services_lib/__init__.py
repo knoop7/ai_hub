@@ -48,7 +48,6 @@ from .schemas import (
     STT_SCHEMA,
     TRANSLATION_SCHEMA,
     TTS_SCHEMA,
-    TTS_STREAM_SCHEMA,
 )
 
 # STT services
@@ -73,7 +72,6 @@ __all__ = [
     "IMAGE_ANALYZER_SCHEMA",
     "IMAGE_GENERATOR_SCHEMA",
     "TTS_SCHEMA",
-    "TTS_STREAM_SCHEMA",
     "STT_SCHEMA",
     "TRANSLATION_SCHEMA",
     "BLUEPRINTS_TRANSLATION_SCHEMA",
