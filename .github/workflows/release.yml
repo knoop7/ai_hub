@@ -61,7 +61,7 @@ jobs:
           
           # 如果有 API Key，使用 AI 生成双语 changelog
           if [ -n "$ZHIPU_API_KEY" ]; then
-            prompt="请将以下 git commit 记录翻译成中英双语格式。如果原文是中文就翻译成英文，如果是英文就翻译成中文。输出格式：每条记录先显示中文，然后显示英文（用斜体），例如：- 修复登录问题 / *Fix login issue*。只输出翻译结果，不要其他内容。\n\n${log}"
+            prompt="请将以下 git commit 记录翻译成中英双语格式。如果原文是中文就翻译成英文，如果是英文就翻译成中文。务必保留每条 commit 开头的类型前缀，不允许省略，例如 fix:、docs:、chore:、refactor:、feat: 等；前缀可以翻译，但必须明确保留在中文和英文两行里。输出格式：每条记录先显示中文，然后显示英文（用斜体），例如：- 修复: 登录问题 / *Fix: login issue*。只输出翻译结果，不要其他内容。\n\n${log}"
             
             response=$(curl -s https://open.bigmodel.cn/api/paas/v4/chat/completions \
               -H "Content-Type: application/json" \
