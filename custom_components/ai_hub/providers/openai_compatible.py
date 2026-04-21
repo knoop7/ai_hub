@@ -16,6 +16,7 @@ from uuid import uuid4
 import asyncio
 import aiohttp
 
+from ..http import async_check_endpoint_health, async_post_json, async_stream_response_text
 from . import LLMMessage, LLMProvider, LLMResponse
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,6 +40,12 @@ def _get_ssl_setting(url: str) -> bool:
     """Allow custom HTTP and self-signed HTTPS endpoints."""
     parsed = urlparse(url)
     return parsed.scheme != "http" and parsed.netloc == "api.openai.com"
+
+
+def _supports_native_tools(url: str) -> bool:
+    """Return whether a URL should use native tool calling by default."""
+    parsed = urlparse(url)
+    return parsed.netloc == "api.openai.com"
 
 
 def _normalize_openai_api_url(url: str | None) -> str:
@@ -128,7 +135,11 @@ def _sanitize_messages_for_plain_chat(messages: list[LLMMessage]) -> list[LLMMes
             sanitized.append(
                 LLMMessage(
                     role="user",
-                    content=f"[Tool result]\n{message.content}",
+                    content=(
+                        f"[Tool result from {message.tool_name}]\n{message.content}"
+                        if message.tool_name
+                        else f"[Tool result]\n{message.content}"
+                    ),
                 )
             )
             continue
@@ -245,7 +256,11 @@ def _render_emulated_tool_transcript(
             _stringify_message_content(message.content)
         )
         if message.role == "tool":
-            content = f"[Tool result]\n{content}"
+            content = (
+                f"[Tool result from {message.tool_name}]\n{content}"
+                if message.tool_name
+                else f"[Tool result]\n{content}"
+            )
         lines = [f"[{index}] {role}", content]
         if message.tool_calls:
             lines.append(
@@ -256,6 +271,8 @@ def _render_emulated_tool_transcript(
             )
         if message.tool_call_id:
             lines.append(f"TOOL_CALL_ID: {message.tool_call_id}")
+        if message.tool_name:
+            lines.append(f"TOOL_NAME: {message.tool_name}")
         rendered_sections.append("\n".join(line for line in lines if line))
 
     total_len = sum(len(section) + 2 for section in rendered_sections)
@@ -502,13 +519,15 @@ class OpenAICompatibleProvider(LLMProvider):
         last_error: Exception | None = None
         for attempt in range(_DISCONNECT_RETRY_MAX + 1):
             try:
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
-                        if response.status != 200:
-                            error_text = await response.text()
-                            _LOGGER.error("OpenAI compatible API error: %s", error_text)
-                            raise Exception(f"API error: {error_text}")
-                        return await _decode_json_response(response)
+                return await async_post_json(
+                    url,
+                    payload=request,
+                    headers=headers,
+                    ssl=ssl,
+                    timeout=self.config.timeout,
+                    error_label="API error",
+                    response_decoder=_decode_json_response,
+                )
             except _RETRYABLE_DISCONNECT_ERRORS as err:
                 last_error = err
                 if attempt >= _DISCONNECT_RETRY_MAX:
@@ -581,6 +600,13 @@ class OpenAICompatibleProvider(LLMProvider):
         url = self._get_api_url()
         ssl = _get_ssl_setting(url)
 
+        if tools and not _supports_native_tools(url):
+            _LOGGER.info(
+                "OpenAI-compatible custom endpoint uses emulated tool mode by default: %s",
+                url,
+            )
+            return await self._complete_with_emulated_tools(messages, tools, **kwargs)
+
         if tools and _NATIVE_TOOL_SUPPORT_BY_URL.get(url) is False:
             _LOGGER.info(
                 "OpenAI-compatible endpoint is marked as no-native-tools; using emulated tool mode: %s",
@@ -646,44 +672,38 @@ class OpenAICompatibleProvider(LLMProvider):
         url = self._get_api_url()
         ssl = _get_ssl_setting(url)
 
-        timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+        buffer = ""
+        async for chunk_text in async_stream_response_text(
+            url,
+            payload=request,
+            headers=headers,
+            ssl=ssl,
+            timeout=self.config.timeout,
+            error_label="API error",
+        ):
+            buffer += chunk_text
 
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    _LOGGER.error("OpenAI compatible streaming error: %s", error_text)
-                    raise Exception(f"API error: {error_text}")
+            while "\n" in buffer:
+                line, buffer = buffer.split("\n", 1)
+                line = line.strip()
 
-                buffer = ""
-                async for chunk in response.content:
-                    if not chunk:
+                if not line or line == "data: [DONE]":
+                    continue
+
+                if line.startswith("data: "):
+                    data_str = line[6:]
+                    if not data_str.strip():
                         continue
 
-                    chunk_text = chunk.decode("utf-8", errors="ignore")
-                    buffer += chunk_text
-
-                    while "\n" in buffer:
-                        line, buffer = buffer.split("\n", 1)
-                        line = line.strip()
-
-                        if not line or line == "data: [DONE]":
-                            continue
-
-                        if line.startswith("data: "):
-                            data_str = line[6:]
-                            if not data_str.strip():
-                                continue
-
-                            try:
-                                data = json.loads(data_str)
-                                delta = data.get("choices", [{}])[0].get("delta", {})
-                                content = delta.get("content", "")
-                                if content:
-                                    yield content
-                            except json.JSONDecodeError:
-                                _LOGGER.debug("SSE parse failed: %s", data_str)
-                                continue
+                    try:
+                        data = json.loads(data_str)
+                        delta = data.get("choices", [{}])[0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            yield content
+                    except json.JSONDecodeError:
+                        _LOGGER.debug("SSE parse failed: %s", data_str)
+                        continue
 
     async def health_check(self) -> bool:
         """Check if the API is reachable."""
@@ -697,10 +717,7 @@ class OpenAICompatibleProvider(LLMProvider):
             base = f"{parsed.scheme}://{parsed.netloc}"
             ssl = _get_ssl_setting(url)
 
-            timeout = aiohttp.ClientTimeout(total=10)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(base, ssl=ssl) as response:
-                    return response.status < 500
+            return await async_check_endpoint_health(base, ssl=ssl, timeout=10)
         except Exception as e:
             _LOGGER.debug("OpenAI compatible health check failed: %s", e)
             return False

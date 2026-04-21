@@ -208,26 +208,57 @@ def test_extract_media_query_and_fallback_target_strategy():
         "media_player.only_one"
     ]
 
-    def test_error_message_extraction(self):
-        """Test error message extraction from various formats."""
-        # Format 1: {"error": "message"}
-        response1 = APIResponse(success=False, data={"error": "Error 1"})
-        assert response1.get_error_message() == "Error 1"
 
-        # Format 2: {"message": "message"}
-        response2 = APIResponse(success=False, data={"message": "Error 2"})
-        assert response2.get_error_message() == "Error 2"
+def test_local_intent_handler_matches_area_scoped_all_lights_commands():
+    _install_homeassistant_stubs()
+    from custom_components.ai_hub.intents.handlers import LocalIntentHandler
 
-        # Format 3: {"error": {"message": "nested"}}
-        response3 = APIResponse(
-            success=False,
-            data={"error": {"message": "Nested error"}},
-        )
-        assert response3.get_error_message() == "Nested error"
+    handler = LocalIntentHandler(_FakeHass([]))
+    handler._config = {
+        "lists": {
+            "area_names": {"values": ["客厅"]},
+            "light_names": {"values": ["灯", "灯光"]},
+        }
+    }
+    handler._local_config = {
+        "GlobalDeviceControl": {
+            "global_keywords": ["所有", "全部", "全屋"],
+            "device_type_keywords": "{{lists}}",
+            "control_domains": ["light"],
+            "on_keywords": ["打开", "开启", "开"],
+            "off_keywords": ["关闭", "关掉", "关"],
+            "param_keywords": [],
+            "brightness_keywords": [],
+            "volume_keywords": [],
+            "color_keywords": [],
+            "temperature_keywords": [],
+        }
+    }
 
-        # Format 4: string data
-        response4 = APIResponse(success=False, data="Plain error")
-        assert response4.get_error_message() == "Plain error"
+    assert handler.should_handle("打开客厅所有的灯") is True
+    assert handler.should_handle("关闭客厅所有的灯") is True
+
+
+def test_error_message_extraction():
+    """Test error message extraction from various formats."""
+    # Format 1: {"error": "message"}
+    response1 = APIResponse(success=False, data={"error": "Error 1"})
+    assert response1.get_error_message() == "Error 1"
+
+    # Format 2: {"message": "message"}
+    response2 = APIResponse(success=False, data={"message": "Error 2"})
+    assert response2.get_error_message() == "Error 2"
+
+    # Format 3: {"error": {"message": "nested"}}
+    response3 = APIResponse(
+        success=False,
+        data={"error": {"message": "Nested error"}},
+    )
+    assert response3.get_error_message() == "Nested error"
+
+    # Format 4: string data
+    response4 = APIResponse(success=False, data="Plain error")
+    assert response4.get_error_message() == "Plain error"
 
 
 class TestAPIError:

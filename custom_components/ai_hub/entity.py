@@ -4,22 +4,20 @@ from __future__ import annotations
 
 import json
 import logging
+import asyncio
 from collections.abc import AsyncGenerator, Callable
 from typing import Any
 
-import aiohttp
 from homeassistant.components import conversation
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_entry_flow, llm
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import ulid
 from voluptuous_openapi import convert
 
 from .providers import LLMMessage, create_provider
 from .consts import (
-    AI_HUB_CHAT_URL,
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_LLM_PROVIDER,
@@ -35,9 +33,8 @@ from .consts import (
     RECOMMENDED_MAX_HISTORY_MESSAGES,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
-    TIMEOUT_CHAT_API,
 )
-from .http import resolve_provider_name, resolve_ssl_setting
+from .http import resolve_provider_name
 from .llm_attachment_processor import AttachmentProcessor
 from .llm_message_builder import ChatMessageBuilder
 from .llm_model_utils import chat_log_has_media_attachments, select_media_model
@@ -46,24 +43,30 @@ from .markdown_filter import filter_markdown_streaming
 _LOGGER = logging.getLogger(__name__)
 
 
-def _ensure_string(value: Any) -> str:
-    """Ensure a value is a valid string for API calls.
+def _format_request_exception(
+    err: Exception,
+    *,
+    provider_name: str,
+    api_url: str,
+    timeout_seconds: float | int | None = None,
+) -> str:
+    """Build a non-empty, actionable error message for LLM request failures."""
+    err_type = type(err).__name__
+    err_text = str(err).strip()
 
-    Args:
-        value: The value to convert to string
+    if isinstance(err, asyncio.TimeoutError):
+        timeout_hint = f" after {timeout_seconds}s" if timeout_seconds else ""
+        return (
+            f"{ERROR_GETTING_RESPONSE}: {err_type}: request to {provider_name} "
+            f"endpoint {api_url} timed out{timeout_hint}"
+        )
 
-    Returns:
-        A string representation of the value, or empty string if None/empty
-    """
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, (list, dict)):
-        # Convert complex types to JSON string
-        return json.dumps(value, ensure_ascii=False)
-    # For other types, convert to string
-    return str(value)
+    if err_text:
+        return f"{ERROR_GETTING_RESPONSE}: {err_type}: {err_text}"
+
+    return f"{ERROR_GETTING_RESPONSE}: {err_type}: request to {provider_name} endpoint {api_url} failed"
+
+
 class _AIHubEntityMixin:
     """Mixin class providing common initialization logic for AI Hub entities.
 
@@ -281,27 +284,11 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                         part["text"] = str(part.get("text", ""))
                         _LOGGER.warning("Message %d part %d had non-string text, converted", i, j)
 
-        # Get API URL from config before the request
-        api_url = options.get(CONF_CHAT_URL) or AI_HUB_CHAT_URL
+        api_url = options.get(CONF_CHAT_URL)
         if not isinstance(api_url, str) or not api_url.strip():
-            api_url = AI_HUB_CHAT_URL
-            _LOGGER.warning("API URL was invalid, using default: %s", api_url)
+            raise HomeAssistantError("API URL is not configured")
 
         provider_name = resolve_provider_name(api_url, options.get(CONF_LLM_PROVIDER))
-
-        request_params = {
-            "model": model_name,
-            "messages": messages,
-            "stream": True,
-        }
-
-        if provider_name == "openai_compatible":
-            request_params["enable_thinking"] = bool(
-                model_config.get("enable_thinking", RECOMMENDED_ENABLE_THINKING)
-            )
-
-        if tools:
-            request_params["tools"] = tools
 
         try:
             # Validate API key before making request
@@ -326,6 +313,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                     content=msg.get("content", ""),
                     tool_calls=msg.get("tool_calls"),
                     tool_call_id=msg.get("tool_call_id"),
+                    tool_name=msg.get("tool_name"),
                 )
                 for msg in messages
             ]
@@ -341,69 +329,90 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                     "enable_thinking": model_config.get("enable_thinking", RECOMMENDED_ENABLE_THINKING),
                 },
             )
+            if provider is None:
+                raise HomeAssistantError(f"Unsupported provider: {provider_name}")
 
-            if provider is not None:
-                _LOGGER.debug(
-                    "Invoking provider=%s stream=%s tools=%d",
+            if not provider.supports_tools():
+                tools = []
+
+            provider_timeout = getattr(getattr(provider, "config", None), "timeout", 60)
+
+            if tools:
+                await self._async_run_provider_completion(
+                    chat_log,
                     provider_name,
-                    not bool(tools),
-                    len(tools),
+                    provider,
+                    llm_messages,
+                    tools,
                 )
-                if not tools:
-                    async for _ in chat_log.async_add_delta_content_stream(
-                        self.entity_id,
-                        self._transform_provider_stream(provider.complete_stream(llm_messages, tools=tools)),
-                    ):
-                        pass
-                    return
-
-                response = await provider.complete(llm_messages, tools=tools)
-                tool_calls = self._convert_provider_tool_calls(response.tool_calls)
-                assistant_content = conversation.AssistantContent(
-                    agent_id=self.entity_id,
-                    content=response.content or None,
-                    tool_calls=tool_calls or None,
-                    native=response.raw_response,
+            else:
+                await self._async_run_provider_stream(
+                    chat_log,
+                    provider_name,
+                    provider,
+                    llm_messages,
                 )
-                async for _ in chat_log.async_add_assistant_content(assistant_content):
-                    pass
-                return
 
-            # Call AI Hub API with streaming via HTTP
-            headers = {
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            }
-            request_ssl = resolve_ssl_setting(api_url, AI_HUB_CHAT_URL)
-
-            # Use Home Assistant's shared session for better performance
-            session = async_get_clientsession(self.hass)
-            async with session.post(
-                api_url,
-                json=request_params,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=TIMEOUT_CHAT_API),
-                ssl=request_ssl,
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    _LOGGER.error("API request failed: %s", error_text)
-                    raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: {error_text}")
-
-                # Process streaming response using the new API
-                [
-                    content
-                    async for content in chat_log.async_add_delta_content_stream(
-                        self.entity_id, self._transform_stream(response)
-                    )
-                ]
-
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Network error calling AI Hub API: %s", err)
-            raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: Network error") from err
         except Exception as err:
-            _LOGGER.error("Error calling AI Hub API: %s", err)
-            raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: {err}") from err
+            _LOGGER.error(
+                "Error calling LLM provider: %s (%s)",
+                err,
+                type(err).__name__,
+            )
+            raise HomeAssistantError(
+                _format_request_exception(
+                    err,
+                    provider_name=provider_name,
+                    api_url=api_url,
+                    timeout_seconds=provider_timeout if 'provider_timeout' in locals() else 60,
+                )
+            ) from err
+
+    async def _async_run_provider_stream(
+        self,
+        chat_log: conversation.ChatLog,
+        provider_name: str,
+        provider: Any,
+        llm_messages: list[LLMMessage],
+    ) -> None:
+        """Run a provider in streaming mode for text-only turns."""
+        _LOGGER.debug(
+            "Invoking provider=%s stream=%s tools=%d",
+            provider_name,
+            True,
+            0,
+        )
+        async for _ in chat_log.async_add_delta_content_stream(
+            self.entity_id,
+            self._transform_provider_stream(provider.complete_stream(llm_messages)),
+        ):
+            pass
+
+    async def _async_run_provider_completion(
+        self,
+        chat_log: conversation.ChatLog,
+        provider_name: str,
+        provider: Any,
+        llm_messages: list[LLMMessage],
+        tools: list[dict[str, Any]],
+    ) -> None:
+        """Run a provider completion and append assistant content/tool calls."""
+        _LOGGER.debug(
+            "Invoking provider=%s stream=%s tools=%d",
+            provider_name,
+            False,
+            len(tools),
+        )
+        response = await provider.complete(llm_messages, tools=tools)
+        tool_calls = self._convert_provider_tool_calls(response.tool_calls)
+        assistant_content = conversation.AssistantContent(
+            agent_id=self.entity_id,
+            content=response.content or None,
+            tool_calls=tool_calls or None,
+            native=response.raw_response,
+        )
+        async for _ in chat_log.async_add_assistant_content(assistant_content):
+            pass
 
     async def _transform_provider_stream(
         self,
@@ -507,6 +516,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         tool_message: dict[str, Any] = {
             "role": "tool",
             "tool_call_id": tool_call_id,
+            "tool_name": content.tool_name,
             "content": (
                 json.dumps(tool_result_payload, ensure_ascii=False, default=str)
                 if tool_result_payload is not None
@@ -546,120 +556,6 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     ) -> dict[str, Any]:
         """Convert schema to AI Hub format."""
         return ChatMessageBuilder.convert_schema(schema, custom_serializer)
-
-    async def _transform_stream(
-        self,
-        response: aiohttp.ClientResponse,
-    ) -> AsyncGenerator[
-        conversation.AssistantContentDeltaDict | conversation.ToolResultContentDeltaDict
-    ]:
-        """Transform AI Hub SSE stream into HA format."""
-        buffer = ""
-        tool_call_buffer: dict[int, dict[str, Any]] = {}
-        has_started = False
-
-        async for chunk in response.content:
-            if not chunk:
-                continue
-
-            chunk_text = chunk.decode("utf-8", errors="ignore")
-            buffer += chunk_text
-
-            # Process complete lines
-            while "\n" in buffer:
-                line, buffer = buffer.split("\n", 1)
-                line = line.strip()
-
-                # Skip empty lines and end markers
-                if not line or line == "data: [DONE]":
-                    continue
-
-                # Process SSE data lines
-                if line.startswith("data: "):
-                    data_str = line[6:]  # Remove "data: " prefix
-                    if not data_str.strip():
-                        continue
-
-                    try:
-                        data = json.loads(data_str)
-                    except json.JSONDecodeError:
-                        _LOGGER.debug("SSE data parse failed: %s", data_str)
-                        continue
-
-                    if not data.get("choices"):
-                        continue
-
-                    delta = data["choices"][0].get("delta", {})
-
-                    # Start assistant message if not started
-                    if not has_started:
-                        yield {"role": "assistant"}
-                        has_started = True
-
-                    # Handle content delta
-                    if "content" in delta and delta["content"]:
-                        # Filter markdown from content using streaming filter to preserve spaces
-                        filtered_content = filter_markdown_streaming(delta["content"])
-                        yield {"content": filtered_content}
-
-                    # Handle tool calls
-                    if "tool_calls" in delta:
-                        for tc_delta in delta["tool_calls"]:
-                            index = tc_delta.get("index", 0)
-
-                            # Initialize tool call buffer if needed
-                            if index not in tool_call_buffer:
-                                # Ensure we always have a valid id
-                                tool_id = tc_delta.get("id")
-                                if not tool_id or not isinstance(tool_id, str) or not tool_id.strip():
-                                    tool_id = ulid.ulid_now()
-                                tool_call_buffer[index] = {
-                                    "id": tool_id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": "",
-                                        "arguments": "",
-                                    },
-                                }
-
-                            # Update tool call data - only update id if it's a valid non-empty string
-                            if (
-                                "id" in tc_delta
-                                and tc_delta["id"]
-                                and isinstance(tc_delta["id"], str)
-                                and tc_delta["id"].strip()
-                            ):
-                                tool_call_buffer[index]["id"] = tc_delta["id"]
-                            if "function" in tc_delta:
-                                func = tc_delta["function"]
-                                if "name" in func:
-                                    tool_call_buffer[index]["function"]["name"] = func["name"]
-                                if "arguments" in func:
-                                    tool_call_buffer[index]["function"]["arguments"] += func["arguments"]
-
-        # Yield final tool calls if any
-        if tool_call_buffer:
-            tool_calls = []
-            for tc in tool_call_buffer.values():
-                try:
-                    # Ensure id is valid before creating ToolInput
-                    tool_id = tc["id"]
-                    if not tool_id or not isinstance(tool_id, str) or not tool_id.strip():
-                        tool_id = ulid.ulid_now()
-
-                    args = json.loads(tc["function"]["arguments"]) if tc["function"]["arguments"] else {}
-                    tool_calls.append(
-                        llm.ToolInput(
-                            id=tool_id,
-                            tool_name=tc["function"]["name"],
-                            tool_args=args,
-                        )
-                    )
-                except json.JSONDecodeError as err:
-                    _LOGGER.warning("Failed to parse tool call arguments: %s", err)
-
-            if tool_calls:
-                yield {"tool_calls": tool_calls}
 
 class AIHubEntityBase(Entity, _AIHubEntityMixin):
     """Base entity for AI Hub integration.

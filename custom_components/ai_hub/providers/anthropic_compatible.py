@@ -10,7 +10,14 @@ from urllib.parse import urlparse
 
 import aiohttp
 
-from ..http import build_json_headers, client_timeout, resolve_ssl_setting
+from ..http import (
+    async_check_endpoint_health,
+    async_post_json,
+    async_stream_response_text,
+    build_json_headers,
+    client_timeout,
+    resolve_ssl_setting,
+)
 from . import LLMMessage, LLMProvider, LLMResponse
 
 _LOGGER = logging.getLogger(__name__)
@@ -265,15 +272,14 @@ class AnthropicCompatibleProvider(LLMProvider):
         url = self._get_api_url()
         ssl = resolve_ssl_setting(url, _DEFAULT_API_URL)
 
-        timeout = client_timeout(self.config.timeout)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    _LOGGER.error("Anthropic API error: %s", error_text)
-                    raise Exception(f"API error: {error_text}")
-
-                data = await response.json()
+        data = await async_post_json(
+            url,
+            payload=request,
+            headers=headers,
+            ssl=ssl,
+            timeout=self.config.timeout,
+            error_label="API error",
+        )
 
         content_blocks = data.get("content", [])
         usage = data.get("usage")
@@ -308,43 +314,39 @@ class AnthropicCompatibleProvider(LLMProvider):
         url = self._get_api_url()
         ssl = resolve_ssl_setting(url, _DEFAULT_API_URL)
 
-        timeout = client_timeout(self.config.timeout)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, json=request, headers=headers, ssl=ssl) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    _LOGGER.error("Anthropic streaming API error: %s", error_text)
-                    raise Exception(f"API error: {error_text}")
+        buffer = ""
+        async for chunk_text in async_stream_response_text(
+            url,
+            payload=request,
+            headers=headers,
+            ssl=ssl,
+            timeout=self.config.timeout,
+            error_label="API error",
+        ):
+            buffer += chunk_text
 
-                buffer = ""
-                async for chunk in response.content:
-                    if not chunk:
-                        continue
+            while "\n" in buffer:
+                line, buffer = buffer.split("\n", 1)
+                line = line.strip()
 
-                    buffer += chunk.decode("utf-8", errors="ignore")
+                if not line or line.startswith("event:"):
+                    continue
+                if not line.startswith("data: "):
+                    continue
 
-                    while "\n" in buffer:
-                        line, buffer = buffer.split("\n", 1)
-                        line = line.strip()
+                data_str = line[6:]
 
-                        if not line or line.startswith("event:"):
-                            continue
-                        if not line.startswith("data: "):
-                            continue
+                try:
+                    data = json.loads(data_str)
+                except json.JSONDecodeError:
+                    _LOGGER.debug("Anthropic SSE parse failed: %s", data_str)
+                    continue
 
-                        data_str = line[6:]
-
-                        try:
-                            data = json.loads(data_str)
-                        except json.JSONDecodeError:
-                            _LOGGER.debug("Anthropic SSE parse failed: %s", data_str)
-                            continue
-
-                        if data.get("type") == "content_block_delta":
-                            delta = data.get("delta", {})
-                            text = delta.get("text", "")
-                            if text:
-                                yield text
+                if data.get("type") == "content_block_delta":
+                    delta = data.get("delta", {})
+                    text = delta.get("text", "")
+                    if text:
+                        yield text
 
     async def health_check(self) -> bool:
         try:
@@ -353,10 +355,7 @@ class AnthropicCompatibleProvider(LLMProvider):
             base = f"{parsed.scheme}://{parsed.netloc}"
             ssl = resolve_ssl_setting(url, _DEFAULT_API_URL)
 
-            timeout = client_timeout(10)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(base, ssl=ssl) as response:
-                    return response.status < 500
+            return await async_check_endpoint_health(base, ssl=ssl, timeout=10)
         except Exception as err:
             _LOGGER.debug("Anthropic health check failed: %s", err)
             return False

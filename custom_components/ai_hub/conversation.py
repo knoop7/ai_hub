@@ -235,6 +235,7 @@ class AIHubConversationAgent(
                 if ha_response.speech and ha_response.speech.get("plain"):
                     plain_speech = ha_response.speech["plain"].get("speech")
 
+                response_data = getattr(ha_response, "data", None) or {}
                 has_error = hasattr(ha_response, "error") and ha_response.error
                 is_error_type = response_type == intent.IntentResponseType.ERROR
                 is_no_match = (
@@ -243,14 +244,30 @@ class AIHubConversationAgent(
                     else False
                 )
                 response_has_content = bool(plain_speech)
-                success_results = getattr(ha_response, "success_results", []) or []
-                failed_results = getattr(ha_response, "failed_results", []) or []
+                success_results = response_data.get("success") or getattr(ha_response, "success_results", []) or []
+                failed_results = response_data.get("failed") or getattr(ha_response, "failed_results", []) or []
                 has_explicit_success = bool(success_results)
                 has_explicit_failure = bool(failed_results)
+                has_explicit_outcome = has_explicit_success or has_explicit_failure
+                continue_conversation = bool(getattr(ha_chat_log, "continue_conversation", False))
                 is_empty_action_done = (
                     response_type == intent.IntentResponseType.ACTION_DONE
-                    and not has_explicit_success
-                    and not has_explicit_failure
+                    and not has_explicit_outcome
+                )
+                is_follow_up_prompt = (
+                    response_type == intent.IntentResponseType.QUERY_ANSWER
+                    and continue_conversation
+                    and not has_explicit_outcome
+                )
+                is_acceptable_type = (
+                    (
+                        response_type == intent.IntentResponseType.QUERY_ANSWER
+                        and not is_follow_up_prompt
+                    )
+                    or (
+                        response_type == intent.IntentResponseType.ACTION_DONE
+                        and has_explicit_outcome
+                    )
                 )
 
                 if (
@@ -258,6 +275,7 @@ class AIHubConversationAgent(
                     and not is_error_type
                     and not is_no_match
                     and response_has_content
+                    and is_acceptable_type
                     and not is_empty_action_done
                 ):
                     chat_log.content = ha_chat_log.content
@@ -272,6 +290,7 @@ class AIHubConversationAgent(
                     return conversation.ConversationResult(
                         response=ha_response,
                         conversation_id=chat_log.conversation_id,
+                        continue_conversation=continue_conversation,
                     )
 
                 if intent_handler and intent_handler.should_handle(user_input.text):
@@ -292,11 +311,14 @@ class AIHubConversationAgent(
                         )
 
                 _LOGGER.debug(
-                    "HA 内置意图未匹配、返回错误或结果异常(has_error=%s, is_error_type=%s, is_no_match=%s, is_empty_action_done=%s)，交给 LLM 处理",
+                    "HA 内置意图未匹配、返回错误或结果异常(has_error=%s, is_error_type=%s, is_no_match=%s, is_acceptable_type=%s, is_empty_action_done=%s, continue_conversation=%s, is_follow_up_prompt=%s)，交给 LLM 处理",
                     has_error,
                     is_error_type,
                     is_no_match,
+                    is_acceptable_type,
                     is_empty_action_done,
+                    continue_conversation,
+                    is_follow_up_prompt,
                 )
             elif intent_handler and intent_handler.should_handle(user_input.text):
                 _LOGGER.debug("HA intents returned None, falling back to local intent: %s", user_input.text)
@@ -375,28 +397,9 @@ class AIHubConversationAgent(
             _LOGGER.error("LLM conversation error: %s", err)
             return err.as_conversation_result()
 
-        # Process the chat log with AI Hub
-        # Loop to handle tool calls: model may call tools, then we need to call again with results
-        loop_count = 0
+        # Loop until the provider has answered all pending tool results.
         while True:
-            loop_count += 1
-            _LOGGER.debug("LLM processing loop %d", loop_count)
-
-            # Check chat_log status
-            if hasattr(chat_log, 'tool_calls') and chat_log.tool_calls:
-                _LOGGER.debug("LLM initiated %d tool calls", len(chat_log.tool_calls))
-            else:
-                _LOGGER.debug("LLM did not initiate tool calls")
-
             await self._async_handle_chat_log(chat_log)
-
-            # Check if there are tool call results
-            if hasattr(chat_log, 'unresponded_tool_results') and chat_log.unresponded_tool_results:
-                _LOGGER.debug("Found unprocessed tool call results")
-            else:
-                _LOGGER.debug("No more tool calls, processing completed")
-
-            # If there are no unresponded tool results, continue the loop
             if not chat_log.unresponded_tool_results:
                 break
 

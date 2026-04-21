@@ -70,6 +70,7 @@ class LLMMessage:
     content: str | list[dict[str, Any]]
     tool_calls: list[dict[str, Any]] | None = None
     tool_call_id: str | None = None
+    tool_name: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format."""
@@ -81,6 +82,8 @@ class LLMMessage:
             result["tool_calls"] = self.tool_calls
         if self.tool_call_id:
             result["tool_call_id"] = self.tool_call_id
+        if self.tool_name:
+            result["tool_name"] = self.tool_name
         return result
 
 

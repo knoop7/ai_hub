@@ -171,6 +171,7 @@ class ChatMessageBuilder:
         return {
             "role": "tool",
             "tool_call_id": tool_call_id,
+            "tool_name": content.tool_name,
             "content": json.dumps(content.tool_result, ensure_ascii=False, default=str) if content.tool_result is not None else "{}",
         }
 

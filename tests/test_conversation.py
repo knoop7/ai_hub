@@ -130,8 +130,69 @@ class TestAIHubConversationAgent:
             await agent.async_will_remove_from_hass()
 
     @pytest.mark.asyncio
-    async def test_short_follow_up_clarification_falls_through_to_llm(self, mock_hass, mock_config_entry):
-        """Short contextual follow-ups should not be swallowed by HA clarification prompts."""
+    async def test_query_like_input_rejects_action_done_without_explicit_outcome(self, mock_hass, mock_config_entry):
+        """Query-like input should not accept speech-only action_done results from HA."""
+        subentry = list(mock_config_entry.subentries.values())[0]
+        agent = AIHubConversationAgent(mock_config_entry, subentry)
+        agent.hass = mock_hass
+
+        user_input = MagicMock()
+        user_input.text = "有多少个开关是开着的"
+        user_input.language = "zh-CN"
+        user_input.conversation_id = "conv-query-1"
+
+        chat_log = MagicMock()
+        chat_log.content = []
+
+        ha_response = MagicMock()
+        ha_response.response_type = conversation.intent.IntentResponseType.ACTION_DONE
+        ha_response.speech = {"plain": {"speech": "已打开3个设备"}}
+        ha_response.error = None
+        ha_response.data = {"targets": [], "success": [], "failed": []}
+
+        with patch("homeassistant.components.conversation.async_handle_intents", AsyncMock(return_value=ha_response)):
+            with patch("custom_components.ai_hub.conversation.get_global_intent_handler", return_value=None, create=True):
+                result = await agent._async_handle_local_and_builtin_intents(user_input, chat_log)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_action_done_accepts_explicit_success_from_response_data(self, mock_hass, mock_config_entry):
+        """Structured action_done results should still be accepted when HA reports success targets."""
+        subentry = list(mock_config_entry.subentries.values())[0]
+        agent = AIHubConversationAgent(mock_config_entry, subentry)
+        agent.hass = mock_hass
+
+        user_input = MagicMock()
+        user_input.text = "打开客厅灯"
+        user_input.language = "zh-CN"
+        user_input.conversation_id = "conv-action-1"
+
+        chat_log = MagicMock()
+        chat_log.content = []
+        chat_log.conversation_id = "conv-action-1"
+        chat_log.async_add_assistant_content_without_tools = MagicMock()
+
+        ha_response = MagicMock()
+        ha_response.response_type = conversation.intent.IntentResponseType.ACTION_DONE
+        ha_response.speech = {"plain": {"speech": "已打开客厅灯"}}
+        ha_response.error = None
+        ha_response.data = {
+            "targets": [{"type": "area", "name": "客厅", "id": "living_room"}],
+            "success": [{"type": "entity", "name": "客厅灯", "id": "light.living_room"}],
+            "failed": [],
+        }
+
+        with patch("homeassistant.components.conversation.async_handle_intents", AsyncMock(return_value=ha_response)):
+            with patch("custom_components.ai_hub.conversation.get_global_intent_handler", return_value=None, create=True):
+                result = await agent._async_handle_local_and_builtin_intents(user_input, chat_log)
+
+        assert result is not None
+        assert result.response is ha_response
+
+    @pytest.mark.asyncio
+    async def test_query_answer_follow_up_prompt_falls_through_to_llm(self, mock_hass, mock_config_entry):
+        """HA clarification prompts should not intercept follow-up turns."""
         subentry = list(mock_config_entry.subentries.values())[0]
         agent = AIHubConversationAgent(mock_config_entry, subentry)
         agent.hass = mock_hass
@@ -139,23 +200,28 @@ class TestAIHubConversationAgent:
         user_input = MagicMock()
         user_input.text = "打开"
         user_input.language = "zh-CN"
-        user_input.conversation_id = "conv-1"
+        user_input.conversation_id = "conv-follow-up-1"
 
         chat_log = MagicMock()
-        chat_log.content = [
-            MagicMock(role="user"),
-            MagicMock(role="assistant"),
-            MagicMock(role="user"),
-        ]
+        chat_log.content = []
+        chat_log.conversation_id = "conv-follow-up-1"
 
         ha_response = MagicMock()
         ha_response.response_type = conversation.intent.IntentResponseType.QUERY_ANSWER
         ha_response.speech = {"plain": {"speech": "您想打开什么？"}}
         ha_response.error = None
+        ha_response.data = {"targets": [], "success": [], "failed": []}
 
-        with patch("homeassistant.components.conversation.async_handle_intents", AsyncMock(return_value=ha_response)):
-            with patch("custom_components.ai_hub.conversation.get_global_intent_handler", return_value=None, create=True):
-                result = await agent._async_handle_local_and_builtin_intents(user_input, chat_log)
+        def _fake_replace(_chat_log, **changes):
+            replaced = MagicMock()
+            replaced.content = changes.get("content", [])
+            replaced.continue_conversation = True
+            return replaced
+
+        with patch("custom_components.ai_hub.conversation.replace", side_effect=_fake_replace):
+            with patch("homeassistant.components.conversation.async_handle_intents", AsyncMock(return_value=ha_response)):
+                with patch("custom_components.ai_hub.conversation.get_global_intent_handler", return_value=None, create=True):
+                    result = await agent._async_handle_local_and_builtin_intents(user_input, chat_log)
 
         assert result is None
 
