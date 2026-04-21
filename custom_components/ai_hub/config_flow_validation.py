@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import aiohttp
@@ -38,15 +39,23 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
         "max_tokens": CONFIG_FLOW_TEST_MAX_TOKENS,
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            AI_HUB_CHAT_URL,
-            json=payload,
-            headers=build_json_headers(api_key),
-            timeout=client_timeout(TIMEOUT_CONFIG_FLOW_VALIDATION),
-        ) as response:
-            if response.status == 401:
-                raise ValueError("invalid_auth")
-            if response.status != 200:
-                await response.text()
-                raise ValueError("cannot_connect")
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                AI_HUB_CHAT_URL,
+                json=payload,
+                headers=build_json_headers(api_key),
+                timeout=client_timeout(TIMEOUT_CONFIG_FLOW_VALIDATION),
+            ) as response:
+                if response.status == 401:
+                    raise ValueError("invalid_auth")
+                if response.status != 200:
+                    error_text = await response.text()
+                    detail = error_text if error_text.strip() else f"HTTP {response.status}"
+                    raise ValueError(f"cannot_connect:{detail}")
+    except aiohttp.ClientError as err:
+        detail = str(err).strip() or type(err).__name__
+        raise ValueError(f"cannot_connect:{detail}") from err
+    except asyncio.TimeoutError as err:
+        detail = str(err).strip() or type(err).__name__
+        raise ValueError(f"cannot_connect:{detail}") from err

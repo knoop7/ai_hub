@@ -126,6 +126,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
                 raise ConfigEntryAuthFailed("Invalid API key") from err
             if reason == "cannot_connect":
                 raise ConfigEntryNotReady("API test failed") from err
+            if reason.startswith("cannot_connect:"):
+                detail = reason.split(":", 1)[1].strip()
+                raise ConfigEntryNotReady(f"API test failed: {detail}") from err
             _LOGGER.error("API validation failed: %s", err)
             raise ConfigEntryNotReady(f"API validation failed: {err}") from err
         except ConfigEntryAuthFailed:
