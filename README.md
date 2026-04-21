@@ -44,9 +44,9 @@
 
 ## 🌟 功能介绍 / Features
 
-AI Hub 是 Home Assistant 的自定义集成，提供与硅基流动的原生对接。
+AI Hub 是 Home Assistant 的自定义集成，提供对话助手、AI任务、TTS、STT，以及组件/蓝图汉化能力，并支持 OpenAI-compatible、Anthropic-compatible 与 SiliconFlow 等服务。
 
-AI Hub is a custom integration for Home Assistant, providing native connections to SiliconFlow.
+AI Hub is a custom integration for Home Assistant that provides conversation, AI tasks, TTS, STT, and component/blueprint localization, with support for OpenAI-compatible, Anthropic-compatible, and SiliconFlow-backed services.
 
 > **说明**: 微信等即时消息功能已从本项目移除，统一由 [cn_im_hub](https://github.com/ha-china/cn_im_hub) 提供。
 >
@@ -62,16 +62,16 @@ AI Hub is a custom integration for Home Assistant, providing native connections 
 
 | 中文 | English |
 |------|---------|
-| **流式输出**: 实时显示模型回复，提供流畅的对话体验 | **Streaming Output**: Real-time display of model replies for a smooth conversational experience |
-| **家居控制**: 对接 Home Assistant LLM API，支持控制/查询设备 | **Home Control**: Integrates with Home Assistant LLM API to control/query devices |
+| **流式输出**: 支持流式回复，并在工具可用时继续执行工具回合 | **Streaming Output**: Supports streaming replies and continues tool turns when tools are available |
+| **家居控制**: 对接 Home Assistant LLM API，支持控制和查询设备状态 | **Home Control**: Integrates with Home Assistant LLM API to control devices and query states |
 | **图片理解**: 消息携带图片时自动切换到视觉模型（GLM-4.1V-9B-Thinking） | **Image Understanding**: Automatically switches to vision model (GLM-4.1V-9B-Thinking) when message contains an image |
-| **上下文记忆**: 可配置历史消息条数，平衡效果与性能 | **Context Memory**: Configurable number of history messages to balance effect and performance |
+| **上下文记忆**: 支持连续对话，上下文保留受历史消息条数和模型/服务端能力共同影响 | **Context Memory**: Supports multi-turn conversations; context retention depends on history limits and model/backend capability |
 
 #### 🤖 AI 任务 / AI Tasks
 
 | 中文 | English |
 |------|---------|
-| **结构化数据生成**: 指定 JSON 结构，失败提供错误提示 | **Structured Data Generation**: Specify JSON structure, with error prompts on failure |
+| **结构化数据生成**: 指定 JSON 结构，尽量按结构返回数据并在失败时提供错误提示 | **Structured Data Generation**: Accepts a JSON structure target and returns structured data when possible, with explicit errors on failure |
 | **图片生成**: 使用 Kolors 等模型生成图片，支持 URL 或 base64 返回 | **Image Generation**: Generate images using Kolors and other models, supporting URL or base64 result |
 | **多模态支持**: 复用对话消息格式，便于复杂任务处理 | **Multimodal Support**: Reuses conversation message format for complex tasks |
 
@@ -211,6 +211,10 @@ AI Hub supports sub-entry configuration for independent functionality:
 >
 > **Tip**: To get the best experience from this integration, prefer models that support Tools / Function Calling. The image below shows an example model selection.
 
+> **补充说明**: `anthropic_compatible` 与支持原生工具调用的 `openai_compatible` 端点通常能提供更稳定的工具调用体验；如果你使用的是自定义 OpenAI-compatible 接口，模型和服务端本身是否稳定支持 Tools / Function Calling 会直接影响实际效果。
+>
+> **Additional Note**: `anthropic_compatible` and `openai_compatible` endpoints with reliable native tool calling usually provide the best tool-use experience. If you use a custom OpenAI-compatible endpoint, the actual quality depends on whether that model and service truly support Tools / Function Calling well.
+
 ![LLM Tools Setting](img/LLM.png)
 
 ### B. AI 任务使用 / AI Tasks
@@ -261,7 +265,7 @@ data:
 #### 服务调用 / As Service
 
 ```yaml
-service: ai_hub.tts_speech
+service: ai_hub.tts_say
 data:
   text: "欢迎使用AI Hub语音合成服务 / Welcome to AI Hub voice synthesis"
   voice: "zh-CN-XiaoxiaoNeural"
@@ -388,7 +392,7 @@ service: ai_hub.generate_image
 data:
   prompt: "图片描述 / Image description"  # 必填 / required
   size: "1024x1024"  # 可选 / optional
-  model: "cogview-3-flash"  # 可选 / optional
+  model: "Kwai-Kolors/Kolors"  # 可选 / optional
 ```
 
 ### 图片分析服务 / Image Analysis
@@ -399,7 +403,7 @@ data:
   image_file: "/path/to/image.jpg"  # 可选 / optional
   image_entity: "camera.front_door"  # 可选 / optional
   message: "分析指令 / Analysis instruction"  # 必填 / required
-  model: "glm-4.1v-thinking-flash"  # 可选 / optional
+  model: "THUDM/GLM-4.1V-9B-Thinking"  # 可选 / optional
   temperature: 0.3  # 可选 / optional
   max_tokens: 1000  # 可选 / optional
 ```
@@ -407,7 +411,7 @@ data:
 ### 文本转语音服务 / Text to Speech
 
 ```yaml
-service: ai_hub.tts_speech
+service: ai_hub.tts_say
 data:
   text: "要转换的文本 / Text to convert"  # 必填 / required
   voice: "zh-CN-XiaoxiaoNeural"  # 可选 / optional
@@ -424,16 +428,6 @@ service: ai_hub.stt_transcribe
 data:
   file: "/path/to/audio.wav"  # 必填 / required
   model: "FunAudioLLM/SenseVoiceSmall"  # 可选 / optional
-```
-
-### 创建自动化服务 / Create Automation
-
-```yaml
-service: ai_hub.create_automation
-data:
-  description: "自动化描述 / Automation description"  # 必填 / required
-  name: "自动化名称 / Automation name"  # 可选 / optional
-  area_id: "living_room"  # 可选 / optional
 ```
 
 ### 翻译组件服务 / Translate Components
@@ -471,7 +465,7 @@ data:
 | 温度 / Temperature | 0.3 | 控制回答的随机性 / for randomness |
 | Top P | 0.5 | 控制候选词的选择范围 / controls candidate range |
 | Top K | 1 | 限制候选词数量 / limits candidate count |
-| 最大令牌数 / Max Tokens | 250 | - |
+| 最大令牌数 / Max Tokens | 131072 | 当前默认值 / current default |
 | 历史消息数 / History Messages | 30 | 保持上下文的连续性 / context continuity |
 
 #### AI任务配置 / AI Tasks
@@ -482,7 +476,7 @@ data:
 | 图片模型 / Image Model | Kwai-Kolors/Kolors | - |
 | 温度 / Temperature | 0.95 | 提高创造性 / creativity |
 | Top P | 0.7 | - |
-| 最大令牌数 / Max Tokens | 2000 | - |
+| 最大令牌数 / Max Tokens | 131072 | 当前默认值 / current default |
 
 #### TTS 配置
 
@@ -516,7 +510,7 @@ data:
 ### 使用限制 / Usage Limits
 
 1. **免费模型 / Free Models**:
-   - 不支持流式输出，响应速度可能较慢 / No streaming output, may be slower
+   - 不同服务商对流式输出、工具调用、上下文长度的支持差异较大 / Support for streaming, tool calling, and context length varies by provider
    - 有调用频率限制 / Call frequency limits
    - 免费额度有限制 / Free quotas have limitations
 
@@ -556,14 +550,16 @@ data:
 #### 2. 对话助手无响应 / Conversation Assistant unresponsive
 
 **可能原因 / Possible reasons:**
-- 硅基流动 API Key 无效或过期 / SiliconFlow API Key invalid or expired
+- API Key 无效或过期 / API Key invalid or expired
 - 网络连接问题 / Network issues
 - 模型选择错误 / Incorrect model selection
+- 所选模型或兼容接口对 Tools / Function Calling 支持不足 / Selected model or compatible endpoint does not support Tools / Function Calling reliably
 
 **解决方法 / Solutions:**
-- 检查硅基流动 API Key / Check SiliconFlow API Key
+- 检查当前使用服务的 API Key / Check the API key for the current provider
 - 测试网络连接 / Test network
-- 确认使用的是免费模型 / Make sure a free model is selected
+- 确认模型和端点匹配 / Make sure the model matches the endpoint
+- 优先选择支持原生 Tools / Function Calling 的模型与端点 / Prefer models and endpoints with reliable native Tools / Function Calling support
 
 #### 3. TTS 无法播放 / TTS not playing
 
@@ -637,10 +633,9 @@ You're welcome to contribute — improve features and docs!
 custom_components/ai_hub/
 ├── __init__.py          # 集成入口 / Integration entry point
 ├── config_flow.py       # 配置流程 / Configuration flow
-├── const.py             # 常量定义 / Constants
+├── consts/              # 常量定义 / Constants
 ├── conversation.py      # 对话助手 / Conversation agent
 ├── ai_task.py           # AI 任务 / AI Task
-├── ai_automation.py     # AI 自动化 / AI Automation
 ├── tts.py               # TTS 实体 (Edge TTS) / TTS entity
 ├── stt.py               # STT 实体 / STT entity
 ├── entity.py            # 实体基类 / Entity base class
@@ -650,6 +645,9 @@ custom_components/ai_hub/
 ├── intents.py           # 意图处理入口 / Intent processing entry
 ├── services.py          # 服务注册入口 / Service registration
 ├── markdown_filter.py   # Markdown 过滤器 / Markdown filter
+├── http.py              # HTTP 辅助 / HTTP helpers
+├── llm_message_builder.py # LLM 消息构造 / LLM message builder
+├── llm_stream.py        # LLM 流式辅助 / LLM streaming helpers
 ├── voices.py            # Edge TTS 语音列表 / Edge TTS voice list
 ├── button/              # 按钮实体 / Button entities
 │   └── __init__.py
@@ -658,6 +656,7 @@ custom_components/ai_hub/
 │   ├── base.py          # 基类 / Base class
 │   ├── edge_tts.py      # Edge TTS 提供商 / Edge TTS provider
 │   ├── openai_compatible.py  # OpenAI 兼容 API / OpenAI compatible API
+│   ├── anthropic_compatible.py # Anthropic 兼容 API / Anthropic compatible API
 │   ├── siliconflow_stt.py    # 硅基流动 STT / SiliconFlow STT
 │   ├── stt_base.py      # STT 基类 / STT base
 │   └── tts_base.py      # TTS 基类 / TTS base
