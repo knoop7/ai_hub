@@ -33,16 +33,16 @@ from .config import (
 )
 
 RECOMMENDED: Final[dict[str, Any]] = {
-    "chat_model": "Qwen/Qwen3-8B",
+    "chat_model": "Qwen/Qwen3.5-4B",
     "temperature": 0.3,
     "top_p": 0.5,
     "top_k": 1,
-    "max_tokens": 250,
+    "max_tokens": 262144,
     "max_history_messages": 30,
-    "ai_task_model": "Qwen/Qwen3-8B",
+    "ai_task_model": "Qwen/Qwen3.5-4B",
     "ai_task_temperature": 0.95,
     "ai_task_top_p": 0.7,
-    "ai_task_max_tokens": 2000,
+    "ai_task_max_tokens": 262144,
     "image_model": "Kwai-Kolors/Kolors",
     "image_analysis_model": "THUDM/GLM-4.1V-9B-Thinking",
     "tts_voice": "zh-CN-XiaoxiaoNeural",
