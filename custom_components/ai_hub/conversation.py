@@ -195,6 +195,14 @@ class AIHubConversationAgent(
                 intent_result = await intent_handler.handle(user_input.text, user_input.language)
 
                 if intent_result:
+                    speech = intent_result["response"].speech.get("plain", {}).get("speech")
+                    if speech:
+                        chat_log.async_add_assistant_content_without_tools(
+                            conversation.AssistantContent(
+                                agent_id=self.entity_id,
+                                content=speech,
+                            )
+                        )
                     _LOGGER.debug("Local intent completed")
                     return conversation.ConversationResult(
                         response=intent_result["response"],
@@ -208,11 +216,13 @@ class AIHubConversationAgent(
         try:
             from homeassistant.components import conversation as ha_conversation
 
+            ha_chat_log = replace(chat_log, content=chat_log.content.copy())
+
             _LOGGER.debug("调用 HA 内置 intents 处理: %s", user_input.text)
             ha_response = await ha_conversation.async_handle_intents(
                 self.hass,
                 user_input,
-                chat_log,
+                ha_chat_log,
             )
 
             _LOGGER.debug("HA intents 返回结果: %s", ha_response)
@@ -233,12 +243,14 @@ class AIHubConversationAgent(
                     else False
                 )
                 response_has_content = bool(plain_speech)
-                is_query_answer = response_type == intent.IntentResponseType.QUERY_ANSWER
-                normalized_speech = plain_speech.strip() if isinstance(plain_speech, str) else ""
-                is_truncated_query_answer = (
-                    response_type == intent.IntentResponseType.QUERY_ANSWER
-                    and isinstance(plain_speech, str)
-                    and len(normalized_speech) <= 3
+                success_results = getattr(ha_response, "success_results", []) or []
+                failed_results = getattr(ha_response, "failed_results", []) or []
+                has_explicit_success = bool(success_results)
+                has_explicit_failure = bool(failed_results)
+                is_empty_action_done = (
+                    response_type == intent.IntentResponseType.ACTION_DONE
+                    and not has_explicit_success
+                    and not has_explicit_failure
                 )
 
                 if (
@@ -246,8 +258,16 @@ class AIHubConversationAgent(
                     and not is_error_type
                     and not is_no_match
                     and response_has_content
-                    and not is_truncated_query_answer
+                    and not is_empty_action_done
                 ):
+                    chat_log.content = ha_chat_log.content
+                    if not isinstance(chat_log.content[-1], conversation.AssistantContent):
+                        chat_log.async_add_assistant_content_without_tools(
+                            conversation.AssistantContent(
+                                agent_id=self.entity_id,
+                                content=plain_speech,
+                            )
+                        )
                     _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
                     return conversation.ConversationResult(
                         response=ha_response,
@@ -258,22 +278,38 @@ class AIHubConversationAgent(
                     _LOGGER.debug("Falling back to local intent processing: %s", user_input.text)
                     intent_result = await intent_handler.handle(user_input.text, user_input.language)
                     if intent_result:
+                        speech = intent_result["response"].speech.get("plain", {}).get("speech")
+                        if speech:
+                            chat_log.async_add_assistant_content_without_tools(
+                                conversation.AssistantContent(
+                                    agent_id=self.entity_id,
+                                    content=speech,
+                                )
+                            )
                         return conversation.ConversationResult(
                             response=intent_result["response"],
                             conversation_id=user_input.conversation_id,
                         )
 
                 _LOGGER.debug(
-                    "HA 内置意图未匹配、返回错误或结果异常(has_error=%s, is_error_type=%s, is_no_match=%s, is_truncated_query_answer=%s)，交给 LLM 处理",
+                    "HA 内置意图未匹配、返回错误或结果异常(has_error=%s, is_error_type=%s, is_no_match=%s, is_empty_action_done=%s)，交给 LLM 处理",
                     has_error,
                     is_error_type,
                     is_no_match,
-                    is_truncated_query_answer,
+                    is_empty_action_done,
                 )
             elif intent_handler and intent_handler.should_handle(user_input.text):
                 _LOGGER.debug("HA intents returned None, falling back to local intent: %s", user_input.text)
                 intent_result = await intent_handler.handle(user_input.text, user_input.language)
                 if intent_result:
+                    speech = intent_result["response"].speech.get("plain", {}).get("speech")
+                    if speech:
+                        chat_log.async_add_assistant_content_without_tools(
+                            conversation.AssistantContent(
+                                agent_id=self.entity_id,
+                                content=speech,
+                            )
+                        )
                     return conversation.ConversationResult(
                         response=intent_result["response"],
                         conversation_id=user_input.conversation_id,
