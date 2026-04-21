@@ -207,6 +207,12 @@ AI Hub supports sub-entry configuration for independent functionality:
 - **启用工具**: 在对话助手子条目中启用"LLM Hass API" / Enable "LLM Hass API" in the conversation sub-entry
 - **控制设备**: 模型可以调用 Home Assistant 工具来控制设备或查询状态 / The model can call Home Assistant APIs to control/query devices
 
+> **提示**: 想让本集成发挥到最好，建议优先选择支持 Tools / Function Calling 的模型，下面是一个可参考的模型选择示例。
+>
+> **Tip**: To get the best experience from this integration, prefer models that support Tools / Function Calling. The image below shows an example model selection.
+
+![LLM Tools Setting](img/LLM.png)
+
 ### B. AI 任务使用 / AI Tasks
 
 #### 图片生成 / Image Generation
