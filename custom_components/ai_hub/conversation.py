@@ -206,7 +206,7 @@ class AIHubConversationAgent(
                     _LOGGER.debug("Local intent completed")
                     return conversation.ConversationResult(
                         response=intent_result["response"],
-                        conversation_id=user_input.conversation_id
+                        conversation_id=chat_log.conversation_id,
                     )
         except Exception as e:
             _LOGGER.debug("Local intent handling failed: %s", e)
@@ -307,7 +307,7 @@ class AIHubConversationAgent(
                             )
                         return conversation.ConversationResult(
                             response=intent_result["response"],
-                            conversation_id=user_input.conversation_id,
+                            conversation_id=chat_log.conversation_id,
                         )
 
                 _LOGGER.debug(
@@ -334,7 +334,7 @@ class AIHubConversationAgent(
                         )
                     return conversation.ConversationResult(
                         response=intent_result["response"],
-                        conversation_id=user_input.conversation_id,
+                        conversation_id=chat_log.conversation_id,
                     )
 
         except Exception as e:
@@ -518,5 +518,5 @@ class AIHubLocalConversationAgent(AIHubConversationAgent):
             empty_response.async_set_speech("当前模式仅支持本地意图")
         return conversation.ConversationResult(
             response=empty_response,
-            conversation_id=user_input.conversation_id,
+            conversation_id=chat_log.conversation_id,
         )
