@@ -233,14 +233,12 @@ class AIHubConversationAgent(
                     else False
                 )
                 response_has_content = bool(plain_speech)
-                prior_turn_count = sum(
-                    1
-                    for content in getattr(chat_log, "content", [])[:-1]
-                    if getattr(content, "role", None) in {"user", "assistant"}
-                )
-                should_return_ha_response = not (
+                is_query_answer = response_type == intent.IntentResponseType.QUERY_ANSWER
+                normalized_speech = plain_speech.strip() if isinstance(plain_speech, str) else ""
+                is_truncated_query_answer = (
                     response_type == intent.IntentResponseType.QUERY_ANSWER
-                    and prior_turn_count >= 2
+                    and isinstance(plain_speech, str)
+                    and len(normalized_speech) <= 3
                 )
 
                 if (
@@ -248,7 +246,7 @@ class AIHubConversationAgent(
                     and not is_error_type
                     and not is_no_match
                     and response_has_content
-                    and should_return_ha_response
+                    and not is_truncated_query_answer
                 ):
                     _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
                     return conversation.ConversationResult(
@@ -266,11 +264,11 @@ class AIHubConversationAgent(
                         )
 
                 _LOGGER.debug(
-                    "HA 内置意图未匹配、返回错误或结果异常(has_error=%s, is_error_type=%s, is_no_match=%s, should_return_ha_response=%s)，交给 LLM 处理",
+                    "HA 内置意图未匹配、返回错误或结果异常(has_error=%s, is_error_type=%s, is_no_match=%s, is_truncated_query_answer=%s)，交给 LLM 处理",
                     has_error,
                     is_error_type,
                     is_no_match,
-                    should_return_ha_response,
+                    is_truncated_query_answer,
                 )
             elif intent_handler and intent_handler.should_handle(user_input.text):
                 _LOGGER.debug("HA intents returned None, falling back to local intent: %s", user_input.text)

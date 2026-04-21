@@ -48,6 +48,7 @@ from .consts import (
     CONF_TTS_VOICE,
     DEFAULT_AI_TASK_NAME,
     DEFAULT_CONVERSATION_NAME,
+    DEFAULT_INSTRUCTIONS_PROMPT,
     DEFAULT_STT_NAME,
     DEFAULT_TRANSLATION_NAME,
     DEFAULT_TTS_NAME,
@@ -161,7 +162,7 @@ def _build_conversation_schema(options: Mapping[str, Any], recommended_only: boo
     schema = {
         vol.Optional(
             CONF_PROMPT,
-            default=options.get(CONF_PROMPT, llm.DEFAULT_INSTRUCTIONS_PROMPT),
+            default=options.get(CONF_PROMPT, DEFAULT_INSTRUCTIONS_PROMPT),
             description={"suggested_value": options.get(CONF_PROMPT)},
         ): TemplateSelector(),
         vol.Optional(
