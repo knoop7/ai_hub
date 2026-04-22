@@ -104,8 +104,7 @@ class LocalIntentHandler:
         has_global_keyword = any(keyword in text_lower for keyword in global_keywords)
 
         # 规则2: 检查显式动作/参数指令
-        action_words = global_config.get('on_keywords', []) + global_config.get('off_keywords', [])
-        has_action_word = any(action in text_lower for action in action_words)
+        has_action_word = self._has_explicit_action_word(text_lower, global_config)
         has_parameter_command = self._has_parameter_command(text, text_lower, global_config)
         has_target_hint = self._has_target_hint(text_lower, global_config)
         is_short_text = len(text_clean) <= 4
@@ -126,6 +125,25 @@ class LocalIntentHandler:
 
         return should_handle
 
+    def _has_explicit_action_word(self, text_lower: str, global_config: dict) -> bool:
+        """Check for imperative action words while ignoring state phrases like `开着`."""
+        action_words = global_config.get('on_keywords', []) + global_config.get('off_keywords', [])
+        if not any(action in text_lower for action in action_words):
+            return False
+
+        state_entries = (self.config or {}).get('lists', {}).get('on_off_states', {}).get('values', [])
+        text_without_state = text_lower
+        for entry in state_entries:
+            pattern = entry.get('in') if isinstance(entry, dict) else None
+            if not isinstance(pattern, str) or not pattern:
+                continue
+            try:
+                text_without_state = re.sub(pattern, ' ', text_without_state)
+            except re.error:
+                continue
+
+        return any(action in text_without_state for action in action_words)
+
     async def handle(self, text: str, language: str = "zh-CN"):
         """处理本地意图."""
         if not self.should_handle(text):
@@ -144,11 +162,8 @@ class LocalIntentHandler:
             return media_result
 
         # 2. 解析操作类型
-        on_keywords = global_config.get('on_keywords', [])
-        off_keywords = global_config.get('off_keywords', [])
-
-        is_on = any(keyword in text_lower for keyword in on_keywords)
-        is_off = any(keyword in text_lower for keyword in off_keywords)
+        is_on = self._has_explicit_action(text_lower, global_config, global_config.get('on_keywords', []))
+        is_off = self._has_explicit_action(text_lower, global_config, global_config.get('off_keywords', []))
 
         if not (is_on or is_off):
             return None
@@ -164,6 +179,29 @@ class LocalIntentHandler:
         return await self._execute_control(
             area_names, device_types, is_on, global_config, language, target_entities
         )
+
+    def _has_explicit_action(
+        self,
+        text_lower: str,
+        global_config: dict,
+        action_words: list[str],
+    ) -> bool:
+        """Return whether text contains an imperative action, not just a state phrase."""
+        if not any(action in text_lower for action in action_words):
+            return False
+
+        state_entries = (self.config or {}).get('lists', {}).get('on_off_states', {}).get('values', [])
+        text_without_state = text_lower
+        for entry in state_entries:
+            pattern = entry.get('in') if isinstance(entry, dict) else None
+            if not isinstance(pattern, str) or not pattern:
+                continue
+            try:
+                text_without_state = re.sub(pattern, ' ', text_without_state)
+            except re.error:
+                continue
+
+        return any(action in text_without_state for action in action_words)
 
     def _has_target_hint(self, text_lower: str, global_config: dict) -> bool:
         """Check whether the text contains a concrete area/device hint."""

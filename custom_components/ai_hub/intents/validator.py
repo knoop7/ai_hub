@@ -158,29 +158,9 @@ class ConfigValidator:
 
     def _validate_duplicates(self) -> None:
         """检测配置中的重复定义."""
-        # 检查 expansion_rules 和 local_intents 中的关键词重复
-        expansion_rules = self.config.get('expansion_rules', {})
-        local_intents = self.config.get('local_intents', {})
-        global_control = local_intents.get('GlobalDeviceControl', {})
-
-        if not expansion_rules or not global_control:
-            return
-
-        # 提取 expansion_rules 中的关键词
-        expansion_keywords: set[str] = set()
-        for rule_name, rule_value in expansion_rules.items():
-            if isinstance(rule_value, str):
-                keywords = rule_value.split('|')
-                expansion_keywords.update(k.strip() for k in keywords if k.strip())
-
-        # 检查 global_keywords 中的重复
-        global_keywords = global_control.get('global_keywords', [])
-        if isinstance(global_keywords, list):
-            duplicates = set(global_keywords) & expansion_keywords
-            if duplicates:
-                self.warnings.append(
-                    f"global_keywords 与 expansion_rules 存在重复定义: {', '.join(list(duplicates)[:5])}"
-                )
+        # global_keywords 与 expansion_rules 在本地意图增强里允许语义重叠，
+        # 这里不再把它当作配置警告，避免持续输出噪声日志。
+        return
 
     def get_errors(self) -> list[str]:
         """获取错误列表."""

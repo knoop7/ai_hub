@@ -171,7 +171,7 @@ def _build_conversation_schema(options: Mapping[str, Any], recommended_only: boo
             description={"suggested_value": options.get(CONF_LLM_PROVIDER)},
         ): SelectSelector(
             SelectSelectorConfig(
-                options=["openai_compatible", "anthropic_compatible"],
+                options=["openai_compatible", "anthropic_compatible", "ollama_compatible"],
                 mode=SelectSelectorMode.DROPDOWN,
             )
         ),

@@ -348,7 +348,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
 
             provider_timeout = getattr(getattr(provider, "config", None), "timeout", 60)
 
-            if provider_name == "openai_compatible" and not tools:
+            if provider_name in {"openai_compatible", "anthropic_compatible", "ollama_compatible"}:
                 await self._async_run_provider_stream(
                     chat_log,
                     provider_name,
@@ -402,11 +402,25 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             True,
             len(tools or []),
         )
+        has_output = False
         async for _ in chat_log.async_add_delta_content_stream(
             self.entity_id,
             self._transform_provider_stream(provider.complete_stream(llm_messages, tools=tools)),
         ):
-            pass
+            has_output = True
+
+        if not has_output:
+            _LOGGER.warning(
+                "Provider %s returned an empty streaming response; appending empty assistant message",
+                provider_name,
+            )
+            async for _ in chat_log.async_add_assistant_content(
+                conversation.AssistantContent(
+                    agent_id=self.entity_id,
+                    content="",
+                )
+            ):
+                pass
 
     async def _async_run_provider_completion(
         self,

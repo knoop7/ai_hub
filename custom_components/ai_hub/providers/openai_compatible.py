@@ -17,6 +17,7 @@ import asyncio
 import aiohttp
 
 from ..http import async_check_endpoint_health, async_post_json, async_stream_response_text
+from .common_compatible import check_provider_health, finalize_buffered_tool_calls
 from . import LLMMessage, LLMProvider, LLMResponse
 
 _LOGGER = logging.getLogger(__name__)
@@ -166,6 +167,71 @@ def _extract_json_payload(text: str) -> dict[str, Any] | None:
             return payload
 
     return None
+
+
+def _coerce_tool_call_arguments(arguments: Any) -> str:
+    """Normalize tool-call arguments to a JSON string."""
+    if isinstance(arguments, str):
+        return arguments
+    if isinstance(arguments, dict):
+        return json.dumps(arguments, ensure_ascii=False)
+    return json.dumps({"value": arguments}, ensure_ascii=False)
+
+
+def _extract_openai_message(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Extract message payload from OpenAI-compatible JSON."""
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices:
+        return {}, {}
+    choice = choices[0] if isinstance(choices[0], dict) else {}
+    message = choice.get("message", {})
+    return choice, message if isinstance(message, dict) else {}
+
+
+def _extract_response_payload(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Extract a normalized response payload from common compatible formats."""
+    if isinstance(data.get("choices"), list):
+        return _extract_openai_message(data)
+    return {}, {}
+
+
+def _extract_response_content(message: dict[str, Any], data: dict[str, Any]) -> str:
+    """Extract assistant text from normalized message/data payloads."""
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+
+    return ""
+
+
+def _extract_response_tool_calls(message: dict[str, Any]) -> list[dict[str, Any]] | None:
+    """Extract tool calls from normalized message payloads."""
+    tool_calls = message.get("tool_calls")
+    if not isinstance(tool_calls, list):
+        return None
+
+    normalized: list[dict[str, Any]] = []
+    for item in tool_calls:
+        if not isinstance(item, dict):
+            continue
+        function = item.get("function", {})
+        if not isinstance(function, dict):
+            continue
+        name = function.get("name")
+        if not name:
+            continue
+        normalized.append(
+            {
+                "id": item.get("id") or f"stream_{uuid4().hex}",
+                "type": "function",
+                "function": {
+                    "name": str(name),
+                    "arguments": _coerce_tool_call_arguments(function.get("arguments", {})),
+                },
+            }
+        )
+
+    return normalized or None
 
 
 def _stringify_message_content(content: str | list[dict[str, Any]]) -> str:
@@ -565,10 +631,9 @@ class OpenAICompatibleProvider(LLMProvider):
             url=url,
             ssl=ssl,
         )
-        choice = data.get("choices", [{}])[0]
-        message = choice.get("message", {})
+        _choice, message = _extract_response_payload(data)
         return self._parse_emulated_tool_response(
-            str(message.get("content", "") or "")
+            _extract_response_content(message, data)
         )
 
     async def complete(
@@ -624,12 +689,11 @@ class OpenAICompatibleProvider(LLMProvider):
             if tools:
                 _NATIVE_TOOL_SUPPORT_BY_URL[url] = True
 
-        choice = data.get("choices", [{}])[0]
-        message = choice.get("message", {})
+        choice, message = _extract_response_payload(data)
 
         return LLMResponse(
-            content=message.get("content", ""),
-            tool_calls=message.get("tool_calls"),
+            content=_extract_response_content(message, data),
+            tool_calls=_extract_response_tool_calls(message),
             usage=data.get("usage"),
             model=data.get("model"),
             finish_reason=choice.get("finish_reason"),
@@ -676,72 +740,64 @@ class OpenAICompatibleProvider(LLMProvider):
                 if not line or line == "data: [DONE]":
                     continue
 
-                if line.startswith("data: "):
-                    data_str = line[6:]
-                    if not data_str.strip():
+                data_str = line[6:] if line.startswith("data: ") else line
+                if not data_str.strip():
+                    continue
+
+                try:
+                    data = json.loads(data_str)
+                except json.JSONDecodeError:
+                    _LOGGER.debug("SSE parse failed: %s", data_str)
+                    continue
+
+                choices = data.get("choices")
+                if isinstance(choices, list) and choices:
+                    first_choice = choices[0]
+                    if not isinstance(first_choice, dict):
+                        _LOGGER.debug("OpenAI-compatible SSE first choice is invalid: %s", data)
                         continue
 
-                    try:
-                        data = json.loads(data_str)
-                        delta = data.get("choices", [{}])[0].get("delta", {})
-                        content = delta.get("content", "")
-                        if content:
-                            yield content
-                        if "tool_calls" in delta:
-                            for tc_delta in delta["tool_calls"]:
-                                index = tc_delta.get("index", 0)
-                                if index not in tool_call_buffer:
-                                    tool_call_buffer[index] = {
-                                        "id": tc_delta.get("id") or f"stream_{uuid4().hex}",
-                                        "type": "function",
-                                        "function": {"name": "", "arguments": ""},
-                                    }
-                                if tc_delta.get("id"):
-                                    tool_call_buffer[index]["id"] = tc_delta["id"]
-                                if "function" in tc_delta:
-                                    function_data = tc_delta["function"]
-                                    if function_data.get("name"):
-                                        tool_call_buffer[index]["function"]["name"] = function_data["name"]
-                                    if function_data.get("arguments"):
-                                        tool_call_buffer[index]["function"]["arguments"] += function_data["arguments"]
-                    except json.JSONDecodeError:
-                        _LOGGER.debug("SSE parse failed: %s", data_str)
+                    delta = first_choice.get("delta", {})
+                    if not isinstance(delta, dict):
+                        _LOGGER.debug("OpenAI-compatible SSE delta is invalid: %s", data)
                         continue
+
+                    content = delta.get("content", "")
+                    if content:
+                        yield content
+                    if "tool_calls" in delta:
+                        for tc_delta in delta["tool_calls"]:
+                            index = tc_delta.get("index", 0)
+                            if index not in tool_call_buffer:
+                                tool_call_buffer[index] = {
+                                    "id": tc_delta.get("id") or f"stream_{uuid4().hex}",
+                                    "type": "function",
+                                    "function": {"name": "", "arguments": ""},
+                                }
+                            if tc_delta.get("id"):
+                                tool_call_buffer[index]["id"] = tc_delta["id"]
+                            if "function" in tc_delta:
+                                function_data = tc_delta["function"]
+                                if function_data.get("name"):
+                                    tool_call_buffer[index]["function"]["name"] = function_data["name"]
+                                if function_data.get("arguments"):
+                                    tool_call_buffer[index]["function"]["arguments"] += function_data["arguments"]
+                    continue
+
+                _LOGGER.debug("OpenAI-compatible stream chunk in unknown format: %s", data)
 
         if tool_call_buffer:
-            tool_calls = []
-            for tool_call in tool_call_buffer.values():
-                try:
-                    arguments = tool_call["function"].get("arguments", "")
-                    parsed_args = json.loads(arguments) if arguments else {}
-                except json.JSONDecodeError:
-                    parsed_args = {}
-                tool_calls.append(
-                    {
-                        "id": tool_call["id"],
-                        "type": "function",
-                        "function": {
-                            "name": tool_call["function"].get("name", "tool"),
-                            "arguments": json.dumps(parsed_args, ensure_ascii=False),
-                        },
-                    }
-                )
+            tool_calls = finalize_buffered_tool_calls(tool_call_buffer)
             if tool_calls:
                 yield {"tool_calls": tool_calls}
 
     async def health_check(self) -> bool:
         """Check if the API is reachable."""
         try:
-            # Try a simple GET to the base domain
             url = self._get_api_url()
-            # Extract base URL
-            from urllib.parse import urlparse
-
-            parsed = urlparse(url)
-            base = f"{parsed.scheme}://{parsed.netloc}"
             ssl = _get_ssl_setting(url)
 
-            return await async_check_endpoint_health(base, ssl=ssl, timeout=10)
+            return await check_provider_health(url, ssl=ssl, timeout=10)
         except Exception as e:
             _LOGGER.debug("OpenAI compatible health check failed: %s", e)
             return False

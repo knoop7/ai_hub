@@ -8,7 +8,7 @@ from typing import Any, Final
 
 import aiohttp
 
-_KNOWN_PROVIDER_NAMES: Final = {"openai_compatible", "anthropic_compatible"}
+_KNOWN_PROVIDER_NAMES: Final = {"openai_compatible", "anthropic_compatible", "ollama_compatible"}
 
 
 def client_timeout(total: float) -> aiohttp.ClientTimeout:
@@ -96,6 +96,8 @@ def resolve_provider_name(api_url: str, configured_provider: str | None = None) 
         return configured_provider
 
     parsed = urlparse(api_url)
+    if parsed.path.lower().endswith("/api/chat") or parsed.netloc.startswith("localhost:11434"):
+        return "ollama_compatible"
     if "anthropic" in parsed.path.lower() or parsed.netloc == "api.anthropic.com":
         return "anthropic_compatible"
     return "openai_compatible"

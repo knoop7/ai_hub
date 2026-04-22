@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
+from homeassistant.util import ulid
 
 from ..http import (
     async_check_endpoint_health,
@@ -18,6 +19,7 @@ from ..http import (
     client_timeout,
     resolve_ssl_setting,
 )
+from .common_compatible import check_provider_health, finalize_buffered_tool_calls
 from . import LLMMessage, LLMProvider, LLMResponse
 
 _LOGGER = logging.getLogger(__name__)
@@ -308,13 +310,14 @@ class AnthropicCompatibleProvider(LLMProvider):
         messages: list[LLMMessage],
         tools: list[dict[str, Any]] | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[str | dict[str, Any], None]:
         request = self._build_request(messages, stream=True, tools=tools, **kwargs)
         headers = self._get_headers()
         url = self._get_api_url()
         ssl = resolve_ssl_setting(url, _DEFAULT_API_URL)
 
         buffer = ""
+        tool_call_buffer: dict[int, dict[str, Any]] = {}
         async for chunk_text in async_stream_response_text(
             url,
             payload=request,
@@ -342,20 +345,59 @@ class AnthropicCompatibleProvider(LLMProvider):
                     _LOGGER.debug("Anthropic SSE parse failed: %s", data_str)
                     continue
 
+                if data.get("type") == "content_block_start":
+                    content_block = data.get("content_block", {})
+                    if content_block.get("type") == "tool_use":
+                        index = int(data.get("index", 0))
+                        tool_id = content_block.get("id")
+                        if not isinstance(tool_id, str) or not tool_id.strip():
+                            tool_id = ulid.ulid_now()
+                        tool_input = content_block.get("input", {})
+                        if not isinstance(tool_input, dict):
+                            tool_input = {"value": tool_input}
+                        tool_call_buffer[index] = {
+                            "id": tool_id,
+                            "type": "function",
+                            "function": {
+                                "name": str(content_block.get("name", "tool")),
+                                "arguments": json.dumps(tool_input, ensure_ascii=False),
+                            },
+                        }
+                    continue
+
                 if data.get("type") == "content_block_delta":
+                    index = int(data.get("index", 0))
                     delta = data.get("delta", {})
-                    text = delta.get("text", "")
-                    if text:
-                        yield text
+                    delta_type = delta.get("type")
+                    if delta_type == "text_delta":
+                        text = delta.get("text", "")
+                        if text:
+                            yield text
+                        continue
+
+                    if delta_type == "input_json_delta":
+                        partial_json = delta.get("partial_json", "")
+                        if not partial_json:
+                            continue
+                        if index not in tool_call_buffer:
+                            tool_call_buffer[index] = {
+                                "id": ulid.ulid_now(),
+                                "type": "function",
+                                "function": {"name": "tool", "arguments": ""},
+                            }
+                        tool_call_buffer[index]["function"]["arguments"] += partial_json
+
+        if tool_call_buffer:
+            tool_calls = finalize_buffered_tool_calls(tool_call_buffer)
+            if tool_calls:
+                yield {"tool_calls": tool_calls}
 
     async def health_check(self) -> bool:
         try:
             url = self._get_api_url()
-            parsed = urlparse(url)
-            base = f"{parsed.scheme}://{parsed.netloc}"
             ssl = resolve_ssl_setting(url, _DEFAULT_API_URL)
 
-            return await async_check_endpoint_health(base, ssl=ssl, timeout=10)
+            return await check_provider_health(url, ssl=ssl, timeout=10)
         except Exception as err:
             _LOGGER.debug("Anthropic health check failed: %s", err)
             return False

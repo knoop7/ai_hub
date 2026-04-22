@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
 from custom_components.ai_hub.conversation import AIHubConversationAgent
+from custom_components.ai_hub.entity import AIHubBaseLLMEntity
 from custom_components.ai_hub.const import (
     CONF_CHAT_MODEL,
     CONF_LLM_HASS_API,
@@ -25,6 +26,9 @@ from custom_components.ai_hub.const import (
     RECOMMENDED_TEMPERATURE,
 )
 from custom_components.ai_hub.intents.config_cache import ConfigCache
+from custom_components.ai_hub.providers.openai_compatible import OpenAICompatibleProvider
+from custom_components.ai_hub.providers.ollama_compatible import OllamaCompatibleProvider
+from custom_components.ai_hub.http import resolve_provider_name
 
 
 @pytest.fixture
@@ -324,3 +328,169 @@ class TestIntentConfigCache:
 
         assert cache.get_global_keywords() == ["全部"]
         assert cache.get_error_message("llm_config_error") == "配置错误"
+
+
+class TestEntityStreamingSelection:
+    """Tests for provider streaming selection."""
+
+    @pytest.mark.asyncio
+    async def test_openai_compatible_with_tools_uses_streaming(self):
+        """OpenAI-compatible requests should keep streaming enabled with tools."""
+        entity = object.__new__(AIHubBaseLLMEntity)
+
+        entity.subentry = MagicMock()
+        entity.subentry.data = {
+            "chat_url": "https://example.com/v1",
+            "llm_provider": "openai_compatible",
+        }
+        entity.default_model = "test-model"
+        entity._api_key = "test-key"
+        entity.entity_id = "conversation.test_agent"
+        entity.hass = MagicMock()
+
+        entity._get_model_config = MagicMock(
+            return_value={
+                "model": "test-model",
+                "temperature": 0.3,
+                "max_tokens": 250,
+                "enable_thinking": False,
+            }
+        )
+        entity._async_convert_chat_log_to_messages = AsyncMock(
+            return_value=[{"role": "user", "content": "打开客厅灯"}]
+        )
+        entity._format_tool = MagicMock(return_value={"type": "function"})
+        entity._async_run_provider_stream = AsyncMock()
+        entity._async_run_provider_completion = AsyncMock()
+
+        provider = MagicMock()
+        provider.supports_tools.return_value = True
+        provider.config = MagicMock(timeout=60)
+
+        chat_log = MagicMock()
+        chat_log.llm_api = MagicMock()
+        chat_log.llm_api.custom_serializer = None
+        chat_log.llm_api.tools = [MagicMock()]
+
+        with patch("custom_components.ai_hub.entity.create_provider", return_value=provider):
+            with patch("custom_components.ai_hub.entity.resolve_provider_name", return_value="openai_compatible"):
+                await entity._async_handle_chat_log(chat_log)
+
+        entity._async_run_provider_stream.assert_awaited_once()
+        entity._async_run_provider_completion.assert_not_awaited()
+
+
+class TestProviderStreamRobustness:
+    """Tests for provider streaming edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_openai_stream_ignores_empty_choices_chunks(self):
+        """Streaming should skip SSE chunks without choices instead of crashing."""
+        provider = OpenAICompatibleProvider(
+            {
+                "api_key": "test-key",
+                "model": "test-model",
+                "base_url": "https://example.com/v1",
+            }
+        )
+
+        async def _fake_stream(*args, **kwargs):
+            yield 'data: {"choices": []}\n'
+            yield 'data: {"choices": [{"delta": {"content": "你好"}}]}\n'
+            yield 'data: [DONE]\n'
+
+        with patch(
+            "custom_components.ai_hub.providers.openai_compatible.async_stream_response_text",
+            _fake_stream,
+        ):
+            chunks = [
+                chunk
+                async for chunk in provider.complete_stream(
+                    [MagicMock(role="user", content="hi", tool_calls=None, tool_call_id=None, tool_name=None)]
+                )
+            ]
+
+        assert chunks == ["你好"]
+
+    @pytest.mark.asyncio
+    async def test_ollama_stream_supports_json_line_format(self):
+        """Ollama-compatible streaming should support Ollama JSON lines."""
+        provider = OllamaCompatibleProvider(
+            {
+                "api_key": "test-key",
+                "model": "gemma4:26b-a4b-it-q4_K_M",
+                "base_url": "http://localhost:11434/api/chat",
+            }
+        )
+
+        async def _fake_stream(*args, **kwargs):
+            yield '{"message":{"role":"assistant","content":"你"},"done":false}\n'
+            yield '{"message":{"role":"assistant","content":"好"},"done":false}\n'
+            yield '{"message":{"role":"assistant","content":""},"done":true}\n'
+
+        with patch(
+            "custom_components.ai_hub.providers.ollama_compatible.async_stream_response_text",
+            _fake_stream,
+        ):
+            chunks = [
+                chunk
+                async for chunk in provider.complete_stream(
+                    [MagicMock(role="user", content="hi", tool_calls=None, tool_call_id=None, tool_name=None)]
+                )
+            ]
+
+        assert chunks == ["你", "好"]
+
+
+class TestProviderResolution:
+    """Tests for provider auto-detection."""
+
+    def test_resolve_provider_name_detects_ollama_api_chat(self):
+        """Ollama /api/chat URLs should resolve to the dedicated provider."""
+        assert resolve_provider_name("http://localhost:11434/api/chat") == "ollama_compatible"
+
+    @pytest.mark.asyncio
+    async def test_anthropic_compatible_with_tools_uses_streaming(self):
+        """Anthropic-compatible requests should keep streaming enabled with tools."""
+        entity = object.__new__(AIHubBaseLLMEntity)
+
+        entity.subentry = MagicMock()
+        entity.subentry.data = {
+            "chat_url": "https://example.com/v1/messages",
+            "llm_provider": "anthropic_compatible",
+        }
+        entity.default_model = "test-model"
+        entity._api_key = "test-key"
+        entity.entity_id = "conversation.test_agent"
+        entity.hass = MagicMock()
+
+        entity._get_model_config = MagicMock(
+            return_value={
+                "model": "test-model",
+                "temperature": 0.3,
+                "max_tokens": 250,
+                "enable_thinking": False,
+            }
+        )
+        entity._async_convert_chat_log_to_messages = AsyncMock(
+            return_value=[{"role": "user", "content": "打开客厅灯"}]
+        )
+        entity._format_tool = MagicMock(return_value={"type": "function"})
+        entity._async_run_provider_stream = AsyncMock()
+        entity._async_run_provider_completion = AsyncMock()
+
+        provider = MagicMock()
+        provider.supports_tools.return_value = True
+        provider.config = MagicMock(timeout=60)
+
+        chat_log = MagicMock()
+        chat_log.llm_api = MagicMock()
+        chat_log.llm_api.custom_serializer = None
+        chat_log.llm_api.tools = [MagicMock()]
+
+        with patch("custom_components.ai_hub.entity.create_provider", return_value=provider):
+            with patch("custom_components.ai_hub.entity.resolve_provider_name", return_value="anthropic_compatible"):
+                await entity._async_handle_chat_log(chat_log)
+
+        entity._async_run_provider_stream.assert_awaited_once()
+        entity._async_run_provider_completion.assert_not_awaited()

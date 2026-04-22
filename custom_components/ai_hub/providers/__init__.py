@@ -243,6 +243,17 @@ def _register_builtin_providers(registry: UnifiedProviderRegistry) -> None:
     except ImportError as e:
         _LOGGER.debug("Anthropic compatible provider not available: %s", e)
 
+    try:
+        from .ollama_compatible import OllamaCompatibleProvider
+
+        registry.register(
+            OllamaCompatibleProvider,
+            requires_api_key=False,
+            description="Ollama API (/api/chat, local or remote)",
+        )
+    except ImportError as e:
+        _LOGGER.debug("Ollama compatible provider not available: %s", e)
+
     # Import and register TTS providers
     try:
         from .edge_tts import EdgeTTSProvider
