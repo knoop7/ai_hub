@@ -28,13 +28,28 @@ def format_response_message(template: str, **kwargs: Any) -> str:
     return template.format(**values)
 
 
-def create_intent_result(language: str, message: str, *, is_error: bool = False) -> dict[str, Any]:
+def create_intent_result(
+    language: str,
+    message: str,
+    *,
+    is_error: bool = False,
+    success_results: list[dict[str, Any]] | None = None,
+    failed_results: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Create the standard local intent service result payload."""
     response = intent.IntentResponse(language=language)
     if is_error:
         response.async_set_error(intent.IntentResponseErrorCode.UNKNOWN, message)
     else:
         response.async_set_speech(message)
+
+    if success_results or failed_results:
+        response.response_type = intent.IntentResponseType.ACTION_DONE
+        response.data = {
+            "success": success_results or [],
+            "failed": failed_results or [],
+            "targets": success_results or [],
+        }
 
     return {
         "response": response,

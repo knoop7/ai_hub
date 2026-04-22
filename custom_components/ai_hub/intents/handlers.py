@@ -99,6 +99,9 @@ class LocalIntentHandler:
         text_clean = text.strip()
         text_lower = text.lower().strip()
 
+        area_names, device_types = self._parse_device_and_area(text_lower, global_config)
+        target_entities = self._match_named_entities(text_lower, device_types or None, area_names)
+
         # 规则1: 检查明确的全局关键词 - HA不支持的功能
         global_keywords = global_config.get('global_keywords', [])
         has_global_keyword = any(keyword in text_lower for keyword in global_keywords)
@@ -106,19 +109,18 @@ class LocalIntentHandler:
         # 规则2: 检查显式动作/参数指令
         has_action_word = self._has_explicit_action_word(text_lower, global_config)
         has_parameter_command = self._has_parameter_command(text, text_lower, global_config)
-        has_target_hint = self._has_target_hint(text_lower, global_config)
+        has_resolved_target = bool(device_types or target_entities)
         is_short_text = len(text_clean) <= 4
 
-        # 关键判断:
-        # 1. 全局控制直接本地处理
-        # 2. 显式参数控制 + 明确目标，本地处理以补足中文能力
-        # 3. 显式开关控制 + 明确目标，本地处理以补足中文泛化开关
-        should_handle = has_global_keyword or (
-            has_target_hint and (has_action_word or has_parameter_command)
-        )
+        # 本地增强意图必须完整命中可执行控制目标，不能靠模糊猜测。
+        should_handle = has_resolved_target and (has_action_word or has_parameter_command)
 
-        # 对于有动作词的短文本，如果缺少全局关键词，则不处理
-        if has_action_word and is_short_text and not has_global_keyword and not has_target_hint:
+        # 全局控制也必须解析出具体设备类型，避免“打开所有”之类半句被错误接管。
+        if has_global_keyword and not device_types and not target_entities:
+            should_handle = False
+
+        # 对于短文本，如果没有完整命中目标，则不处理。
+        if (has_action_word or has_parameter_command) and is_short_text and not has_resolved_target:
             should_handle = False
 
         _LOGGER.debug("Local intent check: '%s' -> %s", text, should_handle)
@@ -202,14 +204,6 @@ class LocalIntentHandler:
                 continue
 
         return any(action in text_without_state for action in action_words)
-
-    def _has_target_hint(self, text_lower: str, global_config: dict) -> bool:
-        """Check whether the text contains a concrete area/device hint."""
-        area_names, device_types = self._parse_device_and_area(text_lower, global_config)
-        if area_names or device_types:
-            return True
-
-        return bool(self._match_named_entities(text_lower))
 
     def _parse_device_and_area(self, text_lower: str, global_config: dict) -> tuple:
         """解析设备类型和区域."""
@@ -399,7 +393,17 @@ class LocalIntentHandler:
                 fail_msg=fail_msg,
             )
 
-            return self._create_response(language, message)
+            success_results = [
+                {
+                    "type": "entity",
+                    "name": self._get_device_friendly_name(device_id),
+                    "id": device_id,
+                }
+                for device_id in all_devices
+                if self.hass.states.get(device_id) is not None
+            ]
+
+            return self._create_response(language, message, success_results=success_results)
 
         except Exception as e:
             message = self._format_response_message('error', error=str(e))
@@ -506,9 +510,20 @@ class LocalIntentHandler:
         template = failure_config.get('many_devices', '')
         return template.format(error_count=len(unique_failed), failed_list=failed_list)
 
-    def _create_response(self, language: str, message: str, is_error: bool = False):
+    def _create_response(
+        self,
+        language: str,
+        message: str,
+        is_error: bool = False,
+        success_results: list[dict[str, Any]] | None = None,
+    ):
         """创建响应结果."""
-        return create_intent_result(language, message, is_error=is_error)
+        return create_intent_result(
+            language,
+            message,
+            is_error=is_error,
+            success_results=success_results,
+        )
 
     # ========== 参数控制方法 ==========
 

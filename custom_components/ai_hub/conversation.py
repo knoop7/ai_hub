@@ -29,6 +29,21 @@ _LOGGER = logging.getLogger(__name__)
 MATCH_ALL: Literal["*"] = "*"
 
 
+def _extract_expansion_rule_tokens(rule_value: str) -> set[str]:
+    """Extract plain tokens from a simple expansion rule string."""
+    cleaned = (
+        rule_value.replace("(", "|")
+        .replace(")", "|")
+        .replace("[", "|")
+        .replace("]", "|")
+        .replace("<", "|")
+        .replace(">", "|")
+        .replace("{", "|")
+        .replace("}", "|")
+    )
+    return {token.strip() for token in cleaned.split("|") if token.strip()}
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -227,6 +242,11 @@ class AIHubConversationAgent(
                         and has_explicit_outcome
                     )
                 )
+                if self._is_query_like_utterance(user_input.text):
+                    is_acceptable_type = (
+                        response_type == intent.IntentResponseType.QUERY_ANSWER
+                        and not is_follow_up_prompt
+                    )
 
                 if (
                     not has_error
@@ -299,6 +319,33 @@ class AIHubConversationAgent(
             _LOGGER.warning("HA 内置意图处理异常: %s", e, exc_info=True)
 
         return None
+
+    def _is_query_like_utterance(self, text: str) -> bool:
+        """Return whether the utterance matches configured query markers."""
+        config = self._config_cache.get_config() or {}
+        expansion_rules = config.get("expansion_rules", {})
+        if not isinstance(expansion_rules, dict):
+            return False
+
+        query_rule_names = (
+            "how_many_is",
+            "what_is",
+            "which",
+            "how_is",
+            "state",
+            "currently",
+        )
+        text_lower = text.lower().strip()
+
+        for rule_name in query_rule_names:
+            rule_value = expansion_rules.get(rule_name)
+            if not isinstance(rule_value, str) or not rule_value.strip():
+                continue
+            tokens = _extract_expansion_rule_tokens(rule_value)
+            if any(token in text_lower for token in tokens):
+                return True
+
+        return False
 
     async def _async_handle_llm_message(
         self,

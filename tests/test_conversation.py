@@ -29,6 +29,7 @@ from custom_components.ai_hub.intents.config_cache import ConfigCache
 from custom_components.ai_hub.providers.openai_compatible import OpenAICompatibleProvider
 from custom_components.ai_hub.providers.ollama_compatible import OllamaCompatibleProvider
 from custom_components.ai_hub.http import resolve_provider_name
+from custom_components.ai_hub.intents.response_utils import create_intent_result
 
 
 @pytest.fixture
@@ -328,6 +329,25 @@ class TestIntentConfigCache:
 
         assert cache.get_global_keywords() == ["全部"]
         assert cache.get_error_message("llm_config_error") == "配置错误"
+
+
+class TestLocalIntentResponse:
+    """Tests for local intent structured responses."""
+
+    def test_create_intent_result_can_include_success_results(self):
+        """Local intent responses should preserve structured success targets."""
+        result = create_intent_result(
+            "zh-CN",
+            "已打开书房灯",
+            success_results=[
+                {"type": "entity", "name": "书房灯", "id": "light.study"}
+            ],
+        )
+
+        response = result["response"]
+        assert response.data["success"] == [
+            {"type": "entity", "name": "书房灯", "id": "light.study"}
+        ]
 
 
 class TestEntityStreamingSelection:
