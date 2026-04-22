@@ -1,0 +1,7 @@
+language: "zh-CN"
+intents:
+  HassNevermind:
+    bypass_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [算了|取消|不用了|没事了]"

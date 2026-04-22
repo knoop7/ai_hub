@@ -1,0 +1,14 @@
+language: "zh-CN"
+intents:
+  HassCoverSetPosition:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <action_verbs>[<area>](窗帘|百叶|遮阳帘){name}[<aux_words>]{position}"
+          - "[<let>][<area>](窗帘|百叶|遮阳帘){name}[完全打开|全开|开到最大|打开到100%|开到头]"
+          - "[<let>][<area>](窗帘|百叶|遮阳帘){name}[完全关闭|全关|关到最小|关闭到0%|关到底]"
+          - "[<let>][<area>](窗帘|百叶|遮阳帘){name}<action_verbs>"
+        requires_context:
+          domain: cover
+        slots:
+          domain: cover

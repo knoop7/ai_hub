@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassGetCurrentDate:
+      default: "今天是{{ state.state_with_unit }}"

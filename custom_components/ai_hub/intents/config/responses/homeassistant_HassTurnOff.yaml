@@ -1,0 +1,6 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassTurnOff:
+      default: "已关闭{{ slots.name }}"
+      area: "已关闭{{ slots.area }}的{{ slots.name }}"

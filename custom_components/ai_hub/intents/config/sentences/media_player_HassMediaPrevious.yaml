@@ -1,0 +1,15 @@
+language: "zh-CN"
+intents:
+  HassMediaPrevious:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <previous><item>"
+          - "[<let>] <previous><item>[<area>]<media_player_names>"
+          - "[<let>] <previous><item><name>"
+          - "上一首"
+          - "上一个"
+          - "[<let>]回退"
+        requires_context:
+          area:
+            slot: true

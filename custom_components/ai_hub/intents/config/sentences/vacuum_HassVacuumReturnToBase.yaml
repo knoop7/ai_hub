@@ -1,0 +1,11 @@
+language: "zh-CN"
+intents:
+  HassVacuumReturnToBase:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] {name}<return>"
+          - "[<let>] {name}回[充电]座"
+          - "[<let>] [把][<area>]<vacuum_names><return>"
+        requires_context:
+          domain: vacuum

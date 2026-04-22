@@ -1,0 +1,14 @@
+language: "zh-CN"
+intents:
+  HassListAddItem:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <add><item><add_to>{name}"
+          - "[<let>] <add>{name}<add_to><item>"
+          - "[<let>] <add><item>[到]{name}"
+        slots:
+          item:
+            type: text
+          name:
+            type: text

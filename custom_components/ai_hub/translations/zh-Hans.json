@@ -89,7 +89,6 @@
             "image_url": "图像生成API地址",
             "custom_api_key": "自定义API密钥",
             "temperature": "温度",
-            "top_p": "Top P",
             "max_tokens": "最大令牌数"
           },
           "data_description": {
@@ -98,7 +97,6 @@
             "image_url": "完整的图像生成API地址（默认SiliconFlow）",
             "custom_api_key": "自定义API密钥（留空使用主密钥）",
             "temperature": "控制创造性（0-2）",
-            "top_p": "采样参数（0-1）",
             "max_tokens": "最大响应长度"
           }
         }
@@ -331,6 +329,173 @@
           "description": "指定要翻译的组件目录名；留空则翻译所有组件"
         }
       }
+    }
+  },
+  "exceptions": {
+    "service_not_initialized": {
+      "message": "AI Hub 未初始化"
+    },
+    "service_entry_not_found": {
+      "message": "未找到 AI Hub 配置项: {entry_id}"
+    },
+    "service_subentry_missing": {
+      "message": "指定的配置项不包含 {subentry_type} 子项"
+    },
+    "service_no_available_config": {
+      "message": "没有可用的 AI Hub 配置"
+    },
+    "service_multiple_configs": {
+      "message": "检测到多个 AI Hub 配置，请在服务中指定 config_entry_id"
+    },
+    "service_api_key_not_configured": {
+      "message": "API 密钥未配置，请先在集成配置中设置"
+    },
+    "service_execution_failed": {
+      "message": "{service_name} 服务执行失败: {error}"
+    },
+    "path_is_directory": {
+      "message": "提供的路径是一个目录: {path}"
+    },
+    "api_request_failed": {
+      "message": "获取响应失败: {error}"
+    },
+    "image_file_not_found": {
+      "message": "图像文件不存在: {path}"
+    },
+    "image_file_read_failed": {
+      "message": "读取图像文件失败: {error}"
+    },
+    "image_invalid_camera_entity": {
+      "message": "无效的摄像头实体 ID: {entity_id}"
+    },
+    "image_camera_not_found": {
+      "message": "摄像头实体不存在: {entity_id}"
+    },
+    "image_camera_unavailable": {
+      "message": "无法从摄像头获取图像: {entity_id}"
+    },
+    "image_camera_fetch_failed": {
+      "message": "获取摄像头图像失败: {error}"
+    },
+    "image_source_required": {
+      "message": "必须提供 image_file 或 image_entity 参数"
+    },
+    "image_analyze_failed": {
+      "message": "图像分析失败: {error}"
+    },
+    "image_stream_failed": {
+      "message": "图像流处理失败: {error}"
+    },
+    "image_generate_failed": {
+      "message": "图像生成失败: {error}"
+    },
+    "image_response_missing_data": {
+      "message": "响应中没有图像数据"
+    },
+    "image_response_invalid_data": {
+      "message": "响应中的图像数据无效"
+    },
+    "image_response_missing_payload": {
+      "message": "响应中没有图像 URL 或 base64 数据"
+    },
+    "entity_api_url_not_configured": {
+      "message": "API 地址未配置"
+    },
+    "entity_api_key_not_configured": {
+      "message": "API 密钥未配置"
+    },
+    "entity_unsupported_provider": {
+      "message": "不支持的提供商: {provider_name}"
+    },
+    "tts_edge_tts_not_installed": {
+      "message": "未安装 edge_tts 库，请先安装: pip install edge-tts"
+    },
+    "tts_text_required": {
+      "message": "文本内容不能为空"
+    },
+    "tts_unsupported_voice": {
+      "message": "不支持的语音类型: {voice}"
+    },
+    "tts_no_audio_generated": {
+      "message": "未生成音频数据"
+    },
+    "tts_no_audio_received": {
+      "message": "TTS 未收到音频: {message_preview}"
+    },
+    "tts_generation_failed": {
+      "message": "TTS 生成失败: {error}"
+    },
+    "tts_stream_generation_failed": {
+      "message": "流式 TTS 生成失败: {error}"
+    },
+    "stt_audio_file_required": {
+      "message": "音频文件路径不能为空"
+    },
+    "stt_unsupported_model": {
+      "message": "不支持的模型: {model}"
+    },
+    "stt_audio_file_not_found": {
+      "message": "音频文件不存在: {path}"
+    },
+    "stt_audio_too_large_runtime": {
+      "message": "音频文件过大，请使用小于 10MB 的文件。"
+    },
+    "stt_file_too_large": {
+      "message": "音频文件过大，最大支持 {max_size_mb}MB"
+    },
+    "stt_unsupported_audio_format_runtime": {
+      "message": "不支持的音频格式: {audio_format}。支持: {supported_formats}"
+    },
+    "stt_unsupported_audio_format": {
+      "message": "不支持的音频格式: {file_ext}，支持的格式: {supported_formats}"
+    },
+    "stt_api_request_failed": {
+      "message": "STT API 请求失败: {status}"
+    },
+    "stt_http_request_failed": {
+      "message": "HTTP 请求失败: {status}"
+    },
+    "stt_api_response_invalid": {
+      "message": "API 响应格式错误"
+    },
+    "stt_response_parse_failed": {
+      "message": "解析响应失败: {error}"
+    },
+    "stt_network_request_failed": {
+      "message": "网络请求失败: {error}"
+    },
+    "stt_network_request_failed_runtime": {
+      "message": "语音识别网络请求失败，请重试。"
+    },
+    "stt_request_timeout": {
+      "message": "请求超时"
+    },
+    "stt_service_busy": {
+      "message": "语音识别服务暂时繁忙，请稍后重试。"
+    },
+    "stt_service_cannot_connect": {
+      "message": "无法连接到语音识别服务，请检查网络。"
+    },
+    "stt_service_timeout": {
+      "message": "语音识别超时，请重试。"
+    },
+    "stt_failed_after_retries": {
+      "message": "语音识别在多次重试后仍失败。"
+    },
+    "stt_cannot_connect_after_retries": {
+      "message": "多次重试后仍无法连接到 Silicon Flow 服务器，请检查网络。"
+    },
+    "stt_cannot_connect": {
+      "message": "无法连接到 Silicon Flow 服务器，请检查网络。"
+    },
+    "stt_response_missing_text": {
+      "message": "API 响应格式错误，无法找到转录文本。"
+    },
+    "stt_transcription_failed_runtime": {
+      "message": "ASR 转录失败: {error}"
+    },
+    "stt_transcription_failed": {
+      "message": "STT 转录失败: {error}"
     }
   },
   "title": "AI Hub"

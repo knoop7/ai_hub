@@ -1,0 +1,11 @@
+language: "zh-CN"
+intents:
+  HassMediaMute:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [静音]{name}"
+          - "[<let>] [关闭][声音]{name}"
+          - "[<let>] {name}[静音]"
+        requires_context:
+          domain: "media_player"

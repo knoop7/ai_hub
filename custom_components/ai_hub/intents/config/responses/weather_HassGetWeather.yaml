@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassGetWeather:
+      default: "{{ slots.area }}的天气是{{ state.state_with_unit }}"

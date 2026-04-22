@@ -1,0 +1,14 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassClimateSetTemperature:
+      default: "已将{{ slots.name }}的温度设置为{{ slots.temperature }}度"
+      area: "已将{{ slots.area }}的温度设置为{{ slots.temperature }}度"
+    HassClimateSetMode:
+      default: "已将{{ slots.name }}设置为{{ slots.mode }}模式"
+    HassClimateSetFanMode:
+      default: "已将{{ slots.name }}的风速调至{{ slots.fan_mode }}"
+    HassClimateSetSwingMode:
+      default: "已将{{ slots.name }}的摆风设置为{{ slots.swing_mode }}"
+    HassClimateSetHumidity:
+      default: "已将{{ slots.name }}的湿度设置为{{ slots.humidity }}%"

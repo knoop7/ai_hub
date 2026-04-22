@@ -1,0 +1,10 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassGetState:
+      default: "{{ slots.name }}的状态是{{ state.state }}"
+      one_yesno: "{{ slots.name }}是{{ state.state_with_unit }}"
+      any: "{{ slots.area }}有{{ state.name }}是{{ state.state_with_unit }}"
+      all: "{{ slots.area }}的所有{{ slots.name }}都是{{ state.state_with_unit }}"
+      which: "在{{ slots.area }}中，{{ state.name }}是{{ state.state_with_unit }}"
+      how_many: "{{ slots.area }}中有{{ count }}个{{ slots.name }}是{{ state.state_with_unit }}"

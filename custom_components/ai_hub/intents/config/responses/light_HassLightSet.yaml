@@ -1,0 +1,8 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassLightSet:
+      brightness: "已将{{ slots.name }}的亮度调至{{ slots.brightness }}"
+      brightness_area: "已将{{ slots.area }}的灯光亮度调至{{ slots.brightness }}"
+      color: "已将{{ slots.name }}的颜色调为{{ slots.color }}"
+      color_area: "已将{{ slots.area }}的灯光颜色调为{{ slots.color }}"

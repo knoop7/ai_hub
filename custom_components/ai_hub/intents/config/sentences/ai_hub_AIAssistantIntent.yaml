@@ -1,0 +1,9 @@
+language: "zh-CN"
+intents:
+  AIAssistantIntent:
+    bypass_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] ai助手[帮我|请]{message}"
+          - "[<let>] [你好|感谢]"
+          - "[<let>] 聊天吧"

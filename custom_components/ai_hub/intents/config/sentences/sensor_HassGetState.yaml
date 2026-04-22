@@ -1,0 +1,15 @@
+language: "zh-CN"
+intents:
+  HassGetState:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <function_verbs>[<area>]{name}[的]<state>"
+          - "[<let>] [<area>]{name}<state><like>"
+          - "[<let>] [<area>]{name}[现在|当前]<what_is>"
+          - "[<let>] <function_verbs>[<area>]{name}[有没有|是不是]{bs_battery_states:state}"
+        response: one_yesno
+        requires_context:
+          domain: sensor
+        slots:
+          domain: sensor

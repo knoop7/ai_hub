@@ -1,0 +1,16 @@
+language: "zh-CN"
+intents:
+  CameraAnalyzeIntent:
+    bypass_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [帮我]<function_verbs>{camera_name}[的]{question}"
+          - "[<let>] <function_verbs><aux_words>{camera_name}[的]{question}"
+          - "[<let>] {camera_name}[现在|那里|目前]的{question}"
+        slots:
+          camera_name:
+            type: text
+          question:
+            type: text
+    speech:
+      text: "正在分析摄像头画面，请稍等..."

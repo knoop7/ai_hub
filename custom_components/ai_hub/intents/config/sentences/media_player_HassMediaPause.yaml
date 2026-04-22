@@ -1,0 +1,15 @@
+language: "zh-CN"
+intents:
+  HassMediaPause:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "<pause>"
+          - "[<let>] <pause><name>"
+          - "[<let>] <pause><area><media_player_names>"
+          - "暂停[播放]"
+          - "[<let>]暂停<name>"
+          - "[<let>]暂停<area>[的]<media_player_names>"
+        requires_context:
+          area:
+            slot: true

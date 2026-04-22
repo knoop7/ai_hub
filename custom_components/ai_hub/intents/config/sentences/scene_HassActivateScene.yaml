@@ -1,0 +1,11 @@
+language: "zh-CN"
+intents:
+  HassActivateScene:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [激活]{name}[场景]"
+          - "[<let>] [执行]{name}[场景]"
+          - "[<let>] [启动]{name}[场景]"
+        requires_context:
+          domain: "scene"

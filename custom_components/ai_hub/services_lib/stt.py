@@ -20,9 +20,10 @@ import os
 
 import aiohttp
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from ..consts import (
+    DOMAIN,
     CONF_STT_FILE,
     DEFAULT_REQUEST_TIMEOUT,
     RECOMMENDED_STT_MODEL,
@@ -31,6 +32,7 @@ from ..consts import (
     SILICONFLOW_STT_MODELS,
     STT_MAX_FILE_SIZE_MB,
 )
+from ..helpers import translation_placeholders
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,38 +46,62 @@ async def handle_stt_transcribe(
     """Handle Silicon Flow STT service call."""
     try:
         if not siliconflow_api_key or not siliconflow_api_key.strip():
-            return {
-                "success": False,
-                "error": "硅基流动API密钥未配置，请先在集成配置中设置"
-            }
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="service_api_key_not_configured",
+            )
 
         audio_file = call.data[CONF_STT_FILE]
         model = call.data.get("model", RECOMMENDED_STT_MODEL)
 
         if not audio_file or not audio_file.strip():
-            raise ServiceValidationError("音频文件路径不能为空")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="stt_audio_file_required",
+            )
 
         if model not in SILICONFLOW_STT_MODELS:
-            raise ServiceValidationError(f"不支持的模型: {model}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="stt_unsupported_model",
+                translation_placeholders=translation_placeholders(model=model),
+            )
 
         # 处理相对路径
         if not os.path.isabs(audio_file):
             audio_file = os.path.join(hass.config.config_dir, audio_file)
 
         if not os.path.exists(audio_file):
-            raise ServiceValidationError(f"音频文件不存在: {audio_file}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="stt_audio_file_not_found",
+                translation_placeholders=translation_placeholders(path=audio_file),
+            )
 
         if os.path.isdir(audio_file):
-            raise ServiceValidationError(f"提供的路径是一个目录: {audio_file}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="path_is_directory",
+                translation_placeholders=translation_placeholders(path=audio_file),
+            )
 
         file_size = os.path.getsize(audio_file)
         if file_size > STT_MAX_FILE_SIZE_MB * 1024 * 1024:
-            raise ServiceValidationError(f"音频文件过大，最大支持 {STT_MAX_FILE_SIZE_MB}MB")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="stt_file_too_large",
+                translation_placeholders=translation_placeholders(max_size_mb=STT_MAX_FILE_SIZE_MB),
+            )
 
         file_ext = os.path.splitext(audio_file)[1].lower().lstrip('.')
         if file_ext not in SILICONFLOW_STT_AUDIO_FORMATS:
             raise ServiceValidationError(
-                f"不支持的音频格式: {file_ext}，支持的格式: {', '.join(SILICONFLOW_STT_AUDIO_FORMATS)}"
+                translation_domain=DOMAIN,
+                translation_key="stt_unsupported_audio_format",
+                translation_placeholders=translation_placeholders(
+                    file_ext=file_ext,
+                    supported_formats=", ".join(SILICONFLOW_STT_AUDIO_FORMATS),
+                ),
             )
 
         with open(audio_file, "rb") as f:
@@ -98,13 +124,20 @@ async def handle_stt_transcribe(
                 if response.status != 200:
                     error_text = await response.text()
                     _LOGGER.error("STT API error: %s - %s", response.status, error_text)
-                    return {"success": False, "error": f"STT API 请求失败: {response.status}"}
+                    raise HomeAssistantError(
+                        translation_domain=DOMAIN,
+                        translation_key="stt_api_request_failed",
+                        translation_placeholders=translation_placeholders(status=response.status),
+                    )
 
                 response_data = await response.json()
 
                 if "text" not in response_data:
                     _LOGGER.error("STT API response format error: %s", response_data)
-                    return {"success": False, "error": "API 响应格式错误"}
+                    raise HomeAssistantError(
+                        translation_domain=DOMAIN,
+                        translation_key="stt_api_response_invalid",
+                    )
 
                 return {
                     "success": True,
@@ -116,13 +149,26 @@ async def handle_stt_transcribe(
 
     except ServiceValidationError as exc:
         _LOGGER.error("STT service validation error: %s", exc)
-        return {"success": False, "error": str(exc)}
+        raise
+    except HomeAssistantError:
+        raise
     except aiohttp.ClientError as exc:
         _LOGGER.error("STT service network error: %s", exc)
-        return {"success": False, "error": f"网络请求失败: {exc}"}
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="stt_network_request_failed",
+            translation_placeholders=translation_placeholders(error=exc),
+        ) from exc
     except asyncio.TimeoutError:
         _LOGGER.error("STT service timeout")
-        return {"success": False, "error": "请求超时"}
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="stt_request_timeout",
+        )
     except Exception as exc:
         _LOGGER.error("STT service error: %s", exc, exc_info=True)
-        return {"success": False, "error": f"STT 转录失败: {exc}"}
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="stt_transcription_failed",
+            translation_placeholders=translation_placeholders(error=exc),
+        ) from exc

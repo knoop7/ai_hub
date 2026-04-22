@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    CameraAnalyzeIntent:
+      default: "正在分析摄像头画面，请稍等..."

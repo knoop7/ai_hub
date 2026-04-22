@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassFanSetSpeed:
+      default: "已将{{ slots.name }}的风速调至{{ slots.percentage }}"

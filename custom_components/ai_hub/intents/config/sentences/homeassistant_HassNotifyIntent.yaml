@@ -1,0 +1,10 @@
+language: "zh-CN"
+intents:
+  HassNotifyIntent:
+    action: [notify]
+    speech:
+      text: 发送通知
+    slots:
+      message: { type: text }
+    templates:
+      - "[<let>] <function_verbs>通知<aux_words>{message}"

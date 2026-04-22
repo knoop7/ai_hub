@@ -22,33 +22,6 @@ def get_local_intents_config() -> dict[str, Any] | None:
     if not config:
         return None
     return config.get('local_intents', {})
-
-
-class ChineseIntentHandler(intent.IntentHandler):
-    """中文意图处理器 - 仅作为后备选项."""
-
-    def __init__(self, hass: HomeAssistant, intent_name: str, sentence: str):
-        self.hass = hass
-        self.intent_type = intent_name
-        self.sentence = sentence
-
-    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
-        """处理意图 - 委托给Home Assistant的原生意图处理."""
-        try:
-            response = intent.IntentResponse(language="zh-CN")
-            response.async_set_speech("好的，正在处理您的请求")
-            return response
-
-        except Exception as err:
-            _LOGGER.error("Intent handling failed %s: %s", self.intent_type, err)
-            response = intent.IntentResponse()
-            response.async_set_error(
-                intent.IntentResponseErrorCode.UNKNOWN,
-                f"意图处理失败: {str(err)}"
-            )
-            return response
-
-
 class LocalIntentHandler:
     """本地意图处理器 - 处理全局设备控制等本地意图."""
 
@@ -80,23 +53,17 @@ class LocalIntentHandler:
     def _get_default_area_name(self) -> str:
         """获取默认区域名称."""
         global_config = self._get_global_device_control_config()
-        return global_config.get('default_area_name', '全屋')
+        return global_config.get('default_area_name', '')
 
-    def _format_error_suffix(self, error_count: int) -> str:
-        """格式化错误后缀消息."""
-        if error_count > 0:
-            return f"，{error_count}个设备失败"
-        return ""
-
-    def _get_response_template(self, key: str, fallback: str) -> str:
+    def _get_response_template(self, key: str) -> str:
         """Read response templates from config."""
         global_config = self._get_global_device_control_config()
         responses = global_config.get('responses', {})
-        return responses.get(key, fallback)
+        return responses.get(key, "")
 
-    def _format_response_message(self, key: str, fallback: str, **kwargs: Any) -> str:
+    def _format_response_message(self, key: str, **kwargs: Any) -> str:
         """Format a configured response template with safe defaults."""
-        template = self._get_response_template(key, fallback)
+        template = self._get_response_template(key)
         return format_response_message(template, **kwargs)
 
     def _get_temperature_limits(self) -> tuple[int, int]:
@@ -114,7 +81,7 @@ class LocalIntentHandler:
         domain_services = global_config.get('domain_services', {})
         return domain_services.get(domain, {}).get(operation, fallback)
 
-    def _get_default_device_name(self, domain: str, fallback: str) -> str:
+    def _get_default_device_name(self, domain: str, fallback: str = "") -> str:
         """Read default device labels from config."""
         global_config = self._get_global_device_control_config()
         default_device_names = global_config.get('default_device_names', {})
@@ -389,7 +356,6 @@ class LocalIntentHandler:
             message_key = 'success_on' if is_on else 'success_off'
             message = self._format_response_message(
                 message_key,
-                '已打开{count}个设备{fail_msg}' if is_on else '已关闭{count}个设备{fail_msg}',
                 count=all_success,
                 area=area_text,
                 fail_msg=fail_msg,
@@ -398,7 +364,7 @@ class LocalIntentHandler:
             return self._create_response(language, message)
 
         except Exception as e:
-            message = self._format_response_message('error', '设备控制失败：{error}', error=str(e))
+            message = self._format_response_message('error', error=str(e))
             return self._create_response(language, message, is_error=True)
 
     async def _get_area_devices(self, area_names: list, device_types: list) -> list:
@@ -496,10 +462,10 @@ class LocalIntentHandler:
         max_devices = failure_config.get('max_devices_list', 3)
         failed_list = '、'.join(unique_failed[:max_devices])
         if len(unique_failed) <= max_devices:
-            template = failure_config.get('few_devices', '，但以下{error_count}个设备失败：{failed_list}')
+            template = failure_config.get('few_devices', '')
             return template.format(error_count=len(unique_failed), failed_list=failed_list)
 
-        template = failure_config.get('many_devices', '，但{error_count}个设备失败，包括：{failed_list}等')
+        template = failure_config.get('many_devices', '')
         return template.format(error_count=len(unique_failed), failed_list=failed_list)
 
     def _create_response(self, language: str, message: str, is_error: bool = False):
@@ -585,17 +551,15 @@ class LocalIntentHandler:
             fail_msg = self._format_failure_message(errors, failed)
             message = self._format_response_message(
                 'error',
-                '设备控制失败：{error}',
-                error=fail_msg.lstrip('，') or '媒体播放失败',
+                error=fail_msg.lstrip('，'),
             )
             return self._create_response(language, message, is_error=True)
 
         area_text = area_names[0] if area_names else self._get_default_area_name()
         fail_msg = self._format_failure_message(errors, failed)
-        device_name = self._get_default_device_name('media_player', '媒体设备')
+        device_name = self._get_default_device_name('media_player')
         message = self._format_response_message(
             'success_media_play',
-            '已在{area}{device}播放{query}{fail_msg}',
             area=area_text,
             device=device_name,
             query=query,
@@ -687,7 +651,13 @@ class LocalIntentHandler:
     def _has_brightness_param(self, text: str, text_lower: str, global_config: dict) -> bool:
         """Check if text contains brightness parameter."""
         keywords = global_config.get('brightness_keywords', [])
-        return any(kw in text_lower for kw in keywords) and re.search(r'(\d{1,3})\s*%?', text)
+        if any(kw in text_lower for kw in keywords) and re.search(r'(\d{1,3})\s*%?', text):
+            return True
+
+        adjust_config = global_config.get('brightness_adjust', {})
+        brighter_keywords = adjust_config.get('brighter_keywords', [])
+        dimmer_keywords = adjust_config.get('dimmer_keywords', [])
+        return any(kw in text_lower for kw in brighter_keywords + dimmer_keywords)
 
     def _has_volume_param(self, text: str, text_lower: str, global_config: dict) -> bool:
         """Check if text contains volume parameter."""
@@ -734,16 +704,23 @@ class LocalIntentHandler:
     ):
         """Try to handle brightness control command."""
         keywords = global_config.get('brightness_keywords', [])
-        if not any(kw in text_lower for kw in keywords):
-            return None
+        if any(kw in text_lower for kw in keywords):
+            match = re.search(r'(\d{1,3})\s*%?', text)
+            if match:
+                brightness = int(match.group(1))
+                if 0 <= brightness <= 100:
+                    return await self._control_light_brightness(area_names, is_global, brightness)
 
-        match = re.search(r'(\d{1,3})\s*%?', text)
-        if not match:
-            return None
+        adjust_config = global_config.get('brightness_adjust', {})
+        brighter_keywords = adjust_config.get('brighter_keywords', [])
+        dimmer_keywords = adjust_config.get('dimmer_keywords', [])
 
-        brightness = int(match.group(1))
-        if 0 <= brightness <= 100:
-            return await self._control_light_brightness(area_names, is_global, brightness)
+        if any(kw in text_lower for kw in brighter_keywords):
+            return await self._adjust_light_brightness(area_names, is_global, text_lower, adjust_up=True, adjust_config=adjust_config)
+
+        if any(kw in text_lower for kw in dimmer_keywords):
+            return await self._adjust_light_brightness(area_names, is_global, text_lower, adjust_up=False, adjust_config=adjust_config)
+
         return None
 
     async def _try_brightness_complaint(
@@ -886,9 +863,8 @@ class LocalIntentHandler:
         fail_msg = self._format_failure_message(errors, failed)
         message = self._format_response_message(
             'success_brightness',
-            '已将{area}{device}亮度调至{brightness}%{fail_msg}',
             area=area_text,
-            device=self._get_default_device_name('light', '灯光'),
+            device=self._get_default_device_name('light'),
             brightness=brightness,
             fail_msg=fail_msg,
         )
@@ -912,7 +888,6 @@ class LocalIntentHandler:
         fail_msg = self._format_failure_message(errors, failed)
         message = self._format_response_message(
             'success_temperature',
-            '已将{area}温度设置为{temperature}度{fail_msg}',
             area=area_text,
             temperature=temperature,
             fail_msg=fail_msg,
@@ -938,10 +913,71 @@ class LocalIntentHandler:
         fail_msg = self._format_failure_message(errors, failed)
         message = self._format_response_message(
             'success_volume',
-            '已将{area}{device}音量调至{volume}%{fail_msg}',
             area=area_text,
-            device=self._get_default_device_name('media_player', '媒体设备'),
+            device=self._get_default_device_name('media_player'),
             volume=volume,
+            fail_msg=fail_msg,
+        )
+
+        return self._create_response("zh-CN", message)
+
+    async def _adjust_light_brightness(
+        self,
+        area_names: list,
+        is_global: bool,
+        text_lower: str,
+        *,
+        adjust_up: bool,
+        adjust_config: dict[str, Any],
+    ):
+        """Adjust brightness relative to current light state."""
+        devices = await self._get_devices_by_domain(['light'], area_names, is_global)
+        if not devices:
+            return None
+
+        delta = adjust_config.get('default_delta', 30)
+        subtle_keywords = adjust_config.get('subtle_keywords', [])
+        if any(keyword in text_lower for keyword in subtle_keywords):
+            delta = adjust_config.get('small_delta', delta)
+
+        direction_labels = adjust_config.get('direction_labels', {})
+        direction = direction_labels.get('up' if adjust_up else 'down', '')
+
+        success_count = 0
+        error_count = 0
+        failed_devices = []
+
+        for device_id in devices:
+            try:
+                state = self.hass.states.get(device_id)
+                current_brightness = 50
+                if state is not None:
+                    raw_brightness = state.attributes.get('brightness')
+                    if isinstance(raw_brightness, (int, float)):
+                        current_brightness = round((float(raw_brightness) / 255) * 100)
+
+                target_brightness = current_brightness + delta if adjust_up else current_brightness - delta
+                target_brightness = max(1, min(100, target_brightness))
+
+                await self.hass.services.async_call(
+                    'light',
+                    self._get_domain_service('light', 'set_brightness', 'turn_on'),
+                    {'entity_id': device_id, 'brightness_pct': target_brightness},
+                )
+                success_count += 1
+            except Exception as err:
+                _LOGGER.debug("Failed to adjust brightness for %s: %s", device_id, err)
+                error_count += 1
+                failed_devices.append(self._get_device_friendly_name(device_id))
+
+        area_text = area_names[0] if area_names else self._get_default_area_name()
+        fail_msg = self._format_failure_message(error_count, failed_devices)
+        message = self._format_response_message(
+            'success_brightness_adjust',
+            area=area_text,
+            device=self._get_default_device_name('light'),
+            direction=direction,
+            amount=delta,
             fail_msg=fail_msg,
         )
 
@@ -969,9 +1005,8 @@ class LocalIntentHandler:
         fail_msg = self._format_failure_message(errors, failed)
         message = self._format_response_message(
             'success_color',
-            '已将{area}{device}颜色设置为{color}{fail_msg}',
             area=area_text,
-            device=self._get_default_device_name('light', '灯光'),
+            device=self._get_default_device_name('light'),
             color=color_name,
             fail_msg=fail_msg,
         )
@@ -995,9 +1030,8 @@ class LocalIntentHandler:
         fail_msg = self._format_failure_message(errors, failed)
         message = self._format_response_message(
             'success_cover_position',
-            '已将{area}{device}位置调至{position}%{fail_msg}',
             area=area_text,
-            device=self._get_default_device_name('cover', '窗帘'),
+            device=self._get_default_device_name('cover'),
             position=position,
             fail_msg=fail_msg,
         )
@@ -1025,9 +1059,8 @@ class LocalIntentHandler:
         fail_msg = self._format_failure_message(errors, failed)
         message = self._format_response_message(
             'success_fan_speed',
-            '已将{area}{device}风速调至{speed}%{fail_msg}',
             area=area_text,
-            device=self._get_default_device_name('fan', '风扇'),
+            device=self._get_default_device_name('fan'),
             speed=speed,
             fail_msg=fail_msg,
         )

@@ -35,6 +35,7 @@ from .consts import (
     RECOMMENDED_TEMPERATURE,
 )
 from .http import resolve_provider_name
+from .helpers import translation_placeholders
 from .llm_attachment_processor import AttachmentProcessor
 from .llm_message_builder import ChatMessageBuilder
 from .llm_model_utils import chat_log_has_media_attachments, select_media_model
@@ -286,7 +287,10 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
 
         api_url = options.get(CONF_CHAT_URL)
         if not isinstance(api_url, str) or not api_url.strip():
-            raise HomeAssistantError("API URL is not configured")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="entity_api_url_not_configured",
+            )
 
         provider_name = resolve_provider_name(api_url, options.get(CONF_LLM_PROVIDER))
 
@@ -294,7 +298,10 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             # Validate API key before making request
             if not self._api_key:
                 _LOGGER.error("Cannot make API request: API key is empty or not configured")
-                raise HomeAssistantError("API key is not configured")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="entity_api_key_not_configured",
+                )
 
             # Ensure API key is a string
             if not isinstance(self._api_key, str):
@@ -330,7 +337,11 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 },
             )
             if provider is None:
-                raise HomeAssistantError(f"Unsupported provider: {provider_name}")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="entity_unsupported_provider",
+                    translation_placeholders=translation_placeholders(provider_name=provider_name),
+                )
 
             if not provider.supports_tools():
                 tools = []

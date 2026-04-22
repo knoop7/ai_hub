@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassActivateScene:
+      default: "已激活场景{{ slots.name }}"

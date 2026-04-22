@@ -1,0 +1,14 @@
+language: "zh-CN"
+intents:
+  HassListRemoveItem:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [删除|移除]{name}[的]<item>"
+          - "[<let>] {name}[的]<item>[删除|移除]"
+          - "[<let>] [从]{name}[中删除|中移除]<item>"
+        slots:
+          item:
+            type: text
+          name:
+            type: text

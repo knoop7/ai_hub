@@ -1,0 +1,9 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassSetPosition:
+      default: "已将{{ slots.name }}的位置调至{{ slots.percentage }}"
+    HassValveOpen:
+      default: "已打开{{ slots.name }}"
+    HassValveClose:
+      default: "已关闭{{ slots.name }}"

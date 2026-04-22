@@ -1,0 +1,11 @@
+language: "zh-CN"
+intents:
+  HassLightSetTemperature:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <set> {area_names}[的] {light_names}[色温][<percentage>]"
+          - "[<let>] <set> {name}[色温][<percentage>]"
+          - "[<let>] {area_names}[的] {light_names}[调到][<percentage>][色温]"
+        requires_context:
+          domain: "light"

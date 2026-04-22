@@ -1,0 +1,11 @@
+language: "zh-CN"
+intents:
+  HassGetCurrentTime:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <what_is><time>"
+          - "现在几点[了]"
+          - "几点了"
+          - "现在[是]几点"
+          - "[<let>] <what_is>现在的时间"

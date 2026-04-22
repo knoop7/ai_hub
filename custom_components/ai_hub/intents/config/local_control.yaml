@@ -97,6 +97,17 @@ local_intents:
         hot_recommendation: 30
         cold_recommendation: 70
 
+    # 相对亮度调节
+    brightness_adjust:
+      brighter_keywords: ["调亮", "亮一点", "亮点", "调亮一点", "调亮点", "亮一些", "调亮一些"]
+      dimmer_keywords: ["调暗", "暗一点", "暗点", "调暗一点", "调暗点", "暗一些", "调暗一些"]
+      subtle_keywords: ["一点", "点", "一些"]
+      small_delta: 15
+      default_delta: 30
+      direction_labels:
+        up: "高"
+        down: "低"
+
     # 颜色控制关键词
     color_keywords:
       - "颜色"
@@ -312,6 +323,7 @@ local_intents:
       success_off: "已关闭{count}个设备{fail_msg}"
       success_temperature: "已将{area}温度设置为{temperature}度"
       success_brightness: "已将{area}{device}亮度调至{brightness}%"
+      success_brightness_adjust: "已将{area}{device}亮度调{direction}{amount}%"
       success_color: "已将{area}{device}颜色设置为{color}"
       success_volume: "已将{area}{device}音量调至{volume}%"
       success_cover_position: "已将{area}{device}位置调至{position}%"

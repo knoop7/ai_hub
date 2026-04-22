@@ -1,0 +1,727 @@
+language: "zh-CN"
+
+responses:
+  cancel:
+    message: "好的，已取消。"
+  default:
+    success_message: "操作已完成"
+    error_message: "操作失败，请稍后再试"
+  error:
+    default_error: "操作失败"
+    no_entity: "没有找到设备"
+    no_area: "没有找到该区域"
+    no_domain: "不支持该设备类型"
+    handle_error: "处理请求时出错"
+  device_operation:
+    verification_success: "操作已成功执行"
+    verification_timeout: "命令已发送，设备可能需要几秒钟响应"
+    partial_success: "部分设备操作成功，有些设备可能需要更长时间响应"
+  
+
+lists:
+  light_names:
+    values:
+      - "灯"
+      - "灯光"
+      - "照明"
+      - "电灯"
+      - "灯具"
+      - "吸顶灯"
+      - "吊灯"
+      - "主灯"
+      - "顶灯"
+      - "水晶灯"
+      - "餐厅灯"
+      - "筒灯"
+      - "射灯"
+      - "轨道灯"
+      - "格栅灯"
+      - "豆胆灯"
+      - "天花灯"
+      - "台灯"
+      - "桌灯"
+      - "床头灯"
+      - "落地灯"
+      - "立灯"
+      - "阅读灯"
+      - "护眼灯"
+      - "灯带"
+      - "氛围灯"
+      - "彩灯"
+      - "壁灯"
+      - "镜前灯"
+      - "地灯"
+      - "景观灯"
+      - "小夜灯"
+      - "感应灯"
+      - "应急灯"
+
+  climate_names:
+    values:
+      - "空调"
+      - "冷气"
+      - "暖气"
+      - "地暖"
+      - "加热器"
+      - "取暖器"
+      - "恒温器"
+      - "温控器"
+      - "新风"
+      - "空气净化"
+      - "加湿器"
+      - "除湿器"
+
+  fan_names:
+    values:
+      - "风扇"
+      - "电扇"
+      - "吊扇"
+      - "循环扇"
+      - "塔扇"
+      - "无叶扇"
+      - "排气扇"
+
+  media_names:
+    values:
+      - "电视"
+      - "电视机"
+      - "智能电视"
+      - "大电视"
+      - "小电视"
+      - "电视屏幕"
+      - "机顶盒"
+      - "电视盒子"
+      - "音箱"
+      - "音响"
+      - "扬声器"
+      - "喇叭"
+      - "功放机"
+      - "低音炮"
+      - "功放"
+      - "播放器"
+      - "媒体播放器"
+      - "投影仪"
+      - "投影"
+      - "点歌机"
+      - "背景音乐"
+
+  media_player_names:
+    values:
+      - "电视"
+      - "电视机"
+      - "智能电视"
+      - "大电视"
+      - "小电视"
+      - "电视屏幕"
+      - "机顶盒"
+      - "电视盒子"
+      - "音箱"
+      - "音响"
+      - "扬声器"
+      - "喇叭"
+      - "功放"
+      - "功放机"
+      - "低音炮"
+      - "播放器"
+      - "媒体播放器"
+      - "投影仪"
+      - "投影"
+      - "点歌机"
+      - "背景音乐"
+
+  cover_names:
+    values:
+      - "窗帘"
+      - "窗纱"
+      - "帘子"
+      - "百叶窗"
+      - "卷帘"
+      - "罗马帘"
+      - "垂直帘"
+      - "遮阳帘"
+      - "遮阳棚"
+      - "天窗"
+      - "车库门"
+      - "卷闸门"
+      - "电动门"
+      - "推拉门"
+
+  switch_names:
+    values:
+      - "开关"
+      - "电闸"
+      - "空开"
+      - "插座"
+      - "智能插座"
+      - "插排"
+      - "排插"
+      - "电源"
+      - "总开关"
+      - "智能开关"
+      - "情景开关"
+      - "触摸开关"
+
+  vacuum_names:
+    values:
+      - "扫地机"
+      - "扫地机器人"
+      - "吸尘器"
+      - "清洁机器人"
+      - "拖地机"
+      - "洗地机"
+      - "擦窗机器人"
+      - "除螨仪"
+      - "清扫机"
+
+  camera_names:
+    values:
+      - "摄像头"
+      - "监控"
+      - "摄像机"
+      - "网络摄像头"
+      - "智能摄像头"
+      - "门铃"
+      - "可视门铃"
+      - "监控器"
+      - "录像机"
+
+  lock_names:
+    values:
+      - "门锁"
+      - "智能锁"
+      - "电子锁"
+      - "密码锁"
+      - "指纹锁"
+      - "人脸识别锁"
+      - "门禁"
+      - "自动门"
+      - "防盗门"
+
+  valve_names:
+    values:
+      - "水阀"
+      - "阀门"
+      - "水龙头"
+      - "球阀"
+      - "闸阀"
+      - "截止阀"
+      - "止回阀"
+      - "电磁阀"
+      - "智能阀"
+      - "控制阀"
+
+  sensor_names:
+    values:
+      - "传感器"
+      - "温度传感器"
+      - "湿度传感器"
+      - "温湿度传感器"
+      - "光照传感器"
+      - "人体传感器"
+      - "运动传感器"
+      - "人体感应器"
+      - "门窗传感器"
+      - "烟雾报警器"
+      - "燃气报警器"
+      - "水浸传感器"
+      - "空气质量"
+      - "甲醛检测"
+
+  tracker_names:
+    values:
+      - "手机"
+      - "平板"
+      - "电脑"
+      - "笔记本"
+      - "手表"
+      - "手环"
+      - "汽车"
+      - "电动车"
+
+  area_names:
+    values:
+      - "客厅"
+      - "客餐厅"
+      - "客厅餐厅"
+      - "卧室"
+      - "主卧"
+      - "次卧"
+      - "儿童房"
+      - "厨房"
+      - "餐厅"
+      - "书房"
+      - "电脑房"
+      - "卫生间"
+      - "浴室"
+      - "洗手间"
+      - "厕所"
+      - "主厕所"
+      - "客卫"
+      - "主卫"
+      - "阳台"
+      - "露台"
+      - "玄关"
+      - "门厅"
+      - "走廊"
+      - "过道"
+      - "储物间"
+      - "衣帽间"
+      - "阁楼"
+      - "地下室"
+      - "车库"
+      - "花园"
+      - "庭院"
+      - "院子"
+      - "门口"
+      - "楼下"
+      - "楼上"
+      - "办公室"
+      - "会议室"
+      - "前台"
+      - "接待区"
+      - "茶水间"
+      - "休息室"
+      - "储藏室"
+
+  brightness_level:
+    values:
+      - in: "最(亮|高|大)"
+        out: 100
+      - in: "最(暗|低|小)"
+        out: 1
+
+  volume_step_up:
+    range:
+      type: "percentage"
+      from: 0
+      to: 100
+
+  volume_step_down:
+    range:
+      type: "percentage"
+      from: 0
+      to: 100
+      multiplier: -1
+
+  color_temperature_names:
+    values:
+      - "暖白"
+      - "暖光"
+      - "冷白"
+      - "冷光"
+      - "自然白"
+      - "自然光"
+      - "日光"
+      - "白光"
+      - "暖色"
+      - "冷色"
+
+  on_off_states:
+    values:
+      - in: "开(着|启)"
+        out: "on"
+      - in: "关(着|闭)"
+        out: "off"
+
+  cover_states:
+    values:
+      - in: "(打开|开着|开着|升起)"
+        out: "open"
+      - in: "(关闭|关着|关上|降下)"
+        out: "closed"
+      - in: "(正在打开|正在升起)"
+        out: "opening"
+      - in: "(正在关闭|正在降下)"
+        out: "closing"
+
+  cover_classes:
+    values:
+      - in: "(窗帘|帘子)"
+        out: "curtain"
+      - in: "百叶窗"
+        out: "blind"
+      - in: "卷帘"
+        out: "roller"
+      - in: "车库(门)"
+        out: "garage"
+
+  lock_states:
+    values:
+      - in: "(锁上|锁着|已锁)"
+        out: "locked"
+      - in: "(没锁|未锁|开着|打开)"
+        out: "unlocked"
+
+  fan_speed:
+    values:
+      - in: "(最高|最大|满)"
+        out: 100
+      - in: "(最低|最小)"
+        out: 1
+      - in: "高档"
+        out: 75
+      - in: "中档"
+        out: 50
+      - in: "低档"
+        out: 25
+
+  volume:
+    values:
+      - in: "(静音|无声)"
+        out: 0
+      - in: "(最大|最高|满)"
+        out: 100
+
+  position:
+    values:
+      - in: "(完全打开|全开|开到最大|打开到100%|开到头)"
+        out: 100
+      - in: "(完全关闭|全关|关到最小|关闭到0%|关到底)"
+        out: 0
+      - in: "(一半|半开)"
+        out: 50
+
+  search_query:
+    values:
+      - "搜索"
+      - "查找"
+      - "找"
+      - "查"
+      - "搜"
+
+  media_class:
+    values:
+      - in: "(电视|电视节目)"
+        out: "tv_show"
+      - in: "(电影|影片)"
+        out: "movie"
+      - in: "(音乐|歌|歌曲)"
+        out: "music"
+      - in: "(广播|电台)"
+        out: "radio"
+      - in: "(播客|节目)"
+        out: "podcast"
+      - in: "(视频|短片)"
+        out: "video"
+      - in: "(书|有声书)"
+        out: "book"
+
+  timer_seconds:
+    range:
+      type: "number"
+      from: 1
+      to: 60
+  timer_minutes:
+    range:
+      type: "number"
+      from: 1
+      to: 60
+  timer_hours:
+    range:
+      type: "number"
+      from: 1
+      to: 24
+  timer_half:
+    values:
+      - in: "半"
+        out: 30
+
+  timer_name:
+    values:
+      - in: "(厨房|做饭)"
+        out: "厨房"
+      - in: "(洗衣|洗衣服)"
+        out: "洗衣"
+      - in: "(运动|锻炼)"
+        out: "运动"
+      - in: "(休息|小睡)"
+        out: "休息"
+      - in: "(学习|读书)"
+        out: "学习"
+
+  timer_command:
+    values:
+      - "计时器"
+      - "定时器"
+      - "倒计时"
+      - "闹钟"
+
+  percentage:
+    range:
+      type: "percentage"
+      from: 0
+      to: 100
+
+  volume_percentage:
+    range:
+      type: "percentage"
+      from: 0
+      to: 100
+
+  person_name:
+    values:
+      - "所有人"
+      - "大家"
+      - "每个人"
+
+  zone:
+    values:
+      - "家"
+      - "公司"
+      - "学校"
+      - "医院"
+      - "商场"
+
+  item:
+    values:
+      - "事项"
+      - "项目"
+      - "内容"
+
+  message:
+    values:
+      - "消息"
+      - "内容"
+      - "信息"
+
+  shopping_list_item:
+    values:
+      - "牛奶"
+      - "面包"
+      - "鸡蛋"
+      - "大米"
+      - "油"
+      - "盐"
+      - "酱油"
+      - "醋"
+      - "蔬菜"
+      - "水果"
+      - "肉"
+      - "鱼"
+
+  todo_list_item:
+    values:
+      - "待办"
+      - "任务"
+      - "事项"
+
+  bs_battery_states:
+    values:
+      - in: "(低电量|没电)"
+        out: "on"
+      - in: "(充满电|满电)"
+        out: "off"
+
+  bs_door_states:
+    values:
+      - in: "(打开|开着)"
+        out: "on"
+      - in: "(关闭|关着)"
+        out: "off"
+
+  bs_motion_states:
+    values:
+      - in: "(有人|移动|运动)"
+        out: "on"
+      - in: "(没人|静止|无移动)"
+        out: "off"
+
+  bs_smoke_states:
+    values:
+      - in: "(有烟雾|报警)"
+        out: "on"
+      - in: "(正常|无烟雾)"
+        out: "off"
+
+  bs_moisture_states:
+    values:
+      - in: "(有水|漏水|浸水)"
+        out: "on"
+      - in: "(干燥|正常|无水)"
+        out: "off"
+
+  bs_gas_states:
+    values:
+      - in: "(有燃气|漏气|报警)"
+        out: "on"
+      - in: "(正常|无燃气)"
+        out: "off"
+
+  bs_power_states:
+    values:
+      - in: "(有电|通电)"
+        out: "on"
+      - in: "(断电|停电|没电)"
+        out: "off"
+
+  bs_connectivity_states:
+    values:
+      - in: "(在线|连接中)"
+        out: "on"
+      - in: "(离线|断开)"
+        out: "off"
+
+  bs_cold_states:
+    values:
+      - in: "(冷|温度低)"
+        out: "on"
+      - in: "(正常|不冷)"
+        out: "off"
+
+  bs_heat_states:
+    values:
+      - in: "(热|温度高)"
+        out: "on"
+      - in: "(正常|不热)"
+        out: "off"
+
+  bs_lock_states:
+    values:
+      - in: "(锁着|锁定|已锁)"
+        out: "on"
+      - in: "(开着|未锁|打开)"
+        out: "off"
+
+  bs_opening_states:
+    values:
+      - in: "(开着|打开)"
+        out: "on"
+      - in: "(关着|关闭)"
+        out: "off"
+
+  bs_plug_states:
+    values:
+      - in: "(插着|已插)"
+        out: "on"
+      - in: "(未插|拔了)"
+        out: "off"
+
+  bs_safety_states:
+    values:
+      - in: "(不安全|报警)"
+        out: "on"
+      - in: "(安全|正常)"
+        out: "off"
+
+  bs_vibration_states:
+    values:
+      - in: "(震动|振感)"
+        out: "on"
+      - in: "(正常|无震动)"
+        out: "off"
+
+  bs_window_states:
+    values:
+      - in: "(开|打开)"
+        out: "on"
+      - in: "(关|关闭)"
+        out: "off"
+
+expansion_rules:
+  let: "请|帮我|麻烦|给|能否|可以吗|麻烦您|劳驾|拜托|请问|把|请把|麻烦把|帮我把"
+  turn: "打开|开启|开|启动|点亮|放亮"
+  close: "关闭|关上|关|停止|熄灭|灭灯|关掉"
+  turn_on: "打开|开启|开|启动|点亮"
+  turn_off: "关闭|关上|关|停止|熄灭|关掉"
+  set: "设置|设定|调节|调|设"
+  all_on: "全屋打开|全家打开|整屋打开|所有区域打开"
+  all_off: "全屋关闭|全家关闭|整屋关闭|所有区域关闭"
+  open_cover: "拉开|升起|打开"
+  close_cover: "拉上|降下|关闭"
+  brightness: "(亮度|明亮度|光亮度)"
+  volume: "(音量|声音|声量)"
+  temperature: "(温度|气温|室温)"
+  light: "(灯|吸顶灯|筒灯|射灯|台灯|床头灯|灯光)[的]"
+  brightness_level: "<1-100>"
+  volume_level: "<0-100>"
+  percentage: "<0-100>"
+  timer_duration: "<1-60>"
+  temperature_level: "<16-30>"
+  to: "(为|到|成|至)"
+  set_to: "(设置|设定|调节|调|设)(为|到|至)"
+  color: "红色|绿色|蓝色|黄色|白色|橙色|紫色|粉色|棕色|灰色|青色|金色|银色|彩色"
+  action_verbs: "打开|开启|关闭|关上|启动|停止|设置|调节|切换|改成|改为|拉开|升到|拉上|降下|调整为|创建|添加|开始|取消|结束|删除|播放|收听|唱|放"
+  function_verbs: "查询|查看|看看|分析|检查|观察|识别|告诉我|记住|记录|记一下|备忘|提醒我|提醒|提示我|创建|发送|做个"
+  aux_words: "在|用|从|到|成|为|给|向|往|一下|下|这个|那个"
+  floor: "(一楼|二楼|三楼|四楼|五楼|六楼|七楼|八楼|九楼|十楼|一楼|底层|顶楼)[的]"
+  area_floor: "<area>[的]<floor>"
+  in_area_floor: "[在]<area_floor>"
+  here: "(这里|这儿|这边|这)"
+  how_is: "(怎么样|如何|状态)"
+  lockable: "(门锁|智能锁|电子锁|密码锁|指纹锁|锁)"
+  clean: "(清扫|打扫|吸尘|拖地|洗地)"
+  color_temp: "(色温|冷暖|色温值)"
+  currently: "(现在|当前|目前|此时)"
+  state: "(状态|情况|状况)"
+  the: "(这个|那个|这|那)[的]"
+  home: "(家|屋|室内|房子)"
+  everywhere: "(到处|处处|全屋|全家|每个|各个|所有)"
+  all: "(所有|全部|各个|每个|一切|整屋|全家)"
+  what_is: "(是什么|是多少|几|什么)"
+  pause: "(暂停|停|停下)"
+  resume: "(继续|恢复|接着)"
+  next: "(下一首|下一个|切歌|跳过)"
+  previous: "(上一首|上一个|回退|退回)"
+  start: "(开始|启动|启动|开启)"
+  return: "(回去|返回|回巢|回充|回基站)"
+  add: "(添加|增加|加|新增|放进|加入)"
+  add_to: "(到|至|进入|进去|里面)"
+  weather: "(天气|气象|天候)"
+  date: "(日期|号|几号|星期几|周几|今天几号)"
+  time: "(时间|几点|几时|现在几点)"
+  like: "(怎么样|如何)"
+  which: "(哪个|哪些|哪几个)"
+  how_many_is: "(多少|几个|几台|几部)"
+  area: "[在]<area_names>[的]"
+  name: "{name}"
+  today: "(今天|今日|本日)"
+
+skip_words:
+  - "请"
+  - "帮我"
+  - "麻烦"
+  - "给"
+  - "能否"
+  - "可以吗"
+  - "麻烦您"
+  - "劳驾"
+  - "拜托"
+  - "请问"
+  - "把"
+  - "一下"
+  - "吧"
+  - "啊"
+  - "呢"
+  - "嘛"
+  - "哈"
+  - "哦"
+  - "呀"
+  - "的"
+  - "了"
+  - "过"
+
+device_operations:
+  verification:
+    total_timeout: 3
+    max_retries: 3
+    wait_times: [0.5, 0.8, 1.1]
+  defaults:
+    global_keywords: ["所有", "全部", "一切"]
+    local_features: ["所有设备", "全部设备", "所有灯", "全部灯"]
+    error_messages:
+      llm_config_error: "LLM配置出现问题，请检查集成设置。"
+    timeouts:
+      device_verification: 3
+      config_cache_ttl: 30
+  control_operations:
+    light: ["light.turn_on", "light.turn_off", "light.toggle", "light.set_brightness", "light.set_color"]
+    switch: ["switch.turn_on", "switch.turn_off", "switch.toggle"]
+    climate: ["climate.turn_on", "climate.turn_off", "climate.set_temperature", "climate.set_hvac_mode", "climate.set_fan_mode"]
+    fan: ["fan.turn_on", "fan.turn_off", "fan.set_speed", "fan.set_direction"]
+    cover: ["cover.open_cover", "cover.close_cover", "cover.set_cover_position", "cover.stop_cover", "cover.toggle_cover"]
+    media_player: ["media_player.media_play", "media_player.media_pause", "media_player.media_stop", "media_player.volume_set", "media_player.volume_mute", "media_player.toggle_mute", "media_player.media_play_pause"]
+    lock: ["lock.unlock", "lock.lock"]
+    vacuum: ["vacuum.start", "vacuum.pause", "vacuum.stop", "vacuum.return_to_base"]
+    script: ["script.turn_on", "script.turn_off", "script.toggle"]
+    scene: ["scene.turn_on"]
+    valve: ["valve.open", "valve.close", "valve.set_position"]

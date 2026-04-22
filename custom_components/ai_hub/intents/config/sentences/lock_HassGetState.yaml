@@ -1,0 +1,13 @@
+language: "zh-CN"
+intents:
+  HassGetState:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <function_verbs>[<area>]{name}[的锁](是不是|有没有){lock_states:state}"
+          - "[<let>] [<area>]{name}[的锁][是|有]{lock_states:state}[吗|不]"
+        response: one_yesno
+        requires_context:
+          domain: lock
+        slots:
+          domain: lock

@@ -1,0 +1,6 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassGetState:
+      default: "{{ slots.name }}的状态是{{ state.state }}"
+      one_yesno: "{{ slots.name }}是{{ state.state_with_unit }}"

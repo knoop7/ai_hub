@@ -1,0 +1,6 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassTurnOn:
+      default: "已打开{{ slots.name }}"
+      area: "已打开{{ slots.area }}的{{ slots.name }}"

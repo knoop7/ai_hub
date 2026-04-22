@@ -1,0 +1,16 @@
+language: "zh-CN"
+intents:
+  HassMediaNext:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <next><item>"
+          - "[<let>] <next><item>[<area>]<media_player_names>"
+          - "[<let>] <next><item><name>"
+          - "下一首"
+          - "下一个"
+          - "[<let>]切歌"
+          - "[<let>]跳过"
+        requires_context:
+          area:
+            slot: true

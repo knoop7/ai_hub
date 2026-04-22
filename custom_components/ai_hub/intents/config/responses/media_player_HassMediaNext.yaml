@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassMediaNext:
+      default: "已切换到下一个"

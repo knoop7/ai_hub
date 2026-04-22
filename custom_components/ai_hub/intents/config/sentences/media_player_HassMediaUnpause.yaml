@@ -1,0 +1,15 @@
+language: "zh-CN"
+intents:
+  HassMediaUnpause:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "<resume>"
+          - "[<let>] <resume><name>"
+          - "[<let>] <resume><area><media_player_names>"
+          - "继续[播放]"
+          - "[<let>]继续<name>"
+          - "[<let>]继续<area>[的]<media_player_names>"
+        requires_context:
+          area:
+            slot: true

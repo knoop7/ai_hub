@@ -7,16 +7,24 @@ from typing import Any
 
 from homeassistant.exceptions import HomeAssistantError
 
+from ..consts import DOMAIN
+
 
 def extract_generated_image_payload(result: dict[str, Any]) -> dict[str, str]:
     """Extract the first generated image payload from an API response."""
     data = result.get("data")
     if not isinstance(data, list) or not data:
-        raise HomeAssistantError("No image data in response")
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="image_response_missing_data",
+        )
 
     image_data = data[0]
     if not isinstance(image_data, dict):
-        raise HomeAssistantError("Invalid image data in response")
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="image_response_invalid_data",
+        )
 
     image_url = image_data.get("url")
     if isinstance(image_url, str) and image_url:
@@ -26,7 +34,10 @@ def extract_generated_image_payload(result: dict[str, Any]) -> dict[str, str]:
     if isinstance(b64_json, str) and b64_json:
         return {"image_base64": b64_json}
 
-    raise HomeAssistantError("No image URL or base64 data in response")
+    raise HomeAssistantError(
+        translation_domain=DOMAIN,
+        translation_key="image_response_missing_payload",
+    )
 
 
 def decode_base64_image(image_base64: str) -> bytes:

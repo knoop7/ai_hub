@@ -19,13 +19,14 @@ import os
 import tempfile
 
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from ..consts import (
     DOMAIN,
     EDGE_TTS_VOICES,
     TTS_DEFAULT_VOICE,
 )
+from ..helpers import translation_placeholders
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,20 +49,27 @@ async def handle_tts_speech(
     try:
         edge_tts = _check_edge_tts()
         if not edge_tts:
-            return {
-                "success": False,
-                "error": "edge_tts 库未安装，请先安装: pip install edge-tts"
-            }
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="tts_edge_tts_not_installed",
+            )
 
         text = call.data["text"]
         voice = call.data.get("voice", TTS_DEFAULT_VOICE)
         media_player_entity = call.data.get("media_player_entity")
 
         if not text or not text.strip():
-            raise ServiceValidationError("文本内容不能为空")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="tts_text_required",
+            )
 
         if voice not in EDGE_TTS_VOICES:
-            raise ServiceValidationError(f"不支持的语音类型: {voice}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="tts_unsupported_voice",
+                translation_placeholders=translation_placeholders(voice=voice),
+            )
 
         _LOGGER.debug("Edge TTS: text='%s', voice='%s'", text[:50], voice)
 
@@ -74,7 +82,10 @@ async def handle_tts_speech(
                 audio_bytes += chunk["data"]
 
         if not audio_bytes:
-            return {"success": False, "error": "未生成音频数据"}
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="tts_no_audio_generated",
+            )
 
         audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
 
@@ -104,7 +115,7 @@ async def handle_tts_speech(
 
                 return {
                     "success": True,
-                    "message": "语音播放成功",
+                    "message": "playback_success",
                     "media_player": media_player_entity,
                     "voice": voice,
                 }
@@ -126,10 +137,16 @@ async def handle_tts_speech(
 
     except ServiceValidationError as exc:
         _LOGGER.error("TTS service validation error: %s", exc)
-        return {"success": False, "error": str(exc)}
+        raise
+    except HomeAssistantError:
+        raise
     except Exception as exc:
         _LOGGER.error("TTS service error: %s", exc, exc_info=True)
-        return {"success": False, "error": f"TTS 生成失败: {exc}"}
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="tts_generation_failed",
+            translation_placeholders=translation_placeholders(error=exc),
+        ) from exc
 
 
 async def handle_tts_stream(
@@ -140,20 +157,27 @@ async def handle_tts_stream(
     try:
         edge_tts = _check_edge_tts()
         if not edge_tts:
-            return {
-                "success": False,
-                "error": "edge_tts 库未安装，请先安装: pip install edge-tts"
-            }
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="tts_edge_tts_not_installed",
+            )
 
         text = call.data["text"]
         voice = call.data.get("voice", TTS_DEFAULT_VOICE)
         chunk_size = call.data.get("chunk_size", 4096)
 
         if not text or not text.strip():
-            raise ServiceValidationError("文本内容不能为空")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="tts_text_required",
+            )
 
         if voice not in EDGE_TTS_VOICES:
-            raise ServiceValidationError(f"不支持的语音类型: {voice}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="tts_unsupported_voice",
+                translation_placeholders=translation_placeholders(voice=voice),
+            )
 
         _LOGGER.info("Starting streaming TTS: text='%s', voice='%s'", text[:50], voice)
 
@@ -212,12 +236,18 @@ async def handle_tts_stream(
             "voice": voice,
             "total_chunks": chunk_count,
             "total_bytes": total_bytes,
-            "message": "音频流已通过事件总线推送，请监听 ai_hub_tts_stream_chunk 事件",
+            "message": "stream_pushed",
         }
 
     except ServiceValidationError as exc:
         _LOGGER.error("Streaming TTS validation error: %s", exc)
-        return {"success": False, "error": str(exc)}
+        raise
+    except HomeAssistantError:
+        raise
     except Exception as exc:
         _LOGGER.error("Streaming TTS error: %s", exc, exc_info=True)
-        return {"success": False, "error": f"流式 TTS 生成失败: {exc}"}
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="tts_stream_generation_failed",
+            translation_placeholders=translation_placeholders(error=exc),
+        ) from exc

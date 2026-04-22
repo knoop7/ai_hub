@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    AIAssistantIntent:
+      default: "好的"

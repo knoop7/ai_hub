@@ -35,10 +35,19 @@ class ConfigCache:
         return get_global_config()
 
     def _get_defaults(self) -> dict[str, Any]:
-        """获取默认配置."""
+        """获取默认配置.
+
+        在新架构中, defaults 位于 device_operations.defaults 下;
+        同时兼容旧架构的顶级 defaults 键.
+        """
         config = self._get_ai_hub_intent_config()
-        if config:
-            return config.get('defaults', {})
+        if not config:
+            return {}
+        if 'defaults' in config:
+            return config['defaults']
+        device_ops = config.get('device_operations', {})
+        if 'defaults' in device_ops:
+            return device_ops['defaults']
         return {}
 
     def get_global_keywords(self) -> list[str]:
@@ -70,26 +79,27 @@ class ConfigCache:
     def get_responses_config(self) -> dict[str, Any]:
         """获取响应配置."""
         config = self._get_ai_hub_intent_config()
-        if config:
-            if 'responses' in config:
-                return config['responses']
-            defaults = config.get('defaults', {})
-            if 'responses' in defaults:
-                return defaults['responses']
-
+        if config and 'responses' in config:
+            return config['responses']
         return {}
 
     def get_verification_config(self) -> dict[str, Any]:
-        """获取验证配置."""
+        """获取验证配置.
+
+        在新架构中, verification 位于 device_operations.verification 下;
+        同时兼容旧架构的顶级 verification 和 defaults.verification 键.
+        """
         config = self._get_ai_hub_intent_config()
         if config:
+            device_ops = config.get('device_operations', {})
+            if 'verification' in device_ops:
+                return device_ops['verification']
             if 'verification' in config:
                 return config['verification']
-            defaults = config.get('defaults', {})
+            defaults = self._get_defaults()
             if 'verification' in defaults:
                 return defaults['verification']
 
-        # 最后的硬编码备用值
         return {
             'total_timeout': 3,
             'max_retries': 3,

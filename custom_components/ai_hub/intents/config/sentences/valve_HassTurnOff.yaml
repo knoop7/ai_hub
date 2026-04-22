@@ -1,0 +1,10 @@
+language: "zh-CN"
+intents:
+  HassValveClose:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [关闭]{name}"
+          - "[<let>] {name}[关闭]"
+        requires_context:
+          domain: "valve"

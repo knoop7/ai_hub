@@ -1,0 +1,10 @@
+language: "zh-CN"
+intents:
+  HassRespond:
+    bypass_home_assistant: true
+    data:
+      - sentences:
+          - "你好"
+          - "嗨"
+          - "你好啊"
+          - "哈喽"

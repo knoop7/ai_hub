@@ -1,0 +1,14 @@
+language: "zh-CN"
+intents:
+  HassClimateGetTemperature:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <what_is>{name}<temperature>"
+          - "[<let>] <what_is><area><climate_names><temperature>"
+          - "[<let>] <what_is>{area}<temperature>"
+          - "<area>[的]<climate_names>[现在|当前]<what_is>多少度"
+          - "<area>[的]<climate_names><temperature><like>"
+          - "{name}<temperature><like>"
+        requires_context:
+          domain: climate

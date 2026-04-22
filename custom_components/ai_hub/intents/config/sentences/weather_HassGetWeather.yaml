@@ -1,0 +1,11 @@
+language: "zh-CN"
+intents:
+  HassGetWeather:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <what_is><area><weather>"
+          - "[<let>] <what_is><weather>"
+          - "<area><weather><like>"
+          - "<area><weather>怎么样"
+          - "今天天气[怎么样|如何]"

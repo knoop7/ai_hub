@@ -1,0 +1,20 @@
+language: "zh-CN"
+intents:
+  HassGetState:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <function_verbs>[<area>]{name}[是不是|有没有]<bs_door_states:state>"
+          - "[<let>] [<area>]{name}[是|有]<bs_door_states:state>[吗|不]"
+        response: one_yesno
+        requires_context:
+          domain: binary_sensor
+        slots:
+          domain: binary_sensor
+      - sentences:
+          - "[<let>] <function_verbs>[<area>]{name}[是不是|有没有]<bs_motion_states:state>"
+        response: one_yesno
+        requires_context:
+          domain: binary_sensor
+        slots:
+          domain: binary_sensor

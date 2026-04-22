@@ -12,15 +12,12 @@ from __future__ import annotations
 
 from dataclasses import replace
 import logging
-from types import SimpleNamespace
 from typing import Any, Literal
 
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import intent, llm
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .consts import CONF_LLM_HASS_API, CONF_PROMPT, DOMAIN, LLM_API_ASSIST, SUBENTRY_CONVERSATION
@@ -30,7 +27,6 @@ from .intents import get_config_cache
 _LOGGER = logging.getLogger(__name__)
 
 MATCH_ALL: Literal["*"] = "*"
-FALLBACK_AGENT_NAME = "AI Hub Local Assist"
 
 
 async def async_setup_entry(
@@ -48,14 +44,8 @@ async def async_setup_entry(
     ]
 
     if not conversation_subentries:
-        async_add_entities([AIHubLocalConversationAgent(config_entry)])
-        _LOGGER.debug(
-            "Created fallback local conversation agent for entry: %s",
-            config_entry.entry_id,
-        )
+        _LOGGER.debug("No conversation subentries found for entry: %s", config_entry.entry_id)
         return
-
-    _remove_fallback_entity_registry_entry(hass, config_entry)
 
     for subentry in conversation_subentries:
         _LOGGER.debug("Processing subentry: %s, type: %s", subentry.subentry_id, subentry.subentry_type)
@@ -65,35 +55,6 @@ async def async_setup_entry(
             config_subentry_id=subentry.subentry_id,
         )
         _LOGGER.debug("Created conversation agent for subentry: %s", subentry.subentry_id)
-
-
-def _remove_fallback_entity_registry_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-) -> None:
-    """Remove stale fallback entity and device once a formal agent exists."""
-    entity_registry = er.async_get(hass)
-    fallback_entity_id = entity_registry.async_get_entity_id(
-        conversation.DOMAIN,
-        DOMAIN,
-        f"{config_entry.entry_id}_local_assist",
-    )
-    if not fallback_entity_id:
-        return
-
-    entity_registry.async_remove(fallback_entity_id)
-    _LOGGER.debug("Removed stale fallback local conversation entity: %s", fallback_entity_id)
-
-    device_registry = dr.async_get(hass)
-    fallback_device = device_registry.async_get_device(
-        identifiers={(DOMAIN, f"{config_entry.entry_id}_local_assist")},
-    )
-    if fallback_device is not None:
-        device_registry.async_remove_device(fallback_device.id)
-        _LOGGER.debug(
-            "Removed stale fallback local conversation device: %s",
-            fallback_device.id,
-        )
 
 
 class AIHubConversationAgent(
@@ -111,7 +72,6 @@ class AIHubConversationAgent(
         subentry: ConfigSubentry,
         *,
         warn_on_missing_api_key: bool = True,
-        force_control_feature: bool = False,
     ) -> None:
         """Initialize the agent."""
         from .consts import RECOMMENDED_CHAT_MODEL
@@ -126,9 +86,7 @@ class AIHubConversationAgent(
         # 初始化配置缓存
         self._config_cache = get_config_cache()
 
-        # Formal agents expose control when LLM tools are enabled, while the
-        # fallback local agent forces control support explicitly.
-        if force_control_feature or self.subentry.data.get(CONF_LLM_HASS_API):
+        if self.subentry.data.get(CONF_LLM_HASS_API):
             self._attr_supported_features = (
                 conversation.ConversationEntityFeature.CONTROL
             )
@@ -476,47 +434,3 @@ class AIHubConversationAgent(
         except Exception as err:
             _LOGGER.debug("Error checking whether to skip HA processing: %s", err)
             return False
-
-
-class AIHubLocalConversationAgent(AIHubConversationAgent):
-    """Fallback local-only conversation agent shown when no formal agent exists."""
-
-    def __init__(self, entry: ConfigEntry) -> None:
-        """Initialize the fallback agent."""
-        from .consts import RECOMMENDED_CHAT_MODEL
-
-        fallback_subentry = SimpleNamespace(
-            subentry_id=f"{entry.entry_id}_local_assist",
-            title=FALLBACK_AGENT_NAME,
-            data={},
-            subentry_type=SUBENTRY_CONVERSATION,
-        )
-        super().__init__(
-            entry,
-            fallback_subentry,
-            warn_on_missing_api_key=False,
-            force_control_feature=True,
-        )
-
-    async def _async_handle_message(
-        self,
-        user_input: conversation.ConversationInput,
-        chat_log: conversation.ChatLog,
-    ) -> conversation.ConversationResult:
-        """Process a sentence using only local and built-in intents."""
-        local_or_builtin_result = await self._async_handle_local_and_builtin_intents(
-            user_input,
-            chat_log,
-        )
-        if local_or_builtin_result is not None:
-            return local_or_builtin_result
-
-        empty_response = intent.IntentResponse(language=user_input.language)
-        if (user_input.language or "").lower().startswith("en"):
-            empty_response.async_set_speech("Current mode only supports local intents")
-        else:
-            empty_response.async_set_speech("当前模式仅支持本地意图")
-        return conversation.ConversationResult(
-            response=empty_response,
-            conversation_id=chat_log.conversation_id,
-        )

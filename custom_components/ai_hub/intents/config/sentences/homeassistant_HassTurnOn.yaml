@@ -1,0 +1,12 @@
+language: "zh-CN"
+intents:
+  HassTurnOn:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <turn_on>[<area>]{name}"
+          - "[<let>] [把][<area>]{name}[打开|开启]"
+          - "[<let>] <turn_on>{area_names}[所有|所有的|全部|全部的]{light_names}"
+          - "[<let>] [把]{area_names}[所有|所有的|全部|全部的]{light_names}[打开|开启]"
+        slots:
+          domain: all

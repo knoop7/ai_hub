@@ -1,0 +1,7 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassShoppingListAddItem:
+      default: "已将{{ slots.item }}添加到购物清单"
+    HassShoppingListCompleteItem:
+      default: "已完成{{ slots.item }}"

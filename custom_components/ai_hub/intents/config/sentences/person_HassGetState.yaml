@@ -1,0 +1,13 @@
+language: "zh-CN"
+intents:
+  HassGetState:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <function_verbs>[<area>]{name}[在|是不是]家[吗|不]"
+          - "[<let>] [<area>]{name}[在不在][家|这里]"
+        response: one_yesno
+        requires_context:
+          domain: person
+        slots:
+          domain: person

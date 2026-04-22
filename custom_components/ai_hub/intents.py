@@ -7,8 +7,6 @@ from __future__ import annotations
 
 # 从新模块导入所有公共接口
 from .intents import (
-    # 意图处理器
-    ChineseIntentHandler,
     # 配置缓存
     ConfigCache,
     LocalIntentHandler,
@@ -32,7 +30,6 @@ __all__ = [
     "get_device_operations_config",
     "get_device_verification_config",
     "is_device_operation",
-    "ChineseIntentHandler",
     "LocalIntentHandler",
     "get_global_intent_handler",
     "get_local_intents_config",

@@ -1,0 +1,9 @@
+language: "zh-CN"
+intents:
+  HassShoppingListAddItem:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [添加]{item}[到][购物清单]"
+          - "[<let>] [买]{item}"
+          - "[<let>] {item}[加入][购物清单]"

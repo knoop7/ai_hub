@@ -15,6 +15,8 @@ def format_response_message(template: str, **kwargs: Any) -> str:
         "count": kwargs.get("count", 0),
         "temperature": kwargs.get("temperature", ""),
         "brightness": kwargs.get("brightness", ""),
+        "direction": kwargs.get("direction", ""),
+        "amount": kwargs.get("amount", ""),
         "color": kwargs.get("color", ""),
         "volume": kwargs.get("volume", ""),
         "position": kwargs.get("position", ""),

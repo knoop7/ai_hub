@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassCoverSetPosition:
+      default: "已将{{ slots.name }}的位置调至{{ slots.percentage }}"

@@ -1,0 +1,14 @@
+language: "zh-CN"
+intents:
+  HassListCompleteItem:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [完成]{name}[的]<item>"
+          - "[<let>] {name}[的]<item>[完成]"
+          - "[<let>] [标记]{name}[的]<item>[为][完成]"
+        slots:
+          item:
+            type: text
+          name:
+            type: text

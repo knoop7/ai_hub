@@ -1,0 +1,10 @@
+language: "zh-CN"
+intents:
+  HassTurnOn:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <turn_on>[<area>]<lock_names>"
+          - "[<let>] [把][<area>]<lock_names>[打开|解锁|开锁]"
+        requires_context:
+          domain: lock

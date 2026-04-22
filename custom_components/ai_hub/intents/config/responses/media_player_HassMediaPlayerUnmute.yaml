@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassMediaUnmute:
+      default: "已取消{{ slots.name }}静音"

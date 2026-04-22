@@ -1,0 +1,11 @@
+language: "zh-CN"
+intents:
+  HassVacuumStart:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <start>{name}"
+          - "[<let>] <start>[<area>]<vacuum_names>"
+          - "[<let>] <start><area>"
+        requires_context:
+          domain: vacuum

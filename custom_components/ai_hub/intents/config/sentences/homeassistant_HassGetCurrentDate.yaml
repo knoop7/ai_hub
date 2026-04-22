@@ -1,0 +1,12 @@
+language: "zh-CN"
+intents:
+  HassGetCurrentDate:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <what_is><today><date>"
+          - "今天几号"
+          - "今天日期[是]什么"
+          - "今天是几月几号"
+          - "今天[是]星期几"
+          - "[<let>] <what_is>今天的日期"

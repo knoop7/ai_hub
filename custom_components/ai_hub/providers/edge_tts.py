@@ -205,7 +205,7 @@ class EdgeTTSProvider(TTSProvider):
             raise RuntimeError("edge_tts package is not installed")
 
         if not text or not text.strip():
-            raise ValueError("Text content cannot be empty")
+            raise ValueError("text_required")
 
         resolved_voice = self._resolve_voice(voice)
 
@@ -238,7 +238,7 @@ class EdgeTTSProvider(TTSProvider):
                     audio_bytes += chunk["data"]
 
             if not audio_bytes:
-                raise RuntimeError("No audio data generated")
+                raise RuntimeError("no_audio_generated")
 
             return TTSResult(
                 audio_data=audio_bytes,
@@ -247,7 +247,7 @@ class EdgeTTSProvider(TTSProvider):
 
         except edge_tts.exceptions.NoAudioReceived as exc:
             _LOGGER.warning("Edge TTS received no audio for: %s", text[:50])
-            raise RuntimeError(f"TTS received no audio: {text[:50]}") from exc
+            raise RuntimeError("no_audio_received") from exc
 
     async def synthesize_stream(
         self,

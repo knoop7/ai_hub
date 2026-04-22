@@ -6,7 +6,6 @@ import logging
 
 from .config_cache import ConfigCache, get_config_cache
 from .handlers import (
-    ChineseIntentHandler,
     LocalIntentHandler,
     get_global_intent_handler,
     get_local_intents_config,
@@ -34,7 +33,6 @@ __all__ = [
     "get_device_verification_config",
     "is_device_operation",
     # 意图处理器
-    "ChineseIntentHandler",
     "LocalIntentHandler",
     "get_global_intent_handler",
     "get_local_intents_config",

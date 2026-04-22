@@ -1,0 +1,10 @@
+language: "zh-CN"
+intents:
+  HassVacuumCleanArea:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <clean><area>"
+          - "[<let>] <clean><area>[用]{name}"
+        requires_context:
+          domain: vacuum

@@ -1,0 +1,11 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassVacuumStart:
+      default: "已启动{{ slots.name }}"
+    HassVacuumReturnToBase:
+      default: "已让{{ slots.name }}返回充电座"
+    HassVacuumCleanArea:
+      default: "已让{{ slots.name }}开始清扫{{ slots.area }}"
+    HassVacuumSetMode:
+      default: "已将{{ slots.name }}切换到{{ slots.mode }}模式"

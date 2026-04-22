@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassSetVolume:
+      default: "已将{{ slots.name }}的音量调至{{ slots.volume_percentage }}"

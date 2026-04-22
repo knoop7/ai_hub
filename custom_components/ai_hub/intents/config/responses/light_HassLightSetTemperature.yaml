@@ -1,0 +1,5 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassLightSetTemperature:
+      default: "已将{{ slots.name }}的色温调至{{ slots.percentage }}"

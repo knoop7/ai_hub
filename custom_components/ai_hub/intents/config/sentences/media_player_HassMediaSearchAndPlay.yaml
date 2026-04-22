@@ -1,0 +1,48 @@
+language: "zh-CN"
+intents:
+  MassPlayMediaAssist:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] [<aux_words>]<area><media_action>{media_query}"
+          - "[<let>] [<aux_words>]{name}<media_action>{media_query}"
+          - "[<let>] <media_action>{media_query}"
+        slots:
+          media_query:
+            type: text
+      - sentences:
+          - "[<let>] [<aux_words>]<area><media_action>(歌手|艺术家){artist}的(歌|音乐)"
+          - "[<let>] [<aux_words>]<area><media_action><album>{album}"
+          - "[<let>] [<aux_words>]<area><media_action><track>{track}"
+          - "[<let>] [<aux_words>]<area><media_action><playlist>{playlist}"
+          - "[<let>] [<aux_words>]<area><media_action><radio_station>{radio}"
+          - "[<let>] [<aux_words>]<area><media_action><podcast>{podcast}"
+          - "[<let>] [<aux_words>]<area><media_action><movie>{movie}"
+          - "[<let>] [<aux_words>]<area><media_action><tv_show>{tv_show}"
+          - "[<let>] [<aux_words>]{name}<media_action>(歌手|艺术家){artist}的(歌|音乐)"
+          - "[<let>] [<aux_words>]{name}<media_action><album>{album}"
+          - "[<let>] [<aux_words>]{name}<media_action><track>{track}"
+          - "[<let>] [<aux_words>]{name}<media_action><playlist>{playlist}"
+          - "[<let>] [<aux_words>]{name}<media_action><radio_station>{radio}"
+          - "[<let>] [<aux_words>]{name}<media_action><podcast>{podcast}"
+          - "[<let>] [<aux_words>]{name}<media_action><movie>{movie}"
+          - "[<let>] [<aux_words>]{name}<media_action><tv_show>{tv_show}"
+          - "[<let>] <media_action>(歌手|艺术家){artist}的(歌|音乐)"
+          - "[<let>] <media_action><album>{album}"
+          - "[<let>] <media_action><track>{track}"
+          - "[<let>] <media_action><playlist>{playlist}"
+          - "[<let>] <media_action><radio_station>{radio}"
+          - "[<let>] <media_action><podcast>{podcast}"
+          - "[<let>] <media_action><movie>{movie}"
+          - "[<let>] <media_action><tv_show>{tv_show}"
+        expansion_rules:
+          media_action: "(播放|收听|唱|放)"
+          track: "(歌曲|音乐)"
+          album: "(专辑|唱片|合集|单曲)"
+          playlist: "(播放列表)"
+          radio_station: "(广播电台|电台|频道)"
+          podcast: "(播客|节目)"
+          movie: "(电影|影片)"
+          tv_show: "(电视剧|剧集|节目)"
+        requires_context:
+          domain: "media_player"

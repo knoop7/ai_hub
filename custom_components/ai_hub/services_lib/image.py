@@ -38,6 +38,7 @@ from ..consts import (
     TIMEOUT_CHAT_API,
     TIMEOUT_IMAGE_API,
 )
+from ..helpers import translation_placeholders
 from .image_utils import extract_generated_image_payload
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,36 +51,64 @@ async def load_image_from_file(hass: HomeAssistant, image_file: str) -> bytes:
             image_file = os.path.join(hass.config.config_dir, image_file)
 
         if not os.path.exists(image_file):
-            raise ServiceValidationError(f"图像文件不存在: {image_file}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="image_file_not_found",
+                translation_placeholders=translation_placeholders(path=image_file),
+            )
 
         if os.path.isdir(image_file):
-            raise ServiceValidationError(f"提供的路径是一个目录: {image_file}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="path_is_directory",
+                translation_placeholders=translation_placeholders(path=image_file),
+            )
 
         with open(image_file, "rb") as f:
             return f.read()
 
     except IOError as err:
-        raise ServiceValidationError(f"读取图像文件失败: {err}")
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="image_file_read_failed",
+            translation_placeholders=translation_placeholders(error=err),
+        ) from err
 
 
 async def load_image_from_camera(hass: HomeAssistant, entity_id: str) -> bytes:
     """Load image from camera entity."""
     try:
         if not entity_id.startswith("camera."):
-            raise ServiceValidationError(f"无效的摄像头实体ID: {entity_id}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="image_invalid_camera_entity",
+                translation_placeholders=translation_placeholders(entity_id=entity_id),
+            )
 
         if not hass.states.get(entity_id):
-            raise ServiceValidationError(f"摄像头实体不存在: {entity_id}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="image_camera_not_found",
+                translation_placeholders=translation_placeholders(entity_id=entity_id),
+            )
 
         image = await camera.async_get_image(hass, entity_id, timeout=TIMEOUT_CAMERA_IMAGE)
 
         if not image or not image.content:
-            raise ServiceValidationError(f"无法从摄像头获取图像: {entity_id}")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="image_camera_unavailable",
+                translation_placeholders=translation_placeholders(entity_id=entity_id),
+            )
 
         return image.content
 
     except (camera.CameraEntityImageError, TimeoutError) as err:
-        raise ServiceValidationError(f"获取摄像头图像失败: {err}")
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="image_camera_fetch_failed",
+            translation_placeholders=translation_placeholders(error=err),
+        ) from err
 
 
 async def process_image(
@@ -157,7 +186,11 @@ async def handle_stream_response(hass: HomeAssistant, response: aiohttp.ClientRe
 
     except Exception as err:
         _LOGGER.error("Error handling stream response: %s", err)
-        return {"success": False, "error": str(err)}
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="image_stream_failed",
+            translation_placeholders=translation_placeholders(error=err),
+        ) from err
 
 
 async def handle_analyze_image(
@@ -169,10 +202,10 @@ async def handle_analyze_image(
     """Handle image analysis service call."""
     try:
         if not api_key or not api_key.strip():
-            return {
-                "success": False,
-                "error": "SiliconFlow API密钥未配置，请先在集成配置中设置API密钥"
-            }
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="service_api_key_not_configured",
+            )
 
         image_data = None
 
@@ -182,7 +215,10 @@ async def handle_analyze_image(
             image_data = await load_image_from_camera(hass, image_entity)
 
         if not image_data:
-            raise ServiceValidationError("必须提供 image_file 或 image_entity 参数")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="image_source_required",
+            )
 
         processed_image_data = await process_image(image_data)
         base64_image = base64.b64encode(processed_image_data).decode()
@@ -225,7 +261,13 @@ async def handle_analyze_image(
                 if response.status != 200:
                     error_text = await response.text()
                     _LOGGER.error("API request failed: %s", error_text)
-                    raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: {error_text}")
+                    raise HomeAssistantError(
+                        translation_domain=DOMAIN,
+                        translation_key="api_request_failed",
+                        translation_placeholders=translation_placeholders(
+                            error=f"{ERROR_GETTING_RESPONSE}: {error_text}"
+                        ),
+                    )
 
                 if stream:
                     return await handle_stream_response(hass, response)
@@ -234,9 +276,15 @@ async def handle_analyze_image(
                     content = result["choices"][0]["message"]["content"]
                     return {"success": True, "content": content, "model": model}
 
+    except (ServiceValidationError, HomeAssistantError):
+        raise
     except Exception as err:
         _LOGGER.error("Error analyzing image: %s", err)
-        return {"success": False, "error": str(err)}
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="image_analyze_failed",
+            translation_placeholders=translation_placeholders(error=err),
+        ) from err
 
 
 async def handle_generate_image(
@@ -248,10 +296,10 @@ async def handle_generate_image(
     """Handle image generation service call."""
     try:
         if not api_key or not api_key.strip():
-            return {
-                "success": False,
-                "error": "SiliconFlow API密钥未配置，请先在集成配置中设置API密钥"
-            }
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="service_api_key_not_configured",
+            )
 
         prompt = call.data["prompt"]
         size = call.data.get("size", DEFAULT_IMAGE_SIZE)
@@ -274,7 +322,13 @@ async def handle_generate_image(
                 if response.status != 200:
                     error_text = await response.text()
                     _LOGGER.error("Image generation API request failed: %s", error_text)
-                    raise HomeAssistantError(f"{ERROR_GETTING_RESPONSE}: {error_text}")
+                    raise HomeAssistantError(
+                        translation_domain=DOMAIN,
+                        translation_key="api_request_failed",
+                        translation_placeholders=translation_placeholders(
+                            error=f"{ERROR_GETTING_RESPONSE}: {error_text}"
+                        ),
+                    )
 
                 result = await response.json()
                 image_payload = extract_generated_image_payload(result)
@@ -286,6 +340,12 @@ async def handle_generate_image(
                     "model": model,
                 }
 
+    except (ServiceValidationError, HomeAssistantError):
+        raise
     except Exception as err:
         _LOGGER.error("Error generating image: %s", err)
-        return {"success": False, "error": str(err)}
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="image_generate_failed",
+            translation_placeholders=translation_placeholders(error=err),
+        ) from err

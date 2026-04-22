@@ -1,0 +1,6 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassMediaPause:
+      default: "已暂停{{ slots.name }}"
+      area: "已暂停{{ slots.area }}的{{ slots.name }}"

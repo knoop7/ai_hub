@@ -52,6 +52,7 @@ from .consts import (
     TTS_DEFAULT_VOICES,
 )
 from .entity import AIHubEntityBase
+from .helpers import translation_placeholders
 from .utils.tts_cache import TTSCache
 
 # Create supported languages dynamically
@@ -232,7 +233,10 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
     ) -> bytes:
         """Process TTS with prosody support and caching."""
         if not message or not message.strip():
-            raise HomeAssistantError("Text content cannot be empty")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="tts_text_required",
+            )
 
         voice = self._resolve_voice(language, options)
 
@@ -273,7 +277,10 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
             )
 
             if not audio_bytes:
-                raise HomeAssistantError("No audio data generated")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="tts_no_audio_generated",
+                )
 
             # Store in cache
             cache.set(cache_key, audio_bytes)
@@ -283,7 +290,11 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
 
         except edge_tts.exceptions.NoAudioReceived as exc:
             _LOGGER.warning("Edge TTS received no audio: %s", message[:50])
-            raise HomeAssistantError(f"TTS received no audio: {message[:50]}") from exc
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="tts_no_audio_received",
+                translation_placeholders=translation_placeholders(message_preview=message[:50]),
+            ) from exc
         except Exception as exc:
             _LOGGER.error("Edge TTS generation failed: %s", exc)
             # Retry with default voice
@@ -308,7 +319,11 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
                         return audio_bytes
                 except Exception as retry_exc:
                     _LOGGER.error("Default voice retry failed: %s", retry_exc)
-            raise HomeAssistantError(f"TTS generation failed: {exc}") from exc
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="tts_generation_failed",
+                translation_placeholders=translation_placeholders(error=exc),
+            ) from exc
 
     # ========== 流式输出支持 ==========
 

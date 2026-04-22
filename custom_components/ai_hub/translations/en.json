@@ -89,7 +89,6 @@
             "image_url": "Image Generation API URL",
             "custom_api_key": "Custom API Key",
             "temperature": "Temperature",
-            "top_p": "Top P",
             "max_tokens": "Max Tokens"
           },
           "data_description": {
@@ -98,7 +97,6 @@
             "image_url": "Complete image generation API URL (default: SiliconFlow)",
             "custom_api_key": "Custom API key (leave empty to use main key)",
             "temperature": "Control creativity (0-2)",
-            "top_p": "Sampling parameter (0-1)",
             "max_tokens": "Maximum response length"
           }
         }
@@ -331,6 +329,173 @@
           "description": "Specify the component directory name to translate; leave empty to translate all components"
         }
       }
+    }
+  },
+  "exceptions": {
+    "service_not_initialized": {
+      "message": "AI Hub is not initialized"
+    },
+    "service_entry_not_found": {
+      "message": "AI Hub config entry not found: {entry_id}"
+    },
+    "service_subentry_missing": {
+      "message": "The selected config entry does not include a {subentry_type} subentry"
+    },
+    "service_no_available_config": {
+      "message": "No available AI Hub configuration found"
+    },
+    "service_multiple_configs": {
+      "message": "Multiple AI Hub configurations detected. Please specify config_entry_id in the service call"
+    },
+    "service_api_key_not_configured": {
+      "message": "API key is not configured. Please set it in the integration configuration first"
+    },
+    "service_execution_failed": {
+      "message": "{service_name} service error: {error}"
+    },
+    "path_is_directory": {
+      "message": "The provided path is a directory: {path}"
+    },
+    "api_request_failed": {
+      "message": "Error getting response: {error}"
+    },
+    "image_file_not_found": {
+      "message": "Image file not found: {path}"
+    },
+    "image_file_read_failed": {
+      "message": "Failed to read image file: {error}"
+    },
+    "image_invalid_camera_entity": {
+      "message": "Invalid camera entity ID: {entity_id}"
+    },
+    "image_camera_not_found": {
+      "message": "Camera entity not found: {entity_id}"
+    },
+    "image_camera_unavailable": {
+      "message": "Unable to get image from camera: {entity_id}"
+    },
+    "image_camera_fetch_failed": {
+      "message": "Failed to fetch camera image: {error}"
+    },
+    "image_source_required": {
+      "message": "Either image_file or image_entity must be provided"
+    },
+    "image_analyze_failed": {
+      "message": "Image analysis failed: {error}"
+    },
+    "image_stream_failed": {
+      "message": "Image stream handling failed: {error}"
+    },
+    "image_generate_failed": {
+      "message": "Image generation failed: {error}"
+    },
+    "image_response_missing_data": {
+      "message": "No image data in response"
+    },
+    "image_response_invalid_data": {
+      "message": "Invalid image data in response"
+    },
+    "image_response_missing_payload": {
+      "message": "No image URL or base64 data in response"
+    },
+    "entity_api_url_not_configured": {
+      "message": "API URL is not configured"
+    },
+    "entity_api_key_not_configured": {
+      "message": "API key is not configured"
+    },
+    "entity_unsupported_provider": {
+      "message": "Unsupported provider: {provider_name}"
+    },
+    "tts_edge_tts_not_installed": {
+      "message": "The edge_tts library is not installed. Please install it first: pip install edge-tts"
+    },
+    "tts_text_required": {
+      "message": "Text content cannot be empty"
+    },
+    "tts_unsupported_voice": {
+      "message": "Unsupported voice: {voice}"
+    },
+    "tts_no_audio_generated": {
+      "message": "No audio data generated"
+    },
+    "tts_no_audio_received": {
+      "message": "TTS received no audio: {message_preview}"
+    },
+    "tts_generation_failed": {
+      "message": "TTS generation failed: {error}"
+    },
+    "tts_stream_generation_failed": {
+      "message": "Streaming TTS generation failed: {error}"
+    },
+    "stt_audio_file_required": {
+      "message": "Audio file path cannot be empty"
+    },
+    "stt_unsupported_model": {
+      "message": "Unsupported model: {model}"
+    },
+    "stt_audio_file_not_found": {
+      "message": "Audio file not found: {path}"
+    },
+    "stt_audio_too_large_runtime": {
+      "message": "Audio file too large. Please use a file smaller than 10MB."
+    },
+    "stt_file_too_large": {
+      "message": "Audio file is too large. Maximum supported size is {max_size_mb}MB"
+    },
+    "stt_unsupported_audio_format_runtime": {
+      "message": "Unsupported audio format: {audio_format}. Supported: {supported_formats}"
+    },
+    "stt_unsupported_audio_format": {
+      "message": "Unsupported audio format: {file_ext}. Supported formats: {supported_formats}"
+    },
+    "stt_api_request_failed": {
+      "message": "STT API request failed: {status}"
+    },
+    "stt_http_request_failed": {
+      "message": "HTTP request failed: {status}"
+    },
+    "stt_api_response_invalid": {
+      "message": "API response format is invalid"
+    },
+    "stt_response_parse_failed": {
+      "message": "Failed to parse response: {error}"
+    },
+    "stt_network_request_failed": {
+      "message": "Network request failed: {error}"
+    },
+    "stt_network_request_failed_runtime": {
+      "message": "Speech recognition network request failed. Please try again."
+    },
+    "stt_request_timeout": {
+      "message": "Request timed out"
+    },
+    "stt_service_busy": {
+      "message": "Speech recognition service is temporarily busy. Please try again."
+    },
+    "stt_service_cannot_connect": {
+      "message": "Cannot connect to speech recognition service. Please check network."
+    },
+    "stt_service_timeout": {
+      "message": "Speech recognition timeout. Please try again."
+    },
+    "stt_failed_after_retries": {
+      "message": "Speech recognition failed after multiple retries."
+    },
+    "stt_cannot_connect_after_retries": {
+      "message": "Cannot connect to Silicon Flow server after retries. Please check network."
+    },
+    "stt_cannot_connect": {
+      "message": "Cannot connect to Silicon Flow server. Please check network."
+    },
+    "stt_response_missing_text": {
+      "message": "API response format error. Cannot find transcription text."
+    },
+    "stt_transcription_failed_runtime": {
+      "message": "ASR transcription failed: {error}"
+    },
+    "stt_transcription_failed": {
+      "message": "STT transcription failed: {error}"
     }
   },
   "title": "AI Hub"

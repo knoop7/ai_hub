@@ -7,6 +7,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from .config_resolver import resolve_entry_config
 from .consts import (
@@ -47,6 +48,7 @@ from .services_lib import (
     handle_tts_speech,
     handle_tts_stream,
 )
+from .helpers import translation_placeholders
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -92,12 +94,15 @@ def _entry_has_subentry_type(config_entry: Any, subentry_type: str) -> bool:
 def _resolve_service_entry(
     call: ServiceCall,
     subentry_type: str | None = None,
-) -> tuple[HomeAssistant | None, Any | None, str | None]:
+) -> tuple[HomeAssistant, Any]:
     """Resolve which config entry should handle a service call."""
     hass = _REGISTERED_HASS
     fallback_entry = _REGISTERED_ENTRY
     if hass is None:
-        return None, None, "AI Hub 未初始化"
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="service_not_initialized",
+        )
 
     contexts = _get_service_contexts(hass)
     explicit_entry_id = call.data.get("config_entry_id")
@@ -105,10 +110,18 @@ def _resolve_service_entry(
     if explicit_entry_id:
         config_entry = contexts.get(explicit_entry_id)
         if config_entry is None:
-            return hass, None, f"未找到 AI Hub 配置项: {explicit_entry_id}"
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="service_entry_not_found",
+                translation_placeholders=translation_placeholders(entry_id=explicit_entry_id),
+            )
         if subentry_type and not _entry_has_subentry_type(config_entry, subentry_type):
-            return hass, None, f"指定的配置项不包含 {subentry_type} 子项"
-        return hass, config_entry, None
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="service_subentry_missing",
+                translation_placeholders=translation_placeholders(subentry_type=subentry_type),
+            )
+        return hass, config_entry
 
     candidates = list(contexts.values())
     if subentry_type is not None:
@@ -122,26 +135,29 @@ def _resolve_service_entry(
         if fallback_entry is not None and (
             subentry_type is None or _entry_has_subentry_type(fallback_entry, subentry_type)
         ):
-            return hass, fallback_entry, None
-        return hass, None, "没有可用的 AI Hub 配置"
+            return hass, fallback_entry
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="service_no_available_config",
+        )
 
     if len(candidates) > 1:
-        return hass, None, "检测到多个 AI Hub 配置，请在服务中指定 config_entry_id"
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="service_multiple_configs",
+        )
 
-    return hass, candidates[0], None
+    return hass, candidates[0]
 
 
 def _resolve_service_config(
     call: ServiceCall,
     subentry_type: str,
     *values: tuple[str, Any],
-) -> tuple[HomeAssistant | None, Any | None, str | None]:
+) -> tuple[HomeAssistant, Any]:
     """Resolve the active config entry and derived runtime config for a service."""
-    hass, config_entry, error = _resolve_service_entry(call, subentry_type)
-    if error is not None or hass is None or config_entry is None:
-        return hass, None, error or "API密钥未配置"
-
-    return hass, resolve_entry_config(config_entry, subentry_type, *values), None
+    hass, config_entry = _resolve_service_entry(call, subentry_type)
+    return hass, resolve_entry_config(config_entry, subentry_type, *values)
 
 
 async def _handle_service_with_api_key(
@@ -152,14 +168,15 @@ async def _handle_service_with_api_key(
     handler,
 ) -> dict:
     """Resolve service config, validate API key, and call handler."""
-    hass, config, error = _resolve_service_config(call, subentry_type, *values)
-    if error is not None or hass is None or config is None:
-        return {"success": False, "error": error or "API密钥未配置"}
+    hass, config = _resolve_service_config(call, subentry_type, *values)
 
     handler_args = config_mapper(config)
     effective_key = handler_args[0]
     if not _has_configured_api_key(effective_key):
-        return {"success": False, "error": "API密钥未配置"}
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="service_api_key_not_configured",
+        )
     return await handler(hass, call, *handler_args)
 
 
@@ -170,19 +187,20 @@ async def _handle_translation_service(
     build_runner_kwargs,
 ) -> dict:
     """Resolve translation config and invoke the requested batch runner."""
-    _, config, error = _resolve_service_config(
+    _, config = _resolve_service_config(
         call,
         SUBENTRY_TRANSLATION,
         (CONF_CHAT_URL, AI_HUB_CHAT_URL),
         (CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
     )
-    if error is not None or config is None:
-        return {"success": False, "error": error or "API密钥未配置"}
 
     list_mode = bool(call.data.get("list_components") or call.data.get("list_blueprints"))
     chat_url, model, effective_key = config
     if not list_mode and not _has_configured_api_key(effective_key):
-        return {"success": False, "error": "API密钥未配置"}
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="service_api_key_not_configured",
+        )
 
     try:
         runner_kwargs = build_runner_kwargs(call, chat_url, model, effective_key, list_mode)
@@ -190,7 +208,14 @@ async def _handle_translation_service(
         return {"success": True, "result": result}
     except Exception as exc:
         _LOGGER.error("%s service error: %s", service_name, exc)
-        return {"success": False, "error": f"{service_name} service error: {exc}"}
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="service_execution_failed",
+            translation_placeholders=translation_placeholders(
+                service_name=service_name,
+                error=exc,
+            ),
+        ) from exc
 
 
 async def _handle_analyze_image(call: ServiceCall) -> dict:

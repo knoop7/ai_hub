@@ -1,0 +1,33 @@
+language: "zh-CN"
+intents:
+  HassCoverGetState:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <function_verbs>[<area>](窗帘|百叶|遮阳帘){name}[的]状态"
+          - "[<let>] [<area>](窗帘|百叶|遮阳帘){name}[是|不是]<action_verbs>[吗|不]"
+        response: one_yesno
+        requires_context:
+          domain: cover
+        slots:
+          domain: cover
+      - sentences:
+          - "[<let>] [{area}][有|有没有]{cover_classes:device_class}[是|不是]{cover_states:state}[吗|不]"
+        response: any
+        slots:
+          domain: cover
+      - sentences:
+          - "[<let>][<all>]{area_names}{cover_names}[都]是{cover_states:state}[吗|不]"
+        response: all
+        slots:
+          domain: cover
+      - sentences:
+          - "[<let>][<which>][<area>]{cover_names}[是]{cover_states:state}"
+        response: which
+        slots:
+          domain: cover
+      - sentences:
+          - "[<let>][<how_many_is>][<area>]{cover_names}[是]{cover_states:state}"
+        response: how_many
+        slots:
+          domain: cover

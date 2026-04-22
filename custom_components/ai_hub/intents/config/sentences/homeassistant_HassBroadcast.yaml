@@ -1,0 +1,12 @@
+language: "zh-CN"
+intents:
+  HassBroadcast:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>]广播<message>"
+          - "[<let>]播报<message>"
+          - "[<let>]通知所有人<message>"
+        slots:
+          message:
+            type: text

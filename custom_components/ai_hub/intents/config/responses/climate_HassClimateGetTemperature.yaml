@@ -1,0 +1,6 @@
+language: "zh-CN"
+responses:
+  intents:
+    HassClimateGetTemperature:
+      default: "{{ slots.name }}的温度是{{ state.state_with_unit }}"
+      area: "{{ slots.area }}的温度是{{ state.state_with_unit }}"

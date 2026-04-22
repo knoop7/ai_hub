@@ -1,0 +1,10 @@
+language: "zh-CN"
+intents:
+  HassTurnOff:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <close_cover>[<area>]<cover_names>"
+          - "[<let>] [把][<area>]<cover_names>[关闭|拉上|降下]"
+        requires_context:
+          domain: cover

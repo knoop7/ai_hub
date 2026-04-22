@@ -1,0 +1,11 @@
+language: "zh-CN"
+intents:
+  HassGetState:
+    use_home_assistant: true
+    data:
+      - sentences:
+          - "[<let>] <function_verbs>[<area>]{name}[的]状态"
+          - "[<let>] [<area>]{name}[现在|当前]是什么状态"
+          - "[<let>] [<area>]{name}[怎么样|如何]"
+        slots:
+          domain: all
