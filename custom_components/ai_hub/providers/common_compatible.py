@@ -6,14 +6,16 @@ import json
 from typing import Any
 from urllib.parse import urlparse
 
+from homeassistant.helpers import llm
+
 from ..http import async_check_endpoint_health
 
 
 def finalize_buffered_tool_calls(
     tool_call_buffer: dict[int, dict[str, Any]],
-) -> list[dict[str, Any]]:
+) -> list[llm.ToolInput]:
     """Convert buffered tool-call fragments into normalized tool calls."""
-    tool_calls = []
+    tool_calls: list[llm.ToolInput] = []
     for tool_call in tool_call_buffer.values():
         try:
             arguments = tool_call["function"].get("arguments", "")
@@ -21,14 +23,11 @@ def finalize_buffered_tool_calls(
         except json.JSONDecodeError:
             parsed_args = {}
         tool_calls.append(
-            {
-                "id": tool_call["id"],
-                "type": "function",
-                "function": {
-                    "name": tool_call["function"].get("name", "tool"),
-                    "arguments": json.dumps(parsed_args, ensure_ascii=False),
-                },
-            }
+            llm.ToolInput(
+                id=tool_call["id"],
+                tool_name=tool_call["function"].get("name", "tool"),
+                tool_args=parsed_args if isinstance(parsed_args, dict) else {"value": parsed_args},
+            )
         )
     return tool_calls
 

@@ -260,10 +260,13 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         # Add tools if available
         tools = []
         if chat_log.llm_api:
-            tools.extend([
-                self._format_tool(tool, chat_log.llm_api.custom_serializer)
-                for tool in chat_log.llm_api.tools
-            ])
+            for tool in chat_log.llm_api.tools:
+                if isinstance(tool, dict):
+                    tools.append(tool)
+                else:
+                    tools.append(
+                        self._format_tool(tool, chat_log.llm_api.custom_serializer)
+                    )
 
         # Build minimal request parameters using only essential parameters
         # Ensure model is a valid non-empty string
