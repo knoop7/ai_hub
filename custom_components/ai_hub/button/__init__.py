@@ -115,6 +115,8 @@ class _AIHubServiceButton(ButtonEntity):
                 self._button_type,
                 e
             )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,

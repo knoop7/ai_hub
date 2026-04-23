@@ -9,7 +9,6 @@ import pytest
 pytest.importorskip("homeassistant")
 pytest.importorskip("voluptuous")
 
-import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
@@ -22,15 +21,10 @@ from custom_components.ai_hub.config_flow import (
 )
 from custom_components.ai_hub.const import (
     CONF_CHAT_MODEL,
-    CONF_LLM_HASS_API,
     CONF_PROMPT,
     CONF_RECOMMENDED,
     CONF_TEMPERATURE,
-    DEFAULT_CONVERSATION_NAME,
-    DEFAULT_TTS_NAME,
-    RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
-    RECOMMENDED_TEMPERATURE,
 )
 
 
@@ -114,7 +108,7 @@ class TestAIHubConfigFlow:
         with patch.object(flow, "__class__") as mock_class:
             mock_class.VERSION = 1
 
-            with patch("custom_components.ai_hub.config_flow.validate_input") as mock_validate:
+            with patch("custom_components.ai_hub.config_flow.validate_input"):
                 user_input = {
                     CONF_API_KEY: "test_api_key",
                 }

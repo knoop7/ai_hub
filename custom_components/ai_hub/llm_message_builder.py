@@ -81,7 +81,13 @@ class ChatMessageBuilder:
             msg, _ = self._convert_assistant_message_with_id_tracking(last_content, tool_call_id_map)
             messages.append(msg)
         elif last_content.role == "tool_result":
-            messages.extend(self._convert_tool_message_with_id_matching(last_content, tool_call_id_map, last_tool_call_ids))
+            messages.extend(
+                self._convert_tool_message_with_id_matching(
+                    last_content,
+                    tool_call_id_map,
+                    last_tool_call_ids,
+                )
+            )
 
         return messages
 
@@ -153,7 +159,11 @@ class ChatMessageBuilder:
                         "type": "function",
                         "function": {
                             "name": str(tool_call.tool_name) if tool_call.tool_name else "",
-                            "arguments": json.dumps(tool_call.tool_args, ensure_ascii=False) if tool_call.tool_args else "{}",
+                            "arguments": (
+                                json.dumps(tool_call.tool_args, ensure_ascii=False)
+                                if tool_call.tool_args
+                                else "{}"
+                            ),
                         },
                     }
                 )
@@ -170,7 +180,11 @@ class ChatMessageBuilder:
             "role": "tool",
             "tool_call_id": tool_call_id,
             "tool_name": content.tool_name,
-            "content": json.dumps(content.tool_result, ensure_ascii=False, default=str) if content.tool_result is not None else "{}",
+            "content": (
+                json.dumps(content.tool_result, ensure_ascii=False, default=str)
+                if content.tool_result is not None
+                else "{}"
+            ),
         }
 
     @staticmethod

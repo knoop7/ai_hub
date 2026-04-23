@@ -34,6 +34,7 @@ import logging
 
 # LLM provider classes
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -47,8 +48,6 @@ from .base import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-
 
 # ============================================================================
 # LLM Provider Classes
@@ -195,6 +194,8 @@ class LLMProvider(BaseProvider[LLMConfig], ABC):
     def supports_tools(self) -> bool:
         """Check if the provider supports tool/function calling."""
         return True
+
+
 # ============================================================================
 # Global Registry Management
 # ============================================================================

@@ -57,6 +57,7 @@ _REGISTERED_ENTRY = None
 _SERVICE_CONTEXTS_KEY = f"{DOMAIN}_service_contexts"
 _SERVICES_REGISTERED_KEY = f"{DOMAIN}_services_registered"
 
+
 def _has_configured_api_key(api_key: Any) -> bool:
     """Return whether the resolved API key is a non-empty string."""
     return isinstance(api_key, str) and bool(api_key.strip())

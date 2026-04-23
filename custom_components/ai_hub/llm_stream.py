@@ -69,7 +69,12 @@ async def transform_stream(
                             "type": "function",
                             "function": {"name": "", "arguments": ""},
                         }
-                    if "id" in tc_delta and tc_delta["id"] and isinstance(tc_delta["id"], str) and tc_delta["id"].strip():
+                    if (
+                        "id" in tc_delta
+                        and tc_delta["id"]
+                        and isinstance(tc_delta["id"], str)
+                        and tc_delta["id"].strip()
+                    ):
                         tool_call_buffer[index]["id"] = tc_delta["id"]
                     if "function" in tc_delta:
                         func = tc_delta["function"]
@@ -86,7 +91,13 @@ async def transform_stream(
                 if not tool_id or not isinstance(tool_id, str) or not tool_id.strip():
                     tool_id = ulid.ulid_now()
                 args = json.loads(tc["function"]["arguments"]) if tc["function"]["arguments"] else {}
-                tool_calls.append(llm.ToolInput(id=tool_id, tool_name=tc["function"]["name"], tool_args=args))
+                tool_calls.append(
+                    llm.ToolInput(
+                        id=tool_id,
+                        tool_name=tc["function"]["name"],
+                        tool_args=args,
+                    )
+                )
             except json.JSONDecodeError as err:
                 _LOGGER.warning("Failed to parse tool call arguments: %s", err)
 

@@ -6,17 +6,13 @@ import json
 import logging
 from collections.abc import AsyncGenerator
 from typing import Any
-from urllib.parse import urlparse
 
-import aiohttp
 from homeassistant.util import ulid
 
 from ..http import (
-    async_check_endpoint_health,
     async_post_json,
     async_stream_response_text,
     build_json_headers,
-    client_timeout,
     resolve_ssl_setting,
 )
 from .common_compatible import check_provider_health, finalize_buffered_tool_calls
@@ -26,6 +22,8 @@ _LOGGER = logging.getLogger(__name__)
 
 _DEFAULT_API_URL = "https://api.anthropic.com/v1/messages"
 _ANTHROPIC_VERSION = "2023-06-01"
+
+
 class AnthropicCompatibleProvider(LLMProvider):
     """Anthropic Messages API provider."""
 
@@ -283,7 +281,6 @@ class AnthropicCompatibleProvider(LLMProvider):
             error_label="API error",
         )
 
-        content_blocks = data.get("content", [])
         usage = data.get("usage")
         if isinstance(usage, dict):
             usage = {

@@ -14,8 +14,6 @@ from homeassistant.helpers import config_entry_flow, llm
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import ulid
-from voluptuous_openapi import convert
-
 from .providers import LLMMessage, create_provider
 from .consts import (
     CONF_CHAT_MODEL,
@@ -601,6 +599,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     ) -> dict[str, Any]:
         """Convert schema to AI Hub format."""
         return ChatMessageBuilder.convert_schema(schema, custom_serializer)
+
 
 class AIHubEntityBase(Entity, _AIHubEntityMixin):
     """Base entity for AI Hub integration.

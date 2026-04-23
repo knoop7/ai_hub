@@ -16,7 +16,7 @@ from uuid import uuid4
 import asyncio
 import aiohttp
 
-from ..http import async_check_endpoint_health, async_post_json, async_stream_response_text
+from ..http import async_post_json, async_stream_response_text
 from .common_compatible import check_provider_health, finalize_buffered_tool_calls
 from . import LLMMessage, LLMProvider, LLMResponse
 
@@ -41,6 +41,8 @@ def _get_ssl_setting(url: str) -> bool:
     """Allow custom HTTP and self-signed HTTPS endpoints."""
     parsed = urlparse(url)
     return parsed.scheme != "http" and parsed.netloc == "api.openai.com"
+
+
 def _normalize_openai_api_url(url: str | None) -> str:
     """Normalize OpenAI-compatible URLs to a chat completions endpoint.
 
@@ -558,8 +560,6 @@ class OpenAICompatibleProvider(LLMProvider):
         ssl: bool,
     ) -> dict[str, Any]:
         """Execute a non-streaming request with auto retry on transient disconnects."""
-        timeout = aiohttp.ClientTimeout(total=self.config.timeout)
-
         if _LOGGER.isEnabledFor(logging.DEBUG):
             try:
                 body_size = len(json.dumps(request, ensure_ascii=False))

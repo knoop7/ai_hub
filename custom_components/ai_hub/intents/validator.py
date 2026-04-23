@@ -4,7 +4,7 @@
 
 主要功能:
 - 验证必需的配置键是否存在
-- 验证 GlobalDeviceControl 配置的完整性
+- 验证本地设备控制配置的完整性
 - 验证设备类型列表和扩展规则
 - 检测配置中的重复定义
 - 提供详细的错误和警告信息
@@ -26,6 +26,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from .handlers import (
+    MEDIA_FALLBACK_STRATEGIES,
+    REQUIRED_DEVICE_CONTROL_KEYS,
+    get_device_control_config,
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -35,17 +41,8 @@ class ConfigValidator:
     # 必需的顶级配置键
     REQUIRED_KEYS = ['local_intents']
 
-    # 必需的 local_intents 子键
-    REQUIRED_LOCAL_INTENTS_KEYS = ['GlobalDeviceControl']
-
-    # GlobalDeviceControl 必需的配置
-    REQUIRED_GLOBAL_DEVICE_CONTROL_KEYS = [
-        'global_keywords',
-        'on_keywords',
-        'off_keywords',
-        'domain_services',
-        'control_domains',
-    ]
+    # 本地设备控制必需的配置
+    REQUIRED_DEVICE_CONTROL_CONFIG_KEYS = sorted(REQUIRED_DEVICE_CONTROL_KEYS)
 
     def __init__(self, config: dict[str, Any]):
         """初始化验证器.
@@ -102,23 +99,22 @@ class ConfigValidator:
             self.errors.append("local_intents 配置为空")
             return
 
-        for key in self.REQUIRED_LOCAL_INTENTS_KEYS:
-            if key not in local_intents:
-                self.errors.append(f"local_intents 缺少必需的配置: {key}")
+        device_control = get_device_control_config(local_intents)
+        if not device_control:
+            self.errors.append("local_intents 缺少设备控制配置")
+            return
 
-        global_control = local_intents.get('GlobalDeviceControl', {})
-        if global_control:
-            self._validate_global_device_control(global_control)
+        self._validate_device_control(device_control)
 
-    def _validate_global_device_control(self, config: dict[str, Any]) -> None:
-        """验证 GlobalDeviceControl 配置."""
-        for key in self.REQUIRED_GLOBAL_DEVICE_CONTROL_KEYS:
+    def _validate_device_control(self, config: dict[str, Any]) -> None:
+        """验证本地设备控制配置."""
+        for key in self.REQUIRED_DEVICE_CONTROL_CONFIG_KEYS:
             if key not in config:
-                self.errors.append(f"GlobalDeviceControl 缺少必需的配置: {key}")
+                self.errors.append(f"device_control 缺少必需的配置: {key}")
 
         for key in ['global_keywords', 'on_keywords', 'off_keywords']:
             if key in config and not config[key]:
-                self.warnings.append(f"GlobalDeviceControl.{key} 为空列表")
+                self.warnings.append(f"device_control.{key} 为空列表")
 
         domain_services = config.get('domain_services', {})
         if domain_services:
@@ -127,6 +123,15 @@ class ConfigValidator:
                     self.errors.append(f"domain_services.{domain} 应该是字典类型")
                 elif 'turn_on' not in services and 'turn_off' not in services:
                     self.warnings.append(f"domain_services.{domain} 缺少 turn_on/turn_off 定义")
+
+        media_search = config.get('media_search', {})
+        if media_search:
+            strategy = media_search.get('fallback_target_strategy')
+            if strategy is not None and strategy not in MEDIA_FALLBACK_STRATEGIES:
+                self.warnings.append(
+                    "media_search.fallback_target_strategy 不在允许范围内，"
+                    f"将使用默认值: {sorted(MEDIA_FALLBACK_STRATEGIES)}"
+                )
 
     def _validate_lists(self) -> None:
         """验证 lists 配置."""

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
-
 from custom_components.ai_hub.consts import DOMAIN
 from custom_components.ai_hub.diagnostics import _get_statistics_diagnostics
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import json
 import logging
-from typing import Any
 
 import aiohttp
 from homeassistant.components import ai_task, conversation

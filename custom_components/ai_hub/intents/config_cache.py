@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from .handlers import get_device_control_config
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -53,7 +55,7 @@ class ConfigCache:
     def get_global_keywords(self) -> list[str]:
         """获取全局关键词."""
         config = self._get_ai_hub_intent_config()
-        global_config = config.get('local_intents', {}).get('GlobalDeviceControl', {})
+        global_config = get_device_control_config(config.get('local_intents', {}))
         if global_config and 'global_keywords' in global_config:
             return global_config['global_keywords']
 

@@ -17,7 +17,7 @@ from custom_components.ai_hub.const import (
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
     CONF_IMAGE_URL,
-    DOMAIN,
+    CONF_PROMPT,
     RECOMMENDED_CHAT_MODEL,
     SERVICE_ANALYZE_IMAGE,
     SERVICE_GENERATE_IMAGE,

@@ -290,10 +290,11 @@ async def _load_intents_config_once() -> dict[str, Any] | None:
 
         # 验证关键配置
         local_intents = config.get('local_intents', {})
-        if local_intents and local_intents.get('GlobalDeviceControl'):
-            _LOGGER.info("Intent config loaded - contains GlobalDeviceControl")
+        from .handlers import get_device_control_config
+        if get_device_control_config(local_intents):
+            _LOGGER.info("Intent config loaded - contains device control config")
         else:
-            _LOGGER.warning("Intent config loaded - missing GlobalDeviceControl config")
+            _LOGGER.warning("Intent config loaded - missing device control config")
 
         return config
 
@@ -340,8 +341,6 @@ def get_intents_config() -> dict[str, Any] | None:
 
 def get_device_operations_config() -> dict[str, Any]:
     """从缓存获取设备操作配置."""
-    global _INTENTS_CONFIG
-
     # 使用已加载的缓存配置
     config = _INTENTS_CONFIG if _CONFIG_LOADED else _load_intents_config_sync()
 
@@ -356,8 +355,6 @@ def get_device_operations_config() -> dict[str, Any]:
 
 def get_device_verification_config() -> dict[str, Any]:
     """从缓存获取设备验证配置."""
-    global _INTENTS_CONFIG
-
     # 使用已加载的缓存配置
     config = _INTENTS_CONFIG if _CONFIG_LOADED else _load_intents_config_sync()
 

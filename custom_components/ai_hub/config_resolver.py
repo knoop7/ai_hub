@@ -4,21 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .consts import (
-    AI_HUB_CHAT_URL,
-    AI_HUB_IMAGE_GEN_URL,
-    CONF_CHAT_MODEL,
-    CONF_CHAT_URL,
-    CONF_CUSTOM_API_KEY,
-    CONF_IMAGE_URL,
-    CONF_STT_URL,
-    RECOMMENDED_CHAT_MODEL,
-    SILICONFLOW_ASR_URL,
-    SUBENTRY_AI_TASK,
-    SUBENTRY_CONVERSATION,
-    SUBENTRY_STT,
-    SUBENTRY_TRANSLATION,
-)
+from .consts import CONF_CUSTOM_API_KEY
 
 
 def _get_subentry_by_type(entry: Any, subentry_type: str) -> Any | None:

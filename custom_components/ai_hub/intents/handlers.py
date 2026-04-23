@@ -8,12 +8,28 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
-from homeassistant.helpers import intent
-
 from .loader import get_global_config
 from .response_utils import create_intent_result, format_response_message
 
 _LOGGER = logging.getLogger(__name__)
+
+REQUIRED_DEVICE_CONTROL_KEYS = {
+    'global_keywords',
+    'on_keywords',
+    'off_keywords',
+    'domain_services',
+    'control_domains',
+}
+DEFAULT_MIN_TEMPERATURE = 16
+DEFAULT_MAX_TEMPERATURE = 30
+MEDIA_FALLBACK_SINGLE_ONLY = 'single_only'
+MEDIA_FALLBACK_FIRST = 'first'
+MEDIA_FALLBACK_ALL = 'all'
+MEDIA_FALLBACK_STRATEGIES = {
+    MEDIA_FALLBACK_SINGLE_ONLY,
+    MEDIA_FALLBACK_FIRST,
+    MEDIA_FALLBACK_ALL,
+}
 
 
 def get_local_intents_config() -> dict[str, Any] | None:
@@ -22,6 +38,30 @@ def get_local_intents_config() -> dict[str, Any] | None:
     if not config:
         return None
     return config.get('local_intents', {})
+
+
+def get_device_control_config(local_intents: dict[str, Any] | None) -> dict[str, Any]:
+    """Return the configured local device control block.
+
+    This keeps backward compatibility with the legacy `GlobalDeviceControl`
+    key while allowing any handler name that exposes the same config shape.
+    """
+    if not isinstance(local_intents, dict):
+        return {}
+
+    legacy_config = local_intents.get('GlobalDeviceControl')
+    if isinstance(legacy_config, dict):
+        return legacy_config
+
+    for value in local_intents.values():
+        if not isinstance(value, dict):
+            continue
+        if REQUIRED_DEVICE_CONTROL_KEYS.issubset(value.keys()):
+            return value
+
+    return {}
+
+
 class LocalIntentHandler:
     """本地意图处理器 - 处理全局设备控制等本地意图."""
 
@@ -45,10 +85,10 @@ class LocalIntentHandler:
         return self._config
 
     def _get_global_device_control_config(self) -> dict[str, Any]:
-        """Return the GlobalDeviceControl config block."""
+        """Return the configured local device control block."""
         if not self.local_config:
             return {}
-        return self.local_config.get('GlobalDeviceControl', {})
+        return get_device_control_config(self.local_config)
 
     def _get_default_area_name(self) -> str:
         """获取默认区域名称."""
@@ -71,8 +111,8 @@ class LocalIntentHandler:
         global_config = self._get_global_device_control_config()
         temperature_config = global_config.get('temperature', {})
         return (
-            temperature_config.get('min_temperature', 16),
-            temperature_config.get('max_temperature', 30),
+            temperature_config.get('min_temperature', DEFAULT_MIN_TEMPERATURE),
+            temperature_config.get('max_temperature', DEFAULT_MAX_TEMPERATURE),
         )
 
     def _get_domain_service(self, domain: str, operation: str, fallback: str) -> str:
@@ -96,7 +136,6 @@ class LocalIntentHandler:
         if not global_config:
             return False
 
-        text_clean = text.strip()
         text_lower = text.lower().strip()
 
         area_names, device_types = self._parse_device_and_area(text_lower, global_config)
@@ -110,7 +149,6 @@ class LocalIntentHandler:
         has_action_word = self._has_explicit_action_word(text_lower, global_config)
         has_parameter_command = self._has_parameter_command(text, text_lower, global_config)
         has_resolved_target = bool(device_types or target_entities)
-        is_short_text = len(text_clean) <= 4
 
         # 本地增强意图必须完整命中可执行控制目标，不能靠模糊猜测。
         should_handle = has_resolved_target and (has_action_word or has_parameter_command)
@@ -119,23 +157,14 @@ class LocalIntentHandler:
         if has_global_keyword and not device_types and not target_entities:
             should_handle = False
 
-        # 对于短文本，如果没有完整命中目标，则不处理。
-        if (has_action_word or has_parameter_command) and is_short_text and not has_resolved_target:
-            should_handle = False
-
         _LOGGER.debug("Local intent check: '%s' -> %s", text, should_handle)
 
         return should_handle
 
     def _has_explicit_action_word(self, text_lower: str, global_config: dict) -> bool:
-        """Check for imperative action words while ignoring state phrases like `开着`."""
+        """Return whether text contains a configured imperative action word."""
         action_words = global_config.get('on_keywords', []) + global_config.get('off_keywords', [])
-        if not any(action in text_lower for action in action_words):
-            return False
-
-        text_without_state = self._strip_non_imperative_phrases(text_lower)
-
-        return any(action in text_without_state for action in action_words)
+        return any(action in text_lower for action in action_words)
 
     async def handle(self, text: str, language: str = "zh-CN"):
         """处理本地意图."""
@@ -179,53 +208,8 @@ class LocalIntentHandler:
         global_config: dict,
         action_words: list[str],
     ) -> bool:
-        """Return whether text contains an imperative action, not just a state phrase."""
-        if not any(action in text_lower for action in action_words):
-            return False
-
-        text_without_state = self._strip_non_imperative_phrases(text_lower)
-
-        return any(action in text_without_state for action in action_words)
-
-    def _strip_non_imperative_phrases(self, text_lower: str) -> str:
-        """Strip configured state and target phrases before searching for actions."""
-        stripped = text_lower
-
-        state_entries = (self.config or {}).get('lists', {}).get('on_off_states', {}).get('values', [])
-        for entry in state_entries:
-            pattern = entry.get('in') if isinstance(entry, dict) else None
-            if not isinstance(pattern, str) or not pattern:
-                continue
-            try:
-                stripped = re.sub(pattern, ' ', stripped)
-            except re.error:
-                continue
-
-        phrases = sorted(self._iter_configured_named_phrases(), key=len, reverse=True)
-        for phrase in phrases:
-            stripped = stripped.replace(phrase, ' ')
-
-        return re.sub(r'\s+', ' ', stripped).strip()
-
-    def _iter_configured_named_phrases(self) -> set[str]:
-        """Collect configured named phrases from lists for action disambiguation."""
-        config = self.config or {}
-        lists_config = config.get('lists', {}) if isinstance(config, dict) else {}
-        phrases: set[str] = set()
-
-        for list_data in lists_config.values():
-            if not isinstance(list_data, dict):
-                continue
-            values = list_data.get('values', [])
-            if not isinstance(values, list):
-                continue
-            for item in values:
-                if isinstance(item, str):
-                    normalized = item.strip().lower()
-                    if len(normalized) >= 2:
-                        phrases.add(normalized)
-
-        return phrases
+        """Return whether text contains one of the configured action words."""
+        return any(action in text_lower for action in action_words)
 
     def _parse_device_and_area(self, text_lower: str, global_config: dict) -> tuple:
         """解析设备类型和区域."""
@@ -675,7 +659,12 @@ class LocalIntentHandler:
         for keywords in media_type_keywords.values():
             cleanup_tokens.extend(keywords)
 
-        for token in sorted({token.strip().lower() for token in cleanup_tokens if token and len(token.strip()) > 1}, key=len, reverse=True):
+        cleaned_tokens = {
+            token.strip().lower()
+            for token in cleanup_tokens
+            if token and len(token.strip()) > 1
+        }
+        for token in sorted(cleaned_tokens, key=len, reverse=True):
             query = query.replace(token.lower(), ' ')
 
         query = re.sub(r'(在|把|将|给|让|的|上|里|中|一下|一首|一个|一部|一张)', ' ', query)
@@ -684,24 +673,25 @@ class LocalIntentHandler:
 
     def _select_media_fallback_targets(self, media_config: dict, area_names: list[str]) -> list[str]:
         """Select fallback media targets when no explicit entity name was found."""
-        strategy = media_config.get('fallback_target_strategy', 'single_only')
+        strategy = media_config.get('fallback_target_strategy', MEDIA_FALLBACK_SINGLE_ONLY)
+        if strategy not in MEDIA_FALLBACK_STRATEGIES:
+            strategy = MEDIA_FALLBACK_SINGLE_ONLY
         if area_names:
             return []
 
         media_players = list(self.hass.states.async_entity_ids('media_player'))
-        if strategy == 'all':
+        if strategy == MEDIA_FALLBACK_ALL:
             return media_players
-        if strategy == 'first' and media_players:
+        if strategy == MEDIA_FALLBACK_FIRST and media_players:
             return [media_players[0]]
-        if strategy == 'single_only' and len(media_players) == 1:
+        if strategy == MEDIA_FALLBACK_SINGLE_ONLY and len(media_players) == 1:
             return media_players
         return []
 
     def _has_parameter_command(self, text: str, text_lower: str, global_config: dict) -> bool:
         """Check if the text contains a parameter control command."""
         param_keywords = global_config.get('param_keywords', [])
-        direct_param_keywords = [keyword for keyword in param_keywords if isinstance(keyword, str) and len(keyword.strip()) > 1]
-        if any(keyword in text_lower for keyword in direct_param_keywords):
+        if any(keyword in text_lower for keyword in param_keywords):
             return True
 
         # Check for direct parameter patterns
@@ -790,10 +780,22 @@ class LocalIntentHandler:
         dimmer_keywords = adjust_config.get('dimmer_keywords', [])
 
         if any(kw in text_lower for kw in brighter_keywords):
-            return await self._adjust_light_brightness(area_names, is_global, text_lower, adjust_up=True, adjust_config=adjust_config)
+            return await self._adjust_light_brightness(
+                area_names,
+                is_global,
+                text_lower,
+                adjust_up=True,
+                adjust_config=adjust_config,
+            )
 
         if any(kw in text_lower for kw in dimmer_keywords):
-            return await self._adjust_light_brightness(area_names, is_global, text_lower, adjust_up=False, adjust_config=adjust_config)
+            return await self._adjust_light_brightness(
+                area_names,
+                is_global,
+                text_lower,
+                adjust_up=False,
+                adjust_config=adjust_config,
+            )
 
         return None
 

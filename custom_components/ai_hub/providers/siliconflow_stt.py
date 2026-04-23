@@ -36,6 +36,7 @@ SILICONFLOW_STT_MODELS = [
 # Default model
 DEFAULT_MODEL = "FunAudioLLM/SenseVoiceSmall"
 
+
 def _create_wav_header(audio_data: bytes, metadata: AudioMetadata) -> bytes:
     """Create WAV header for raw PCM audio data."""
     sample_rate = metadata.sample_rate
