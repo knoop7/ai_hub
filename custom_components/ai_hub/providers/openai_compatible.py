@@ -762,6 +762,9 @@ class OpenAICompatibleProvider(LLMProvider):
                         _LOGGER.debug("OpenAI-compatible SSE delta is invalid: %s", data)
                         continue
 
+                    reasoning = delta.get("reasoning_content") or delta.get("thinking_content") or ""
+                    if reasoning:
+                        yield {"thinking_content": reasoning}
                     content = delta.get("content", "")
                     if content:
                         yield content

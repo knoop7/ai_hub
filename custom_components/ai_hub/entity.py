@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import asyncio
 from collections.abc import AsyncGenerator, Callable
 from typing import Any
@@ -440,9 +441,12 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         )
         response = await provider.complete(llm_messages, tools=tools)
         tool_calls = self._convert_provider_tool_calls(response.tool_calls)
+        content_text = response.content or ""
+        if "<think>" in content_text:
+            content_text = re.sub(r"<think>.*?</think>", "", content_text, flags=re.DOTALL).strip()
         assistant_content = conversation.AssistantContent(
             agent_id=self.entity_id,
-            content=response.content or None,
+            content=content_text or None,
             tool_calls=tool_calls or None,
             native=response.raw_response,
         )
@@ -455,24 +459,63 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
     ) -> AsyncGenerator[conversation.AssistantContentDeltaDict, None]:
         """Convert provider chunks into Home Assistant streaming deltas."""
         has_started = False
+        in_think_tag = False
+        text_buffer = ""
         async for chunk in stream:
             if not chunk:
                 continue
             if isinstance(chunk, dict):
+                if "thinking_content" in chunk:
+                    continue
                 if "role" not in chunk and not has_started:
                     yield {"role": "assistant"}
                     has_started = True
                 elif chunk.get("role") == "assistant":
                     has_started = True
-                yield chunk
+                if "tool_calls" in chunk:
+                    raw = chunk["tool_calls"]
+                    if raw and isinstance(raw[0], llm.ToolInput):
+                        yield {"tool_calls": raw}
+                    else:
+                        converted = self._convert_provider_tool_calls(raw)
+                        if converted:
+                            yield {"tool_calls": converted}
+                else:
+                    yield chunk
                 continue
             if not has_started:
                 yield {"role": "assistant"}
                 has_started = True
 
-            filtered_content = filter_markdown_streaming(chunk)
-            if filtered_content:
-                yield {"content": filtered_content}
+            text_buffer += chunk
+            while text_buffer:
+                if in_think_tag:
+                    end_pos = text_buffer.find("</think>")
+                    if end_pos == -1:
+                        text_buffer = ""
+                        break
+                    text_buffer = text_buffer[end_pos + len("</think>"):]
+                    in_think_tag = False
+                else:
+                    start_pos = text_buffer.find("<think>")
+                    if start_pos == -1:
+                        filtered = filter_markdown_streaming(text_buffer)
+                        if filtered:
+                            yield {"content": filtered}
+                        text_buffer = ""
+                        break
+                    before = text_buffer[:start_pos]
+                    if before:
+                        filtered = filter_markdown_streaming(before)
+                        if filtered:
+                            yield {"content": filtered}
+                    text_buffer = text_buffer[start_pos + len("<think>"):]
+                    in_think_tag = True
+
+        if text_buffer and not in_think_tag:
+            filtered = filter_markdown_streaming(text_buffer)
+            if filtered:
+                yield {"content": filtered}
 
     def _convert_provider_tool_calls(
         self,
