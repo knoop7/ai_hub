@@ -239,8 +239,6 @@ def test_local_intent_handler_matches_area_scoped_all_lights_commands():
     assert handler.should_handle("关闭客厅所有的灯") is True
     assert handler.should_handle("打开") is False
     assert handler.should_handle("关闭") is False
-
-
 def test_error_message_extraction():
     """Test error message extraction from various formats."""
     # Format 1: {"error": "message"}

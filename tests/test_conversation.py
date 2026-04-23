@@ -247,37 +247,6 @@ class TestAIHubConversationAgent:
         result = agent._extract_automation_description("创建自动化")
         assert result is None
 
-    def test_should_skip_ha_standard_processing(self, mock_hass, mock_config_entry):
-        """Test that only explicit global commands bypass HA Core first."""
-        subentry = list(mock_config_entry.subentries.values())[0]
-        agent = AIHubConversationAgent(mock_config_entry, subentry)
-
-        agent._config_cache = MagicMock()
-        agent._config_cache.get_config.return_value = {
-            "local_intents": {
-                "GlobalDeviceControl": {
-                    "global_keywords": ["所有", "全部", "全屋"],
-                    "on_keywords": ["打开", "开启"],
-                    "off_keywords": ["关闭", "关掉"],
-                    "param_keywords": ["调到", "设置"],
-                    "brightness_keywords": ["亮度"],
-                    "volume_keywords": ["音量"],
-                    "color_keywords": ["颜色"],
-                    "temperature_keywords": ["温度"],
-                }
-            }
-        }
-
-        # Test global command with action
-        assert agent._should_skip_ha_standard_processing("打开所有灯") is True
-
-        # Test global command with parameter
-        assert agent._should_skip_ha_standard_processing("所有灯调到50%亮度") is True
-
-        # Non-global commands should let HA Core try first
-        assert agent._should_skip_ha_standard_processing("打开客厅的灯") is False
-        assert agent._should_skip_ha_standard_processing("把卧室灯调成暖白") is False
-
     def test_is_all_device_operation(self, mock_hass, mock_config_entry):
         """Test all device operation detection."""
         subentry = list(mock_config_entry.subentries.values())[0]

@@ -133,16 +133,7 @@ class LocalIntentHandler:
         if not any(action in text_lower for action in action_words):
             return False
 
-        state_entries = (self.config or {}).get('lists', {}).get('on_off_states', {}).get('values', [])
-        text_without_state = text_lower
-        for entry in state_entries:
-            pattern = entry.get('in') if isinstance(entry, dict) else None
-            if not isinstance(pattern, str) or not pattern:
-                continue
-            try:
-                text_without_state = re.sub(pattern, ' ', text_without_state)
-            except re.error:
-                continue
+        text_without_state = self._strip_non_imperative_phrases(text_lower)
 
         return any(action in text_without_state for action in action_words)
 
@@ -192,18 +183,49 @@ class LocalIntentHandler:
         if not any(action in text_lower for action in action_words):
             return False
 
+        text_without_state = self._strip_non_imperative_phrases(text_lower)
+
+        return any(action in text_without_state for action in action_words)
+
+    def _strip_non_imperative_phrases(self, text_lower: str) -> str:
+        """Strip configured state and target phrases before searching for actions."""
+        stripped = text_lower
+
         state_entries = (self.config or {}).get('lists', {}).get('on_off_states', {}).get('values', [])
-        text_without_state = text_lower
         for entry in state_entries:
             pattern = entry.get('in') if isinstance(entry, dict) else None
             if not isinstance(pattern, str) or not pattern:
                 continue
             try:
-                text_without_state = re.sub(pattern, ' ', text_without_state)
+                stripped = re.sub(pattern, ' ', stripped)
             except re.error:
                 continue
 
-        return any(action in text_without_state for action in action_words)
+        phrases = sorted(self._iter_configured_named_phrases(), key=len, reverse=True)
+        for phrase in phrases:
+            stripped = stripped.replace(phrase, ' ')
+
+        return re.sub(r'\s+', ' ', stripped).strip()
+
+    def _iter_configured_named_phrases(self) -> set[str]:
+        """Collect configured named phrases from lists for action disambiguation."""
+        config = self.config or {}
+        lists_config = config.get('lists', {}) if isinstance(config, dict) else {}
+        phrases: set[str] = set()
+
+        for list_data in lists_config.values():
+            if not isinstance(list_data, dict):
+                continue
+            values = list_data.get('values', [])
+            if not isinstance(values, list):
+                continue
+            for item in values:
+                if isinstance(item, str):
+                    normalized = item.strip().lower()
+                    if len(normalized) >= 2:
+                        phrases.add(normalized)
+
+        return phrases
 
     def _parse_device_and_area(self, text_lower: str, global_config: dict) -> tuple:
         """解析设备类型和区域."""
@@ -277,8 +299,6 @@ class LocalIntentHandler:
             candidate_names = [
                 state.name,
                 state.attributes.get('friendly_name'),
-                entity_id.split('.', 1)[1].replace('_', ' '),
-                entity_id.split('.', 1)[1].replace('_', ''),
             ]
             for name in candidate_names:
                 if not isinstance(name, str):
@@ -680,7 +700,8 @@ class LocalIntentHandler:
     def _has_parameter_command(self, text: str, text_lower: str, global_config: dict) -> bool:
         """Check if the text contains a parameter control command."""
         param_keywords = global_config.get('param_keywords', [])
-        if any(keyword in text_lower for keyword in param_keywords):
+        direct_param_keywords = [keyword for keyword in param_keywords if isinstance(keyword, str) and len(keyword.strip()) > 1]
+        if any(keyword in text_lower for keyword in direct_param_keywords):
             return True
 
         # Check for direct parameter patterns

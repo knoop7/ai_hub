@@ -129,8 +129,9 @@ class AIHubConversationAgent(
         """Process a sentence and return a response.
 
         处理流程:
-        1. 本地意图处理（全局设备控制等 HA 原生不支持的功能）
-        2. 如果本地没匹配，交给 Home Assistant 处理（内置意图 + LLM）
+        1. 先交给 Home Assistant 处理内置 intents
+        2. 如果 HA 没匹配，再回退到本地增强意图
+        3. 最后交给 LLM
         """
         options = self.subentry.data
 
@@ -148,44 +149,17 @@ class AIHubConversationAgent(
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult | None:
-        """Run local intents first, then Home Assistant built-in intents."""
+        """Run Home Assistant built-in intents first, then local fallback intents."""
 
-        # ========== 步骤1: 本地意图处理 ==========
-        # 只处理 HA 原生不支持的功能（如全局设备控制）
-
-        # 仅对明确的全局控制优先走本地处理，避免覆盖 HA Core
         intent_handler = None
         try:
             from .intents import get_global_intent_handler
             intent_handler = get_global_intent_handler(self.hass)
-
-            if (
-                intent_handler
-                and self._should_skip_ha_standard_processing(user_input.text)
-                and intent_handler.should_handle(user_input.text)
-            ):
-                _LOGGER.debug("Local intent processing: %s", user_input.text)
-                intent_result = await intent_handler.handle(user_input.text, user_input.language)
-
-                if intent_result:
-                    speech = intent_result["response"].speech.get("plain", {}).get("speech")
-                    if speech:
-                        chat_log.async_add_assistant_content_without_tools(
-                            conversation.AssistantContent(
-                                agent_id=self.entity_id,
-                                content=speech,
-                            )
-                        )
-                    _LOGGER.debug("Local intent completed")
-                    return conversation.ConversationResult(
-                        response=intent_result["response"],
-                        conversation_id=chat_log.conversation_id,
-                    )
         except Exception as e:
-            _LOGGER.debug("Local intent handling failed: %s", e)
+            _LOGGER.debug("Local intent handler initialization failed: %s", e)
 
-        # ========== 步骤2: 尝试 HA 内置意图处理 ==========
-        # timer、shopping list、设备控制等 HA 原生支持的意图
+        # ========== 步骤1: 尝试 HA 内置意图处理 ==========
+        # timer、shopping list、设备控制、状态查询等 HA 原生支持的意图
         try:
             from homeassistant.components import conversation as ha_conversation
 
@@ -426,58 +400,3 @@ class AIHubConversationAgent(
         # Return result from chat log
         return conversation.async_get_result_from_chat_log(user_input, chat_log)
 
-    def _should_skip_ha_standard_processing(self, text: str) -> bool:
-        """Check whether to skip Home Assistant standard processing and go directly to local intent
-
-        Only very explicit local intents skip HA standard processing, such as:
-        - "Turn on all devices"
-        - "Turn off all lights"
-        """
-        try:
-            config = self._config_cache.get_config()
-            if not config:
-                return False
-
-            # Get config from local_intents.GlobalDeviceControl
-            local_intents = config.get('local_intents', {})
-            global_config = local_intents.get('GlobalDeviceControl', {})
-            if not global_config:
-                return False
-
-            text_lower = text.lower().strip()
-
-            # Check global keywords
-            global_keywords = global_config.get('global_keywords', [])
-            has_global = any(keyword in text_lower for keyword in global_keywords)
-
-            # Check explicit on/off keywords
-            on_keywords = global_config.get('on_keywords', [])
-            off_keywords = global_config.get('off_keywords', [])
-            has_action = any(keyword in text_lower for keyword in on_keywords + off_keywords)
-
-            # Check if contains parameter control keywords (brightness, volume, etc.)
-            param_keywords = global_config.get('param_keywords', [])
-            brightness_keywords = global_config.get('brightness_keywords', [])
-            volume_keywords = global_config.get('volume_keywords', [])
-            color_keywords = global_config.get('color_keywords', [])
-            temperature_keywords = global_config.get('temperature_keywords', [])
-
-            has_param_control = any(keyword in text_lower for keyword in
-                                    param_keywords + brightness_keywords + volume_keywords +
-                                    color_keywords + temperature_keywords)
-
-            # Skip HA processing: only explicit global commands go to local processing
-            # Requires both global keywords and explicit action or parameter control
-            should_skip = has_global and (has_action or has_param_control)
-
-            if should_skip:
-                _LOGGER.debug(
-                    "Skipping HA processing: '%s' (global=%s, action=%s, param=%s)",
-                    text, has_global, has_action, has_param_control
-                )
-
-            return should_skip
-
-        except Exception as err:
-            _LOGGER.debug("Error checking whether to skip HA processing: %s", err)
-            return False
