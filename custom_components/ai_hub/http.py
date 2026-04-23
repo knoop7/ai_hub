@@ -85,8 +85,6 @@ def resolve_ssl_setting(api_url: str, default_url: str | None = None) -> bool | 
     parsed = urlparse(api_url)
     if parsed.scheme == "http":
         return False
-    if default_url and api_url != default_url and parsed.scheme == "https":
-        return False
     return None
 
 

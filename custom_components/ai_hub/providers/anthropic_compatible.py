@@ -115,18 +115,31 @@ class AnthropicCompatibleProvider(LLMProvider):
                 continue
 
             if message.role == "tool":
-                converted.append(
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": message.tool_call_id or "tool_call",
-                                "content": str(message.content),
-                            }
-                        ],
-                    }
-                )
+                tool_result_content = message.content
+                if isinstance(tool_result_content, (dict, list)):
+                    tool_result_content = json.dumps(tool_result_content, ensure_ascii=False, default=str)
+                elif not isinstance(tool_result_content, str):
+                    tool_result_content = str(tool_result_content) if tool_result_content is not None else "{}"
+                tool_result_block = {
+                    "type": "tool_result",
+                    "tool_use_id": message.tool_call_id or "tool_call",
+                    "content": tool_result_content,
+                }
+                if converted and converted[-1]["role"] == "user":
+                    if isinstance(converted[-1]["content"], list):
+                        converted[-1]["content"].append(tool_result_block)
+                    else:
+                        converted[-1]["content"] = [
+                            {"type": "text", "text": converted[-1]["content"]} if converted[-1]["content"] else tool_result_block,
+                            tool_result_block,
+                        ]
+                else:
+                    converted.append(
+                        {
+                            "role": "user",
+                            "content": [tool_result_block],
+                        }
+                    )
 
         system = "\n\n".join(part for part in system_parts if part) or None
         return system, converted
@@ -138,11 +151,14 @@ class AnthropicCompatibleProvider(LLMProvider):
         converted = []
         for tool in tools:
             function = tool.get("function", {})
+            schema = function.get("parameters", {"type": "object", "properties": {}})
+            if not isinstance(schema, dict) or "type" not in schema:
+                schema = {"type": "object", "properties": {}}
             converted.append(
                 {
                     "name": function.get("name", "tool"),
                     "description": function.get("description", ""),
-                    "input_schema": function.get("parameters", {"type": "object", "properties": {}}),
+                    "input_schema": schema,
                 }
             )
         return converted
@@ -349,15 +365,12 @@ class AnthropicCompatibleProvider(LLMProvider):
                         tool_id = content_block.get("id")
                         if not isinstance(tool_id, str) or not tool_id.strip():
                             tool_id = ulid.ulid_now()
-                        tool_input = content_block.get("input", {})
-                        if not isinstance(tool_input, dict):
-                            tool_input = {"value": tool_input}
                         tool_call_buffer[index] = {
                             "id": tool_id,
                             "type": "function",
                             "function": {
                                 "name": str(content_block.get("name", "tool")),
-                                "arguments": json.dumps(tool_input, ensure_ascii=False),
+                                "arguments": "",
                             },
                         }
                     continue
@@ -366,6 +379,11 @@ class AnthropicCompatibleProvider(LLMProvider):
                     index = int(data.get("index", 0))
                     delta = data.get("delta", {})
                     delta_type = delta.get("type")
+                    if delta_type == "thinking_delta":
+                        thinking = delta.get("thinking", "")
+                        if thinking:
+                            yield {"thinking_content": thinking}
+                        continue
                     if delta_type == "text_delta":
                         text = delta.get("text", "")
                         if text:
