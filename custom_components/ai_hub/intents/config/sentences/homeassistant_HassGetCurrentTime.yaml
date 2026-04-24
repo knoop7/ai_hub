@@ -1,4 +1,44 @@
 language: "zh-CN"
+
+lists:
+  timer_seconds:
+    range:
+      type: "number"
+      from: 1
+      to: 60
+  timer_minutes:
+    range:
+      type: "number"
+      from: 1
+      to: 60
+  timer_hours:
+    range:
+      type: "number"
+      from: 1
+      to: 24
+  timer_half:
+    values:
+      - in: "半"
+        out: 30
+  timer_name:
+    values:
+      - in: "(厨房|做饭)"
+        out: "厨房"
+      - in: "(洗衣|洗衣服)"
+        out: "洗衣"
+      - in: "(运动|锻炼)"
+        out: "运动"
+      - in: "(休息|小睡)"
+        out: "休息"
+      - in: "(学习|读书)"
+        out: "学习"
+  timer_command:
+    values:
+      - "计时器"
+      - "定时器"
+      - "倒计时"
+      - "闹钟"
+
 intents:
   HassGetCurrentTime:
     use_home_assistant: true

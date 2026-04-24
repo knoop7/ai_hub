@@ -1,4 +1,55 @@
 language: "zh-CN"
+
+lists:
+  cover_names:
+    values:
+      - "窗帘"
+      - "窗纱"
+      - "帘子"
+      - "百叶窗"
+      - "卷帘"
+      - "罗马帘"
+      - "垂直帘"
+      - "遮阳帘"
+      - "遮阳棚"
+      - "天窗"
+      - "车库门"
+      - "卷闸门"
+      - "电动门"
+      - "推拉门"
+  position:
+    values:
+      - in: "(完全打开|全开|开到最大|打开到100%|开到头)"
+        out: 100
+      - in: "(完全关闭|全关|关到最小|关闭到0%|关到底)"
+        out: 0
+      - in: "(一半|半开)"
+        out: 50
+
+local_intents:
+  GlobalDeviceControl:
+    cover_position_keywords:
+      - "位置"
+      - "开度"
+      - "高度"
+      - "百分比"
+      - "开到"
+      - "关到"
+      - "调到"
+      - "降到"
+      - "升到"
+    domain_services:
+      cover:
+        turn_on: "open_cover"
+        turn_off: "close_cover"
+        set_position: "set_cover_position"
+        stop: "stop_cover"
+        toggle: "toggle_cover"
+    default_device_names:
+      cover: "窗帘"
+    responses:
+      success_cover_position: "已将{area}{device}位置调至{position}%"
+
 intents:
   HassCoverSetPosition:
     use_home_assistant: true

@@ -1,4 +1,61 @@
 language: "zh-CN"
+
+expansion_rules:
+  action_verbs: "打开|开启|关闭|关上|启动|停止|设置|调节|切换|改成|改为|拉开|升到|拉上|降下|调整为|创建|添加|开始|取消|结束|删除|播放|收听|唱|放"
+  temperature_level: "<16-30>"
+
+local_intents:
+  GlobalDeviceControl:
+    temperature_keywords:
+      - "温度"
+      - "气温"
+      - "室温"
+      - "度"
+      - "摄氏度"
+      - "太热"
+      - "太冷"
+      - "热"
+      - "冷"
+      - "凉"
+      - "暖和"
+      - "舒适"
+    temperature:
+      hot_keywords: ["太热", "热", "热死了"]
+      cold_keywords: ["太冷", "冷", "冷死了"]
+      default_temperatures:
+        hot_recommendation: 24
+        cold_recommendation: 22
+      min_temperature: 16
+      max_temperature: 30
+    hvac_modes:
+      cooling:
+        name: "制冷"
+        service_parameter: "cool"
+        keywords: ["制冷", "冷气", "降温"]
+      heating:
+        name: "制热"
+        service_parameter: "heat"
+        keywords: ["制热", "暖气", "升温"]
+      dry:
+        name: "除湿"
+        service_parameter: "dry"
+        keywords: ["除湿", "抽湿"]
+      fan_only:
+        name: "送风"
+        service_parameter: "fan_only"
+        keywords: ["送风", "通风", "循环"]
+    domain_services:
+      climate:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_temperature: "set_temperature"
+        set_hvac_mode: "set_hvac_mode"
+        set_preset_mode: "set_preset_mode"
+    default_device_names:
+      climate: "空调"
+    responses:
+      success_temperature: "已将{area}温度设置为{temperature}度"
+
 intents:
   HassClimateSetTemperature:
     use_home_assistant: true

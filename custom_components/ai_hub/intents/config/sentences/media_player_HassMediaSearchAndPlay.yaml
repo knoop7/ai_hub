@@ -1,4 +1,77 @@
 language: "zh-CN"
+
+lists:
+  search_query:
+    values:
+      - "搜索"
+      - "查找"
+      - "找"
+      - "查"
+      - "搜"
+  media_class:
+    values:
+      - in: "(电视|电视节目)"
+        out: "tv_show"
+      - in: "(电影|影片)"
+        out: "movie"
+      - in: "(音乐|歌|歌曲)"
+        out: "music"
+      - in: "(广播|电台)"
+        out: "radio"
+      - in: "(播客|节目)"
+        out: "podcast"
+      - in: "(视频|短片)"
+        out: "video"
+      - in: "(书|有声书)"
+        out: "book"
+
+local_intents:
+  GlobalDeviceControl:
+    media_search:
+      action_keywords:
+        - "播放"
+        - "放"
+        - "收听"
+        - "来一首"
+        - "来点"
+        - "来个"
+      default_content_type: "music"
+      fallback_target_strategy: "single_only"
+      service_domain: "media_player"
+      service_name: "play_media"
+      enqueue: "replace"
+      media_type_keywords:
+        artist:
+          - "歌手"
+          - "艺术家"
+        album:
+          - "专辑"
+          - "唱片"
+          - "合集"
+          - "单曲"
+        track:
+          - "歌曲"
+          - "音乐"
+          - "歌"
+        playlist:
+          - "播放列表"
+          - "歌单"
+        radio:
+          - "广播"
+          - "电台"
+          - "频道"
+        podcast:
+          - "播客"
+          - "节目"
+        movie:
+          - "电影"
+          - "影片"
+        tv_show:
+          - "电视剧"
+          - "剧集"
+    responses:
+      success_media_play: "已在{area}{device}播放{query}"
+
 intents:
   MassPlayMediaAssist:
     use_home_assistant: true

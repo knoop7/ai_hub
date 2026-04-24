@@ -1,4 +1,12 @@
 language: "zh-CN"
+
+lists:
+  todo_list_item:
+    values:
+      - "待办"
+      - "任务"
+      - "事项"
+
 intents:
   HassListAddItem:
     use_home_assistant: true

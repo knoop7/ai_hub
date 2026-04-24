@@ -1,4 +1,97 @@
 language: "zh-CN"
+
+lists:
+  bs_door_states:
+    values:
+      - in: "(打开|开着)"
+        out: "on"
+      - in: "(关闭|关着)"
+        out: "off"
+  bs_motion_states:
+    values:
+      - in: "(有人|移动|运动)"
+        out: "on"
+      - in: "(没人|静止|无移动)"
+        out: "off"
+  bs_smoke_states:
+    values:
+      - in: "(有烟雾|报警)"
+        out: "on"
+      - in: "(正常|无烟雾)"
+        out: "off"
+  bs_moisture_states:
+    values:
+      - in: "(有水|漏水|浸水)"
+        out: "on"
+      - in: "(干燥|正常|无水)"
+        out: "off"
+  bs_gas_states:
+    values:
+      - in: "(有燃气|漏气|报警)"
+        out: "on"
+      - in: "(正常|无燃气)"
+        out: "off"
+  bs_power_states:
+    values:
+      - in: "(有电|通电)"
+        out: "on"
+      - in: "(断电|停电|没电)"
+        out: "off"
+  bs_connectivity_states:
+    values:
+      - in: "(在线|连接中)"
+        out: "on"
+      - in: "(离线|断开)"
+        out: "off"
+  bs_cold_states:
+    values:
+      - in: "(冷|温度低)"
+        out: "on"
+      - in: "(正常|不冷)"
+        out: "off"
+  bs_heat_states:
+    values:
+      - in: "(热|温度高)"
+        out: "on"
+      - in: "(正常|不热)"
+        out: "off"
+  bs_lock_states:
+    values:
+      - in: "(锁着|锁定|已锁)"
+        out: "on"
+      - in: "(开着|未锁|打开)"
+        out: "off"
+  bs_opening_states:
+    values:
+      - in: "(开着|打开)"
+        out: "on"
+      - in: "(关着|关闭)"
+        out: "off"
+  bs_plug_states:
+    values:
+      - in: "(插着|已插)"
+        out: "on"
+      - in: "(未插|拔了)"
+        out: "off"
+  bs_safety_states:
+    values:
+      - in: "(不安全|报警)"
+        out: "on"
+      - in: "(安全|正常)"
+        out: "off"
+  bs_vibration_states:
+    values:
+      - in: "(震动|振感)"
+        out: "on"
+      - in: "(正常|无震动)"
+        out: "off"
+  bs_window_states:
+    values:
+      - in: "(开|打开)"
+        out: "on"
+      - in: "(关|关闭)"
+        out: "off"
+
 intents:
   HassGetState:
     use_home_assistant: true

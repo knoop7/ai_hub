@@ -1,4 +1,8 @@
 language: "zh-CN"
+
+expansion_rules:
+  turn_off: "关闭|关上|关|停止|熄灭|关掉"
+
 intents:
   HassTurnOff:
     use_home_assistant: true

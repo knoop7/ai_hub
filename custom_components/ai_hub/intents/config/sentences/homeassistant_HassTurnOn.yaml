@@ -1,4 +1,84 @@
 language: "zh-CN"
+
+local_intents:
+  GlobalDeviceControl:
+    global_keywords:
+      - "所有"
+      - "全部"
+      - "整个"
+      - "所有区域"
+      - "全部区域"
+      - "每个区域"
+      - "所有设备"
+      - "全部设备"
+      - "全屋设备"
+      - "全家设备"
+      - "整屋设备"
+      - "所有屋"
+      - "全部屋"
+      - "全屋灯光"
+    device_type_keywords: "{{lists}}"
+    on_keywords:
+      - "打开"
+      - "开启"
+      - "开"
+      - "启动"
+      - "点亮"
+      - "放亮"
+      - "亮起"
+      - "运行"
+      - "播放"
+    control_domains:
+      - "light"
+      - "switch"
+      - "fan"
+      - "media_player"
+      - "climate"
+      - "cover"
+      - "vacuum"
+      - "lock"
+      - "camera"
+      - "scene"
+      - "script"
+      - "automation"
+      - "valve"
+      - "input_boolean"
+    domain_services:
+      switch:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        toggle: "toggle"
+      scene:
+        turn_on: "turn_on"
+      script:
+        turn_on: "turn_on"
+      automation:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        toggle: "toggle"
+        trigger: "trigger"
+      input_boolean:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        toggle: "toggle"
+    responses:
+      success_on: "已打开{count}个设备{fail_msg}"
+      no_devices: "没有找到可控制的设备"
+      error: "设备控制失败：{error}"
+    default_area_name: "全屋"
+    default_device_names:
+      switch: "开关"
+      scene: "场景"
+      script: "脚本"
+    failure_message:
+      few_devices: "，但以下{error_count}个设备失败：{failed_list}"
+      many_devices: "，但{error_count}个设备失败，包括：{failed_list}等"
+      max_devices_list: 3
+    device_deduplication:
+      enabled: true
+      log_duplicates: true
+      fail_on_duplicates: false
+
 intents:
   HassTurnOn:
     use_home_assistant: true

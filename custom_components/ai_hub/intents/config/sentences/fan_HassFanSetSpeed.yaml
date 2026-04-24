@@ -1,4 +1,53 @@
 language: "zh-CN"
+
+lists:
+  fan_names:
+    values:
+      - "风扇"
+      - "电扇"
+      - "吊扇"
+      - "循环扇"
+      - "塔扇"
+      - "无叶扇"
+      - "排气扇"
+  percentage:
+    range:
+      type: "percentage"
+      from: 0
+      to: 100
+  fan_speed:
+    values:
+      - in: "(最高|最大|满)"
+        out: 100
+      - in: "(最低|最小)"
+        out: 1
+      - in: "高档"
+        out: 75
+      - in: "中档"
+        out: 50
+      - in: "低档"
+        out: 25
+
+local_intents:
+  GlobalDeviceControl:
+    fan_speed_keywords:
+      - "风速"
+      - "速度"
+      - "转速"
+      - "档位"
+    domain_services:
+      fan:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_speed: "set_speed"
+        set_percentage: "set_percentage"
+        set_direction: "set_direction"
+        oscillate: "oscillate"
+    default_device_names:
+      fan: "风扇"
+    responses:
+      success_fan_speed: "已将{area}{device}风速调至{speed}%"
+
 intents:
   HassFanSetSpeed:
     use_home_assistant: true

@@ -1,4 +1,24 @@
 language: "zh-CN"
+
+lists:
+  climate_names:
+    values:
+      - "空调"
+      - "冷气"
+      - "暖气"
+      - "地暖"
+      - "加热器"
+      - "取暖器"
+      - "恒温器"
+      - "温控器"
+      - "新风"
+      - "空气净化"
+      - "加湿器"
+      - "除湿器"
+
+expansion_rules:
+  temperature: "(温度|气温|室温)"
+
 intents:
   HassClimateGetTemperature:
     use_home_assistant: true

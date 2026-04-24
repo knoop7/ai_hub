@@ -1,4 +1,34 @@
 language: "zh-CN"
+
+lists:
+  lock_names:
+    values:
+      - "门锁"
+      - "智能锁"
+      - "电子锁"
+      - "密码锁"
+      - "指纹锁"
+      - "人脸识别锁"
+      - "门禁"
+      - "自动门"
+      - "防盗门"
+  lock_states:
+    values:
+      - in: "(锁上|锁着|已锁)"
+        out: "locked"
+      - in: "(没锁|未锁|开着|打开)"
+        out: "unlocked"
+
+local_intents:
+  GlobalDeviceControl:
+    domain_services:
+      lock:
+        turn_on: "unlock"
+        turn_off: "lock"
+        open: "open"
+    default_device_names:
+      lock: "门锁"
+
 intents:
   HassGetState:
     use_home_assistant: true

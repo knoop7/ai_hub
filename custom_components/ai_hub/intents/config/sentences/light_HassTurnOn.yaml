@@ -1,4 +1,59 @@
 language: "zh-CN"
+
+lists:
+  light_names:
+    values:
+      - "灯"
+      - "灯光"
+      - "照明"
+      - "电灯"
+      - "灯具"
+      - "吸顶灯"
+      - "吊灯"
+      - "主灯"
+      - "顶灯"
+      - "水晶灯"
+      - "餐厅灯"
+      - "筒灯"
+      - "射灯"
+      - "轨道灯"
+      - "格栅灯"
+      - "豆胆灯"
+      - "天花灯"
+      - "台灯"
+      - "桌灯"
+      - "床头灯"
+      - "落地灯"
+      - "立灯"
+      - "阅读灯"
+      - "护眼灯"
+      - "灯带"
+      - "氛围灯"
+      - "彩灯"
+      - "壁灯"
+      - "镜前灯"
+      - "地灯"
+      - "景观灯"
+      - "小夜灯"
+      - "感应灯"
+      - "应急灯"
+
+expansion_rules:
+  turn_on: "打开|开启|开|启动|点亮"
+
+local_intents:
+  GlobalDeviceControl:
+    domain_services:
+      light:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_brightness: "turn_on"
+        set_color: "turn_on"
+        set_temperature: "turn_on"
+        toggle: "toggle"
+    default_device_names:
+      light: "灯光"
+
 intents:
   HassTurnOn:
     use_home_assistant: true

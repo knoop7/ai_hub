@@ -1,4 +1,29 @@
 language: "zh-CN"
+
+lists:
+  valve_names:
+    values:
+      - "水阀"
+      - "阀门"
+      - "水龙头"
+      - "球阀"
+      - "闸阀"
+      - "截止阀"
+      - "止回阀"
+      - "电磁阀"
+      - "智能阀"
+      - "控制阀"
+
+local_intents:
+  GlobalDeviceControl:
+    domain_services:
+      valve:
+        turn_on: "open_valve"
+        turn_off: "close_valve"
+        set_position: "set_valve_position"
+    default_device_names:
+      valve: "水阀"
+
 intents:
   HassSetPosition:
     use_home_assistant: true

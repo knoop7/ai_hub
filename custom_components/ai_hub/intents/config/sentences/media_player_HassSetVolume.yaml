@@ -1,4 +1,84 @@
 language: "zh-CN"
+
+lists:
+  media_names:
+    values:
+      - "电视"
+      - "电视机"
+      - "智能电视"
+      - "大电视"
+      - "小电视"
+      - "电视屏幕"
+      - "机顶盒"
+      - "电视盒子"
+      - "音箱"
+      - "音响"
+      - "扬声器"
+      - "喇叭"
+      - "功放机"
+      - "低音炮"
+      - "功放"
+      - "播放器"
+      - "媒体播放器"
+      - "投影仪"
+      - "投影"
+      - "点歌机"
+      - "背景音乐"
+  media_player_names:
+    values:
+      - "电视"
+      - "电视机"
+      - "智能电视"
+      - "大电视"
+      - "小电视"
+      - "电视屏幕"
+      - "机顶盒"
+      - "电视盒子"
+      - "音箱"
+      - "音响"
+      - "扬声器"
+      - "喇叭"
+      - "功放"
+      - "功放机"
+      - "低音炮"
+      - "播放器"
+      - "媒体播放器"
+      - "投影仪"
+      - "投影"
+      - "点歌机"
+      - "背景音乐"
+  volume:
+    values:
+      - in: "(静音|无声)"
+        out: 0
+      - in: "(最大|最高|满)"
+        out: 100
+  volume_percentage:
+    range:
+      type: "percentage"
+      from: 0
+      to: 100
+
+local_intents:
+  GlobalDeviceControl:
+    volume_keywords:
+      - "音量"
+      - "声音"
+      - "声量"
+      - "音量大小"
+    domain_services:
+      media_player:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        set_volume: "volume_set"
+        volume_up: "volume_up"
+        volume_down: "volume_down"
+        mute: "volume_mute"
+    default_device_names:
+      media_player: "媒体设备"
+    responses:
+      success_volume: "已将{area}{device}音量调至{volume}%"
+
 intents:
   HassSetVolume:
     use_home_assistant: true

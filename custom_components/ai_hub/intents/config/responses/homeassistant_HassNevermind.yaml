@@ -1,5 +1,7 @@
 language: "zh-CN"
 responses:
+  cancel:
+    message: "好的，已取消。"
   intents:
     HassNevermind:
       default: "好的，已取消。"

@@ -177,7 +177,6 @@ def test_extract_media_query_and_fallback_target_strategy():
         "lists": {
             "area_names": {"values": ["客厅"]},
             "media_player_names": {"values": ["电视"]},
-            "media_names": {"values": ["电视"]},
         }
     }
     handler._local_config = {
@@ -249,7 +248,6 @@ def test_local_intent_handler_requires_explicit_global_keyword_for_domain_wide_m
         "lists": {
             "area_names": {"values": ["客厅"]},
             "media_player_names": {"values": ["电视", "音箱"]},
-            "media_names": {"values": ["电视", "音箱"]},
         }
     }
     handler._local_config = {

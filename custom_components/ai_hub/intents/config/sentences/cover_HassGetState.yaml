@@ -1,4 +1,27 @@
 language: "zh-CN"
+
+lists:
+  cover_states:
+    values:
+      - in: "(打开|开着|升起)"
+        out: "open"
+      - in: "(关闭|关着|关上|降下)"
+        out: "closed"
+      - in: "(正在打开|正在升起)"
+        out: "opening"
+      - in: "(正在关闭|正在降下)"
+        out: "closing"
+  cover_classes:
+    values:
+      - in: "(窗帘|帘子)"
+        out: "curtain"
+      - in: "百叶窗"
+        out: "blind"
+      - in: "卷帘"
+        out: "roller"
+      - in: "车库(门)"
+        out: "garage"
+
 intents:
   HassCoverGetState:
     use_home_assistant: true

@@ -247,8 +247,6 @@ class LocalIntentHandler:
             domain_mapping: dict[str, list[str]] = {}
             for domain in global_config.get('control_domains', []):
                 list_names = [f'{domain}_names']
-                if domain == 'media_player' and 'media_names' in lists_config:
-                    list_names.append('media_names')
                 if domain == 'device_tracker' and 'tracker_names' in lists_config:
                     list_names.append('tracker_names')
                 domain_mapping[domain] = list_names
@@ -662,7 +660,7 @@ class LocalIntentHandler:
 
         config = self.config or {}
         lists_config = config.get('lists', {})
-        for list_name in ('area_names', 'media_player_names', 'media_names'):
+        for list_name in ('area_names', 'media_player_names'):
             cleanup_tokens.extend(lists_config.get(list_name, {}).get('values', []))
 
         for keywords in media_type_keywords.values():

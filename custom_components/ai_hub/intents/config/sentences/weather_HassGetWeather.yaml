@@ -1,4 +1,13 @@
 language: "zh-CN"
+
+lists:
+  on_off_states:
+    values:
+      - in: "开(着|启)"
+        out: "on"
+      - in: "关(着|闭)"
+        out: "off"
+
 intents:
   HassGetWeather:
     use_home_assistant: true

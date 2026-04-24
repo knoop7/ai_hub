@@ -1,4 +1,12 @@
 language: "zh-CN"
+
+lists:
+  message:
+    values:
+      - "消息"
+      - "内容"
+      - "信息"
+
 intents:
   HassNotifyIntent:
     action: [notify]

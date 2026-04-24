@@ -1,4 +1,20 @@
 language: "zh-CN"
+
+local_intents:
+  GlobalDeviceControl:
+    off_keywords:
+      - "关闭"
+      - "关上"
+      - "关"
+      - "停止"
+      - "熄灭"
+      - "灭灯"
+      - "关掉"
+      - "暂停"
+      - "退出"
+    responses:
+      success_off: "已关闭{count}个设备{fail_msg}"
+
 intents:
   HassTurnOff:
     use_home_assistant: true

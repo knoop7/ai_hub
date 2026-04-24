@@ -1,4 +1,29 @@
 language: "zh-CN"
+
+lists:
+  camera_names:
+    values:
+      - "摄像头"
+      - "监控"
+      - "摄像机"
+      - "网络摄像头"
+      - "智能摄像头"
+      - "门铃"
+      - "可视门铃"
+      - "监控器"
+      - "录像机"
+
+local_intents:
+  GlobalDeviceControl:
+    domain_services:
+      camera:
+        turn_on: "turn_on"
+        turn_off: "turn_off"
+        snapshot: "snapshot"
+        record: "record"
+    default_device_names:
+      camera: "摄像头"
+
 intents:
   CameraAnalyzeIntent:
     bypass_home_assistant: true

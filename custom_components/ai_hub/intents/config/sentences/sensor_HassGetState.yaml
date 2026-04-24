@@ -1,4 +1,29 @@
 language: "zh-CN"
+
+lists:
+  sensor_names:
+    values:
+      - "传感器"
+      - "温度传感器"
+      - "湿度传感器"
+      - "温湿度传感器"
+      - "光照传感器"
+      - "人体传感器"
+      - "运动传感器"
+      - "人体感应器"
+      - "门窗传感器"
+      - "烟雾报警器"
+      - "燃气报警器"
+      - "水浸传感器"
+      - "空气质量"
+      - "甲醛检测"
+  bs_battery_states:
+    values:
+      - in: "(低电量|没电)"
+        out: "on"
+      - in: "(充满电|满电)"
+        out: "off"
+
 intents:
   HassGetState:
     use_home_assistant: true

@@ -1,4 +1,31 @@
 language: "zh-CN"
+
+lists:
+  vacuum_names:
+    values:
+      - "扫地机"
+      - "扫地机器人"
+      - "吸尘器"
+      - "清洁机器人"
+      - "拖地机"
+      - "洗地机"
+      - "擦窗机器人"
+      - "除螨仪"
+      - "清扫机"
+
+local_intents:
+  GlobalDeviceControl:
+    domain_services:
+      vacuum:
+        turn_on: "start"
+        turn_off: "return_to_base"
+        pause: "pause"
+        stop: "stop"
+        clean_spot: "clean_spot"
+        locate: "locate"
+    default_device_names:
+      vacuum: "清洁设备"
+
 intents:
   HassVacuumStart:
     use_home_assistant: true

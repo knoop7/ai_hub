@@ -1,4 +1,26 @@
 language: "zh-CN"
+
+lists:
+  item:
+    values:
+      - "事项"
+      - "项目"
+      - "内容"
+  shopping_list_item:
+    values:
+      - "牛奶"
+      - "面包"
+      - "鸡蛋"
+      - "大米"
+      - "油"
+      - "盐"
+      - "酱油"
+      - "醋"
+      - "蔬菜"
+      - "水果"
+      - "肉"
+      - "鱼"
+
 intents:
   HassShoppingListAddItem:
     use_home_assistant: true

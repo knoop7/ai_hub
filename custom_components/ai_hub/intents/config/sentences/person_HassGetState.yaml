@@ -1,4 +1,29 @@
 language: "zh-CN"
+
+lists:
+  tracker_names:
+    values:
+      - "手机"
+      - "平板"
+      - "电脑"
+      - "笔记本"
+      - "手表"
+      - "手环"
+      - "汽车"
+      - "电动车"
+  person_name:
+    values:
+      - "所有人"
+      - "大家"
+      - "每个人"
+  zone:
+    values:
+      - "家"
+      - "公司"
+      - "学校"
+      - "医院"
+      - "商场"
+
 intents:
   HassGetState:
     use_home_assistant: true
