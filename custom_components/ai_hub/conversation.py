@@ -218,6 +218,7 @@ class AIHubConversationAgent(
                                 content=plain_speech,
                             )
                         )
+                    _LOGGER.debug("Conversation result source: ha_builtin")
                     _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
                     return conversation.ConversationResult(
                         response=ha_response,
@@ -237,6 +238,7 @@ class AIHubConversationAgent(
                                     content=speech,
                                 )
                             )
+                        _LOGGER.debug("Conversation result source: ai_hub_local")
                         return conversation.ConversationResult(
                             response=intent_result["response"],
                             conversation_id=chat_log.conversation_id,
@@ -267,6 +269,7 @@ class AIHubConversationAgent(
                                 content=speech,
                             )
                         )
+                    _LOGGER.debug("Conversation result source: ai_hub_local")
                     return conversation.ConversationResult(
                         response=intent_result["response"],
                         conversation_id=chat_log.conversation_id,
@@ -339,4 +342,5 @@ class AIHubConversationAgent(
                 break
 
         # Return result from chat log
+        _LOGGER.debug("Conversation result source: llm")
         return conversation.async_get_result_from_chat_log(user_input, chat_log)

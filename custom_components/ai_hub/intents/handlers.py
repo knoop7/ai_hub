@@ -157,6 +157,10 @@ class LocalIntentHandler:
         if has_global_keyword and not device_types and not target_entities:
             should_handle = False
 
+        # 仅命中设备类型词且未指定区域/实体时，不应默认放大为整域批量控制。
+        if device_types and not target_entities and not area_names and not has_global_keyword:
+            should_handle = False
+
         _LOGGER.debug("Local intent check: '%s' -> %s", text, should_handle)
 
         return should_handle
@@ -193,8 +197,13 @@ class LocalIntentHandler:
         # 3. 解析设备、设备类型和区域
         area_names, device_types = self._parse_device_and_area(text_lower, global_config)
         target_entities = self._match_named_entities(text_lower, device_types or None, area_names)
+        global_keywords = global_config.get('global_keywords', [])
+        has_global_keyword = any(keyword in text_lower for keyword in global_keywords)
 
         if not device_types and not target_entities:
+            return None
+
+        if device_types and not target_entities and not area_names and not has_global_keyword:
             return None
 
         # 4. 执行设备控制

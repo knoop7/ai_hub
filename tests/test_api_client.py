@@ -240,6 +240,39 @@ def test_local_intent_handler_matches_area_scoped_all_lights_commands():
     assert handler.should_handle("关闭") is False
 
 
+def test_local_intent_handler_requires_explicit_global_keyword_for_domain_wide_media_control():
+    _install_homeassistant_stubs()
+    from custom_components.ai_hub.intents.handlers import LocalIntentHandler
+
+    handler = LocalIntentHandler(_FakeHass([]))
+    handler._config = {
+        "lists": {
+            "area_names": {"values": ["客厅"]},
+            "media_player_names": {"values": ["电视", "音箱"]},
+            "media_names": {"values": ["电视", "音箱"]},
+        }
+    }
+    handler._local_config = {
+        "GlobalDeviceControl": {
+            "global_keywords": ["所有", "全部", "全屋"],
+            "device_type_keywords": "{{lists}}",
+            "control_domains": ["media_player"],
+            "on_keywords": ["打开", "开启", "开"],
+            "off_keywords": ["关闭", "关掉", "关"],
+            "param_keywords": [],
+            "brightness_keywords": [],
+            "volume_keywords": [],
+            "color_keywords": [],
+            "temperature_keywords": [],
+        }
+    }
+
+    assert handler.should_handle("关闭电视") is False
+    assert handler.should_handle("关闭音箱") is False
+    assert handler.should_handle("关闭所有电视") is True
+    assert handler.should_handle("关闭客厅电视") is True
+
+
 def test_error_message_extraction():
     """Test error message extraction from various formats."""
     # Format 1: {"error": "message"}
