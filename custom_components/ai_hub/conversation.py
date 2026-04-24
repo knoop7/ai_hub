@@ -226,6 +226,13 @@ class AIHubConversationAgent(
                         continue_conversation=continue_conversation,
                     )
 
+                if response_type == intent.IntentResponseType.QUERY_ANSWER and not has_explicit_outcome:
+                    _LOGGER.debug(
+                        "HA 内置意图已判定为查询类响应，跳过本地 fallback: %s",
+                        user_input.text,
+                    )
+                    return None
+
                 if intent_handler and intent_handler.should_handle(user_input.text):
                     _LOGGER.debug("Falling back to local intent processing: %s", user_input.text)
                     intent_result = await intent_handler.handle(user_input.text, user_input.language)
