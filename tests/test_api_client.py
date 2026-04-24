@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import sys
 from types import ModuleType, SimpleNamespace
 
@@ -338,46 +337,6 @@ def test_local_intent_handler_requires_sentence_match_before_handling():
 
     assert handler.should_handle("打开书房灯") is True
     assert handler.should_handle("书房领普开关不是灯吗") is False
-
-
-def test_local_intent_handler_filters_non_controllable_target_entities():
-    _install_homeassistant_stubs()
-    from custom_components.ai_hub.intents.handlers import LocalIntentHandler
-
-    handler = LocalIntentHandler(_FakeHass([]))
-    handler._config = {
-        "lists": {
-            "area_names": {"values": ["书房"]},
-            "light_names": {"values": ["灯"]},
-        },
-        "expansion_rules": {
-            "turn_on": "打开",
-        },
-        "local_sentence_templates": [
-            "<turn_on><light_names>",
-        ],
-    }
-    handler._local_config = {
-        "GlobalDeviceControl": {
-            "global_keywords": ["所有", "全部", "全屋"],
-            "device_type_keywords": "{{lists}}",
-            "control_domains": ["light"],
-            "on_keywords": ["打开"],
-            "off_keywords": ["关闭"],
-            "param_keywords": [],
-            "brightness_keywords": [],
-            "volume_keywords": [],
-            "color_keywords": [],
-            "temperature_keywords": [],
-        }
-    }
-
-    handler._match_named_entities = lambda text, allowed_domains=None, area_names=None: [
-        "sensor.study_temperature"
-    ]
-
-    result = asyncio.run(handler.handle("打开灯", "zh-CN"))
-    assert result is None
 
 
 def test_error_message_extraction():

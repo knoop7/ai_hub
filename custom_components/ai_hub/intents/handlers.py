@@ -296,12 +296,6 @@ class LocalIntentHandler:
         # 3. 解析设备、设备类型和区域
         area_names, device_types = self._parse_device_and_area(text_lower, global_config)
         target_entities = self._match_named_entities(text_lower, device_types or None, area_names)
-        allowed_domains = set(global_config.get('control_domains', []))
-        target_entities = [
-            entity_id
-            for entity_id in target_entities
-            if entity_id.split('.', 1)[0] in allowed_domains
-        ]
         global_keywords = global_config.get('global_keywords', [])
         has_global_keyword = any(keyword in text_lower for keyword in global_keywords)
 
