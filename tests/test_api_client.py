@@ -339,6 +339,41 @@ def test_local_intent_handler_requires_sentence_match_before_handling():
     assert handler.should_handle("书房领普开关不是灯吗") is False
 
 
+def test_local_intent_handler_avoids_recursive_expansion_rule_loops():
+    _install_homeassistant_stubs()
+    from custom_components.ai_hub.intents.handlers import LocalIntentHandler
+
+    handler = LocalIntentHandler(_FakeHass([]))
+    handler._config = {
+        "lists": {
+            "light_names": {"values": ["灯"]},
+        },
+        "expansion_rules": {
+            "name": "{name}",
+            "turn_on": "打开",
+        },
+        "local_sentence_templates": [
+            "<turn_on>{name}",
+        ],
+    }
+    handler._local_config = {
+        "GlobalDeviceControl": {
+            "global_keywords": ["所有"],
+            "device_type_keywords": "{{lists}}",
+            "control_domains": ["light"],
+            "on_keywords": ["打开"],
+            "off_keywords": ["关闭"],
+            "param_keywords": [],
+            "brightness_keywords": [],
+            "volume_keywords": [],
+            "color_keywords": [],
+            "temperature_keywords": [],
+        }
+    }
+
+    assert handler.should_handle("打开任意名称") is True
+
+
 def test_error_message_extraction():
     """Test error message extraction from various formats."""
     # Format 1: {"error": "message"}

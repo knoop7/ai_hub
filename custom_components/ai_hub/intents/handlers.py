@@ -178,8 +178,15 @@ class LocalIntentHandler:
         self._local_sentence_patterns = patterns
         return self._local_sentence_patterns
 
-    def _template_to_regex(self, template: str, config: dict[str, Any]) -> str:
+    def _template_to_regex(
+        self,
+        template: str,
+        config: dict[str, Any],
+        seen_tokens: set[str] | None = None,
+    ) -> str:
         """Convert a sentence template into a permissive anchored regex."""
+        seen_tokens = set() if seen_tokens is None else set(seen_tokens)
+
         def _convert(fragment: str) -> str:
             parts: list[str] = []
             i = 0
@@ -194,13 +201,20 @@ class LocalIntentHandler:
                 if char == '<':
                     end = self._find_matching(fragment, i, '<', '>')
                     token = fragment[i + 1:end].strip()
-                    parts.append(self._expand_template_token(token, config))
+                    parts.append(self._expand_template_token(token, config, seen_tokens=seen_tokens))
                     i = end + 1
                     continue
                 if char == '{':
                     end = self._find_matching(fragment, i, '{', '}')
                     token = fragment[i + 1:end].split(':', 1)[0].strip()
-                    parts.append(self._expand_template_token(token, config, fallback='.+?'))
+                    parts.append(
+                        self._expand_template_token(
+                            token,
+                            config,
+                            fallback='.+?',
+                            seen_tokens=seen_tokens,
+                        )
+                    )
                     i = end + 1
                     continue
                 if char.isspace():
@@ -220,11 +234,18 @@ class LocalIntentHandler:
         token: str,
         config: dict[str, Any],
         fallback: str = '.+?',
+        seen_tokens: set[str] | None = None,
     ) -> str:
         """Expand a rule/list token into regex."""
+        seen_tokens = set() if seen_tokens is None else set(seen_tokens)
         expansion_rules = config.get('expansion_rules', {}) if isinstance(config, dict) else {}
         if token in expansion_rules and isinstance(expansion_rules[token], str):
-            return f'(?:{self._template_to_regex_fragment(expansion_rules[token], config)})'
+            if token in seen_tokens:
+                return fallback
+
+            next_seen = set(seen_tokens)
+            next_seen.add(token)
+            return f'(?:{self._template_to_regex_fragment(expansion_rules[token], config, next_seen)})'
 
         lists_config = config.get('lists', {}) if isinstance(config, dict) else {}
         list_config = lists_config.get(token)
@@ -242,8 +263,13 @@ class LocalIntentHandler:
 
         return fallback
 
-    def _template_to_regex_fragment(self, fragment: str, config: dict[str, Any]) -> str:
-        regex = self._template_to_regex(fragment, config)
+    def _template_to_regex_fragment(
+        self,
+        fragment: str,
+        config: dict[str, Any],
+        seen_tokens: set[str] | None = None,
+    ) -> str:
+        regex = self._template_to_regex(fragment, config, seen_tokens)
         prefix = '^\\s*'
         suffix = '[\\s。！？?!.，,:：]*$'
         if regex.startswith(prefix):
