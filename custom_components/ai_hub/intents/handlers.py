@@ -69,6 +69,7 @@ class LocalIntentHandler:
         self.hass = hass
         self._config = None  # 延迟加载
         self._local_config = None
+        self._local_sentence_patterns = None
 
     @property
     def local_config(self):
@@ -138,32 +139,130 @@ class LocalIntentHandler:
 
         text_lower = text.lower().strip()
 
-        area_names, device_types = self._parse_device_and_area(text_lower, global_config)
-        target_entities = self._match_named_entities(text_lower, device_types or None, area_names)
-
-        # 规则1: 检查明确的全局关键词 - HA不支持的功能
-        global_keywords = global_config.get('global_keywords', [])
-        has_global_keyword = any(keyword in text_lower for keyword in global_keywords)
-
-        # 规则2: 检查显式动作/参数指令
-        has_action_word = self._has_explicit_action_word(text_lower, global_config)
-        has_parameter_command = self._has_parameter_command(text, text_lower, global_config)
-        has_resolved_target = bool(device_types or target_entities)
-
-        # 本地增强意图必须完整命中可执行控制目标，不能靠模糊猜测。
-        should_handle = has_resolved_target and (has_action_word or has_parameter_command)
-
-        # 全局控制也必须解析出具体设备类型，避免“打开所有”之类半句被错误接管。
-        if has_global_keyword and not device_types and not target_entities:
-            should_handle = False
-
-        # 仅命中设备类型词且未指定区域/实体时，不应默认放大为整域批量控制。
-        if device_types and not target_entities and not area_names and not has_global_keyword:
-            should_handle = False
-
+        should_handle = self._matches_local_sentence_template(text_lower)
         _LOGGER.debug("Local intent check: '%s' -> %s", text, should_handle)
-
         return should_handle
+
+    def _matches_local_sentence_template(self, text_lower: str) -> bool:
+        """Return whether text matches any configured local sentence template."""
+        patterns = self._get_local_sentence_patterns()
+        if not patterns:
+            return False
+
+        normalized_text = re.sub(r'\s+', ' ', text_lower).strip()
+        return any(pattern.fullmatch(normalized_text) for pattern in patterns)
+
+    def _get_local_sentence_patterns(self) -> list[re.Pattern[str]]:
+        """Compile local sentence templates into regex patterns once."""
+        if self._local_sentence_patterns is not None:
+            return self._local_sentence_patterns
+
+        config = self.config or {}
+        templates = config.get('local_sentence_templates', [])
+        if not isinstance(templates, list):
+            self._local_sentence_patterns = []
+            return self._local_sentence_patterns
+
+        patterns: list[re.Pattern[str]] = []
+        for template in templates:
+            if not isinstance(template, str) or not template.strip():
+                continue
+            try:
+                regex = self._template_to_regex(template, config)
+                patterns.append(re.compile(regex))
+            except ValueError:
+                continue
+            except re.error:
+                continue
+
+        self._local_sentence_patterns = patterns
+        return self._local_sentence_patterns
+
+    def _template_to_regex(self, template: str, config: dict[str, Any]) -> str:
+        """Convert a sentence template into a permissive anchored regex."""
+        def _convert(fragment: str) -> str:
+            parts: list[str] = []
+            i = 0
+            while i < len(fragment):
+                char = fragment[i]
+                if char == '[':
+                    end = self._find_matching(fragment, i, '[', ']')
+                    inner = _convert(fragment[i + 1:end])
+                    parts.append(f'(?:{inner})?')
+                    i = end + 1
+                    continue
+                if char == '<':
+                    end = self._find_matching(fragment, i, '<', '>')
+                    token = fragment[i + 1:end].strip()
+                    parts.append(self._expand_template_token(token, config))
+                    i = end + 1
+                    continue
+                if char == '{':
+                    end = self._find_matching(fragment, i, '{', '}')
+                    token = fragment[i + 1:end].split(':', 1)[0].strip()
+                    parts.append(self._expand_template_token(token, config, fallback='.+?'))
+                    i = end + 1
+                    continue
+                if char.isspace():
+                    parts.append(r'\s*')
+                elif char in '()|':
+                    parts.append(char)
+                else:
+                    parts.append(re.escape(char))
+                i += 1
+            return ''.join(parts)
+
+        body = _convert(template.strip())
+        return rf'^\s*{body}[\s。！？?!.，,:：]*$'
+
+    def _expand_template_token(
+        self,
+        token: str,
+        config: dict[str, Any],
+        fallback: str = '.+?',
+    ) -> str:
+        """Expand a rule/list token into regex."""
+        expansion_rules = config.get('expansion_rules', {}) if isinstance(config, dict) else {}
+        if token in expansion_rules and isinstance(expansion_rules[token], str):
+            return f'(?:{self._template_to_regex_fragment(expansion_rules[token], config)})'
+
+        lists_config = config.get('lists', {}) if isinstance(config, dict) else {}
+        list_config = lists_config.get(token)
+        if isinstance(list_config, dict):
+            values = list_config.get('values')
+            if isinstance(values, list):
+                options: list[str] = []
+                for value in values:
+                    if isinstance(value, str):
+                        options.append(re.escape(value.strip()))
+                    elif isinstance(value, dict) and isinstance(value.get('in'), str):
+                        options.append(value['in'])
+                if options:
+                    return f'(?:{"|".join(options)})'
+
+        return fallback
+
+    def _template_to_regex_fragment(self, fragment: str, config: dict[str, Any]) -> str:
+        regex = self._template_to_regex(fragment, config)
+        prefix = '^\\s*'
+        suffix = '[\\s。！？?!.，,:：]*$'
+        if regex.startswith(prefix):
+            regex = regex[len(prefix):]
+        if regex.endswith(suffix):
+            regex = regex[:-len(suffix)]
+        return regex
+
+    @staticmethod
+    def _find_matching(text: str, start: int, opener: str, closer: str) -> int:
+        depth = 0
+        for index in range(start, len(text)):
+            if text[index] == opener:
+                depth += 1
+            elif text[index] == closer:
+                depth -= 1
+                if depth == 0:
+                    return index
+        raise ValueError(f'Unmatched template delimiter: {opener}')
 
     def _has_explicit_action_word(self, text_lower: str, global_config: dict) -> bool:
         """Return whether text contains a configured imperative action word."""
@@ -197,6 +296,12 @@ class LocalIntentHandler:
         # 3. 解析设备、设备类型和区域
         area_names, device_types = self._parse_device_and_area(text_lower, global_config)
         target_entities = self._match_named_entities(text_lower, device_types or None, area_names)
+        allowed_domains = set(global_config.get('control_domains', []))
+        target_entities = [
+            entity_id
+            for entity_id in target_entities
+            if entity_id.split('.', 1)[0] in allowed_domains
+        ]
         global_keywords = global_config.get('global_keywords', [])
         has_global_keyword = any(keyword in text_lower for keyword in global_keywords)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from types import ModuleType, SimpleNamespace
 
@@ -216,7 +217,21 @@ def test_local_intent_handler_matches_area_scoped_all_lights_commands():
         "lists": {
             "area_names": {"values": ["客厅"]},
             "light_names": {"values": ["灯", "灯光"]},
-        }
+        },
+        "expansion_rules": {
+            "let": "请|帮我",
+            "turn_on": "打开|开启|开",
+            "turn_off": "关闭|关掉|关",
+            "area": "[在]<area_names>[的]",
+        },
+        "local_sentence_templates": [
+            "[<let>] <turn_on>[<area>]<light_names>",
+            "[<let>] <turn_off>[<area>]<light_names>",
+            "[<let>] <turn_on>[<area>]<area_names>[的]<light_names>",
+            "[<let>] <turn_off>[<area>]<area_names>[的]<light_names>",
+            "[<let>] <turn_on>{area_names}[所有|所有的|全部|全部的]{light_names}",
+            "[<let>] <turn_off>{area_names}[所有|所有的|全部|全部的]{light_names}",
+        ],
     }
     handler._local_config = {
         "GlobalDeviceControl": {
@@ -248,7 +263,21 @@ def test_local_intent_handler_requires_explicit_global_keyword_for_domain_wide_m
         "lists": {
             "area_names": {"values": ["客厅"]},
             "media_player_names": {"values": ["电视", "音箱"]},
-        }
+        },
+        "expansion_rules": {
+            "let": "请|帮我",
+            "turn_on": "打开|开启|开",
+            "turn_off": "关闭|关掉|关",
+            "area": "[在]<area_names>[的]",
+        },
+        "local_sentence_templates": [
+            "[<let>] <turn_off>[<area>]<media_player_names>",
+            "[<let>] <turn_on>[<area>]<media_player_names>",
+            "[<let>] <turn_off>[<area>]<area_names>[的]<media_player_names>",
+            "[<let>] <turn_on>[<area>]<area_names>[的]<media_player_names>",
+            "[<let>] <turn_off>[所有|所有的|全部|全部的]<media_player_names>",
+            "[<let>] <turn_on>[所有|所有的|全部|全部的]<media_player_names>",
+        ],
     }
     handler._local_config = {
         "GlobalDeviceControl": {
@@ -265,10 +294,90 @@ def test_local_intent_handler_requires_explicit_global_keyword_for_domain_wide_m
         }
     }
 
-    assert handler.should_handle("关闭电视") is False
-    assert handler.should_handle("关闭音箱") is False
+    assert handler.should_handle("关闭电视") is True
+    assert handler.should_handle("关闭音箱") is True
     assert handler.should_handle("关闭所有电视") is True
     assert handler.should_handle("关闭客厅电视") is True
+
+
+def test_local_intent_handler_requires_sentence_match_before_handling():
+    _install_homeassistant_stubs()
+    from custom_components.ai_hub.intents.handlers import LocalIntentHandler
+
+    handler = LocalIntentHandler(_FakeHass([]))
+    handler._config = {
+        "lists": {
+            "area_names": {"values": ["书房"]},
+            "light_names": {"values": ["灯"]},
+        },
+        "expansion_rules": {
+            "let": "请|帮我",
+            "turn_on": "打开",
+            "turn_off": "关闭",
+            "area": "[在]<area_names>[的]",
+        },
+        "local_sentence_templates": [
+            "[<let>] <turn_on>[<area>]<light_names>",
+            "[<let>] <turn_off>[<area>]<light_names>",
+        ],
+    }
+    handler._local_config = {
+        "GlobalDeviceControl": {
+            "global_keywords": ["所有", "全部", "全屋"],
+            "device_type_keywords": "{{lists}}",
+            "control_domains": ["light"],
+            "on_keywords": ["打开"],
+            "off_keywords": ["关闭"],
+            "param_keywords": [],
+            "brightness_keywords": [],
+            "volume_keywords": [],
+            "color_keywords": [],
+            "temperature_keywords": [],
+        }
+    }
+
+    assert handler.should_handle("打开书房灯") is True
+    assert handler.should_handle("书房领普开关不是灯吗") is False
+
+
+def test_local_intent_handler_filters_non_controllable_target_entities():
+    _install_homeassistant_stubs()
+    from custom_components.ai_hub.intents.handlers import LocalIntentHandler
+
+    handler = LocalIntentHandler(_FakeHass([]))
+    handler._config = {
+        "lists": {
+            "area_names": {"values": ["书房"]},
+            "light_names": {"values": ["灯"]},
+        },
+        "expansion_rules": {
+            "turn_on": "打开",
+        },
+        "local_sentence_templates": [
+            "<turn_on><light_names>",
+        ],
+    }
+    handler._local_config = {
+        "GlobalDeviceControl": {
+            "global_keywords": ["所有", "全部", "全屋"],
+            "device_type_keywords": "{{lists}}",
+            "control_domains": ["light"],
+            "on_keywords": ["打开"],
+            "off_keywords": ["关闭"],
+            "param_keywords": [],
+            "brightness_keywords": [],
+            "volume_keywords": [],
+            "color_keywords": [],
+            "temperature_keywords": [],
+        }
+    }
+
+    handler._match_named_entities = lambda text, allowed_domains=None, area_names=None: [
+        "sensor.study_temperature"
+    ]
+
+    result = asyncio.run(handler.handle("打开灯", "zh-CN"))
+    assert result is None
 
 
 def test_error_message_extraction():

@@ -83,6 +83,30 @@ def _deep_merge(base: Dict, override: Dict) -> Dict:
     return result
 
 
+def _collect_local_sentence_templates(file_config: dict[str, Any]) -> list[str]:
+    """Collect sentence templates from files that contribute local intent config."""
+    if not isinstance(file_config.get('local_intents'), dict):
+        return []
+
+    intents = file_config.get('intents', {})
+    if not isinstance(intents, dict):
+        return []
+
+    templates: list[str] = []
+    for intent_config in intents.values():
+        if not isinstance(intent_config, dict):
+            continue
+        for data_block in intent_config.get('data', []):
+            if not isinstance(data_block, dict):
+                continue
+            sentences = data_block.get('sentences', [])
+            if not isinstance(sentences, list):
+                continue
+            templates.extend(sentence for sentence in sentences if isinstance(sentence, str))
+
+    return templates
+
+
 def _normalize_list_value(value: str) -> str:
     """Normalize values for list deduplication."""
     return " ".join(value.strip().split()).casefold()
@@ -238,6 +262,10 @@ def _load_intents_config_sync() -> dict[str, Any]:
                     try:
                         with open(yaml_file, 'r', encoding='utf-8') as f:
                             file_config = yaml.safe_load(f) or {}
+                            local_templates = _collect_local_sentence_templates(file_config)
+                            if local_templates:
+                                merged_config.setdefault('local_sentence_templates', [])
+                                merged_config['local_sentence_templates'].extend(local_templates)
                             merged_config = _deep_merge(merged_config, file_config)
                             loaded_files.append(filename)
                     except Exception as e:
@@ -256,6 +284,19 @@ def _load_intents_config_sync() -> dict[str, Any]:
 
         if merged_config:
             merged_config = _deduplicate_list_values(merged_config)
+            templates = merged_config.get('local_sentence_templates')
+            if isinstance(templates, list):
+                seen_templates: set[str] = set()
+                deduped_templates: list[str] = []
+                for template in templates:
+                    if not isinstance(template, str):
+                        continue
+                    normalized = template.strip()
+                    if not normalized or normalized in seen_templates:
+                        continue
+                    seen_templates.add(normalized)
+                    deduped_templates.append(template)
+                merged_config['local_sentence_templates'] = deduped_templates
             _LOGGER.debug(f"Successfully loaded config from multiple files: {loaded_files}")
             return merged_config
 
