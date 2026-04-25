@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -40,7 +40,7 @@ def mock_hass():
 @pytest.fixture
 def flow(mock_hass):
     """Create a config flow instance."""
-    flow = AIHubConfigFlow(mock_hass)
+    flow = AIHubConfigFlow()
     flow.hass = mock_hass
     return flow
 
@@ -94,9 +94,10 @@ class TestValidateInput:
 class TestAIHubConfigFlow:
     """Tests for AIHubConfigFlow."""
 
-    def test_form_show(self, flow):
+    @pytest.mark.asyncio
+    async def test_form_show(self, flow):
         """Test the initial form is shown."""
-        result = flow.async_step_user(None)
+        result = await flow.async_step_user(None)
 
         assert result["type"] == "form"
         assert result["step_id"] == "user"
@@ -183,22 +184,29 @@ class TestAIHubSubentryFlowHandler:
         """Create a subentry flow instance."""
         config_entry = MagicMock(spec=config_entries.ConfigEntry)
         config_entry.subentries = {}
+        subentry = {"data": {}}
 
-        flow = AIHubSubentryFlowHandler(mock_hass, config_entry, None)
+        flow = AIHubSubentryFlowHandler()
         flow.hass = mock_hass
-        flow.source = "user"
-        flow._subentry_type = "conversation"
+        flow.__dict__["_entry"] = config_entry
+        flow.__dict__["handler"] = (config_entry, "conversation", None)
+        flow.__dict__["_reconfigure_subentry"] = subentry
+        flow.__dict__["context"] = {"source": "user"}
         return flow
 
-    def test_init_form_show(self, subentry_flow):
+    @pytest.mark.asyncio
+    async def test_init_form_show(self, subentry_flow):
         """Test the initial form is shown."""
-        result = subentry_flow.async_step_init(None)
+        with patch.object(AIHubSubentryFlowHandler, "_is_new", new_callable=PropertyMock, return_value=True):
+            with patch.object(AIHubSubentryFlowHandler, "_subentry_type", new_callable=PropertyMock, return_value="conversation"):
+                result = await subentry_flow.async_step_init(None)
 
         assert result["type"] == "form"
         assert result["step_id"] == "init"
         assert "data_schema" in result
 
-    def test_recommended_mode_toggle(self, subentry_flow):
+    @pytest.mark.asyncio
+    async def test_recommended_mode_toggle(self, subentry_flow):
         """Test recommended mode toggling."""
         user_input = {
             CONF_RECOMMENDED: False,
@@ -211,35 +219,43 @@ class TestAIHubSubentryFlowHandler:
         subentry_flow.last_rendered_recommended = True
         subentry_flow.options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
 
-        result = subentry_flow.async_step_init(user_input)
+        with patch.object(AIHubSubentryFlowHandler, "_is_new", new_callable=PropertyMock, return_value=True):
+            with patch.object(AIHubSubentryFlowHandler, "_subentry_type", new_callable=PropertyMock, return_value="conversation"):
+                result = await subentry_flow.async_step_init(user_input)
 
         # Should re-render form with advanced options
         assert result["type"] == "form"
 
-    def test_conversation_subentry_with_recommended_mode(self, subentry_flow):
+    @pytest.mark.asyncio
+    async def test_conversation_subentry_with_recommended_mode(self, subentry_flow):
         """Test conversation subentry in recommended mode."""
-        subentry_flow._subentry_type = "conversation"
         subentry_flow.options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
         subentry_flow.last_rendered_recommended = True
 
-        result = subentry_flow.async_step_init({CONF_RECOMMENDED: True})
+        with patch.object(AIHubSubentryFlowHandler, "_is_new", new_callable=PropertyMock, return_value=True):
+            with patch.object(AIHubSubentryFlowHandler, "_subentry_type", new_callable=PropertyMock, return_value="conversation"):
+                result = await subentry_flow.async_step_init({CONF_RECOMMENDED: True})
 
-        assert result["type"] == "form"
+        assert result["type"] == "create_entry"
 
-    def test_tts_subentry(self, subentry_flow):
+    @pytest.mark.asyncio
+    async def test_tts_subentry(self, subentry_flow):
         """Test TTS subentry."""
-        subentry_flow._subentry_type = "tts"
         subentry_flow.options = {"recommended": True}
 
-        result = subentry_flow.async_step_init({CONF_RECOMMENDED: True})
+        with patch.object(AIHubSubentryFlowHandler, "_is_new", new_callable=PropertyMock, return_value=True):
+            with patch.object(AIHubSubentryFlowHandler, "_subentry_type", new_callable=PropertyMock, return_value="tts"):
+                result = await subentry_flow.async_step_init({CONF_RECOMMENDED: True})
 
         assert result["type"] == "form"
 
-    def test_translation_subentry(self, subentry_flow):
+    @pytest.mark.asyncio
+    async def test_translation_subentry(self, subentry_flow):
         """Test translation subentry uses the generic flow."""
-        subentry_flow._subentry_type = "translation"
         subentry_flow.options = {"recommended": True}
 
-        result = subentry_flow.async_step_init({CONF_RECOMMENDED: True})
+        with patch.object(AIHubSubentryFlowHandler, "_is_new", new_callable=PropertyMock, return_value=True):
+            with patch.object(AIHubSubentryFlowHandler, "_subentry_type", new_callable=PropertyMock, return_value="translation"):
+                result = await subentry_flow.async_step_init({CONF_RECOMMENDED: True})
 
         assert result["type"] == "form"
