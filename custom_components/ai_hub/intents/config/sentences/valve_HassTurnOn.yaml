@@ -4,7 +4,7 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "[<let>] [打开]{name}"
-          - "[<let>] {name}[打开]"
+          - "[<let>] <turn_on>{name}"
+          - "[<let>] {name}<turn_on>"
         requires_context:
           domain: "valve"

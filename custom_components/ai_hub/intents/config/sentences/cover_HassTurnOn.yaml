@@ -5,6 +5,6 @@ intents:
     data:
       - sentences:
           - "[<let>] <open_cover>[<area>]<cover_names>"
-          - "[<let>] [把][<area>]<cover_names>[打开|拉开|升起]"
+          - "[<let>] [把][<area>]<cover_names><open_cover>"
         requires_context:
           domain: cover

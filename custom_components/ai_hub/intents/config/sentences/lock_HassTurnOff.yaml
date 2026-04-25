@@ -5,6 +5,6 @@ intents:
     data:
       - sentences:
           - "[<let>] <turn_off>[<area>]<lock_names>"
-          - "[<let>] [把][<area>]<lock_names>[关闭|锁上|上锁]"
+          - "[<let>] [把][<area>]<lock_names><turn_off>"
         requires_context:
           domain: lock

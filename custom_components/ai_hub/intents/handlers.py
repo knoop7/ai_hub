@@ -64,6 +64,7 @@ def match_sentence_template(handler: Any, text: str) -> SentenceMatchResult | No
                 continue
             base_key = key.split('__', 1)[0]
             slots.setdefault(base_key, value.strip())
+        _inject_literal_slots(handler, candidate.template, normalized_text, slots)
         return SentenceMatchResult(template=candidate.template, slots=slots)
 
     return None
@@ -353,6 +354,32 @@ def wrap_named_group(slot_name: str | None, body: str, group_counters: dict[str,
     return f'(?P<{group_name}>{body})'
 
 
+def _inject_literal_slots(handler: Any, template: str, normalized_text: str, slots: dict[str, str]) -> None:
+    """Backfill semantic slots from matched yaml literals when templates use raw words."""
+    global_config = handler._get_global_device_control_config()
+
+    if 'turn_on' not in slots:
+        for keyword in global_config.get('on_keywords', []):
+            normalized_keyword = keyword.strip().lower() if isinstance(keyword, str) else ''
+            if normalized_keyword and normalized_keyword in template and normalized_keyword in normalized_text:
+                slots['turn_on'] = normalized_keyword
+                break
+
+    if 'turn_off' not in slots:
+        for keyword in global_config.get('off_keywords', []):
+            normalized_keyword = keyword.strip().lower() if isinstance(keyword, str) else ''
+            if normalized_keyword and normalized_keyword in template and normalized_keyword in normalized_text:
+                slots['turn_off'] = normalized_keyword
+                break
+
+    if 'all' not in slots:
+        for keyword in global_config.get('global_keywords', []):
+            normalized_keyword = keyword.strip().lower() if isinstance(keyword, str) else ''
+            if normalized_keyword and normalized_keyword in template and normalized_keyword in normalized_text:
+                slots['all'] = normalized_keyword
+                break
+
+
 def get_local_intents_config() -> dict[str, Any] | None:
     """获取本地意图配置."""
     config = get_global_config()
@@ -492,6 +519,10 @@ class LocalIntentHandler:
         area_names, device_types = self._parse_device_and_area(global_config, match_result.slots)
         target_entities = self._match_named_entities(match_result.slots, device_types or None, area_names)
         has_global_keyword = self._resolve_global_from_match(match_result, global_config)
+        requested_name = match_result.slots.get('name')
+
+        if requested_name and not target_entities:
+            return None
 
         if not device_types and not target_entities:
             return None
@@ -513,11 +544,6 @@ class LocalIntentHandler:
             return True, False
         if match_result.slots.get('turn_off'):
             return False, True
-        template = match_result.template
-        if any(keyword in template for keyword in self._get_global_device_control_config().get('on_keywords', [])):
-            return True, False
-        if any(keyword in template for keyword in self._get_global_device_control_config().get('off_keywords', [])):
-            return False, True
         return False, False
 
     def _resolve_global_from_match(
@@ -526,11 +552,7 @@ class LocalIntentHandler:
         global_config: dict[str, Any],
     ) -> bool:
         """Resolve global-control intent from matched slots or matched yaml literals."""
-        if match_result.slots.get('all'):
-            return True
-
-        template = match_result.template
-        return any(keyword in template for keyword in global_config.get('global_keywords', []))
+        return bool(match_result.slots.get('all'))
 
     def _parse_device_and_area(self, global_config: dict, slots: dict[str, str]) -> tuple:
         """解析设备类型和区域."""

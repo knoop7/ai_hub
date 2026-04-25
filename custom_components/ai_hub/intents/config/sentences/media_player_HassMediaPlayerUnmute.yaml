@@ -4,8 +4,8 @@ intents:
     use_home_assistant: true
     data:
       - sentences:
-          - "[<let>] [取消静音]{name}"
-          - "[<let>] [打开][声音]{name}"
-          - "[<let>] {name}[取消静音]"
+          - "[<let>] <turn_on>{name}"
+          - "[<let>] <turn_on>[声音]{name}"
+          - "[<let>] {name}<turn_on>"
         requires_context:
           domain: "media_player"

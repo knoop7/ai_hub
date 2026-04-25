@@ -21,8 +21,8 @@ intents:
     data:
       - sentences:
           - "[<let>] <turn_off>[<area>]{name}"
-          - "[<let>] [把][<area>]{name}[关闭|关掉|关上]"
-          - "[<let>] <turn_off>{area_names}[所有|所有的|全部|全部的]{light_names}"
-          - "[<let>] [把]{area_names}[所有|所有的|全部|全部的]{light_names}[关闭|关掉|关上]"
+          - "[<let>] [把][<area>]{name}<turn_off>"
+          - "[<let>] <turn_off>{area_names}<all>{light_names}"
+          - "[<let>] [把]{area_names}<all>{light_names}<turn_off>"
         slots:
           domain: all
