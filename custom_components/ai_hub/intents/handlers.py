@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 import re
 from typing import Any
@@ -10,7 +11,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
 from .loader import get_global_config
 from .response_utils import create_intent_result, format_response_message
-from .sentence_matcher import matches_sentence_template
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,6 +31,326 @@ MEDIA_FALLBACK_STRATEGIES = {
     MEDIA_FALLBACK_FIRST,
     MEDIA_FALLBACK_ALL,
 }
+
+
+@dataclass(slots=True)
+class SentenceMatchResult:
+    """Structured result for a strict local sentence match."""
+
+    template: str
+    slots: dict[str, str]
+
+
+@dataclass(slots=True)
+class _CompiledTemplate:
+    template: str
+    pattern: re.Pattern[str]
+
+
+def match_sentence_template(handler: Any, text: str) -> SentenceMatchResult | None:
+    """Return the first strict local sentence match result."""
+    candidates = get_local_sentence_patterns(handler)
+    if not candidates:
+        return None
+
+    normalized_text = re.sub(r'\s+', ' ', text.lower().strip()).strip()
+    for candidate in candidates:
+        match = candidate.pattern.fullmatch(normalized_text)
+        if not match:
+            continue
+        slots: dict[str, str] = {}
+        for key, value in match.groupdict().items():
+            if not isinstance(value, str) or not value.strip():
+                continue
+            base_key = key.split('__', 1)[0]
+            slots.setdefault(base_key, value.strip())
+        return SentenceMatchResult(template=candidate.template, slots=slots)
+
+    return None
+
+
+def matches_sentence_template(handler: Any, text: str) -> bool:
+    """Return whether text matches any configured local sentence template."""
+    return match_sentence_template(handler, text) is not None
+
+
+def get_local_sentence_patterns(handler: Any) -> list[_CompiledTemplate]:
+    """Compile local sentence templates into strict regex patterns once."""
+    if handler._local_sentence_patterns is not None:
+        return handler._local_sentence_patterns
+
+    config = handler.config or {}
+    templates = config.get('local_sentence_templates', [])
+    if not isinstance(templates, list):
+        handler._local_sentence_patterns = []
+        return handler._local_sentence_patterns
+
+    patterns: list[_CompiledTemplate] = []
+    for template in templates:
+        if not isinstance(template, str) or not template.strip():
+            continue
+        try:
+            regex = template_to_regex(handler, template, config)
+            patterns.append(_CompiledTemplate(template=template, pattern=re.compile(regex)))
+        except (ValueError, re.error):
+            continue
+
+    handler._local_sentence_patterns = patterns
+    return handler._local_sentence_patterns
+
+
+def template_to_regex(
+    handler: Any,
+    template: str,
+    config: dict[str, Any],
+    seen_tokens: set[str] | None = None,
+    group_counters: dict[str, int] | None = None,
+) -> str:
+    """Convert a sentence template into an anchored strict regex."""
+    seen_tokens = set() if seen_tokens is None else set(seen_tokens)
+    group_counters = {} if group_counters is None else group_counters
+
+    def _convert(fragment: str) -> str:
+        parts: list[str] = []
+        i = 0
+        while i < len(fragment):
+            char = fragment[i]
+            if char == '[':
+                end = find_matching(fragment, i, '[', ']')
+                inner = _convert(fragment[i + 1:end])
+                parts.append(f'(?:{inner})?')
+                i = end + 1
+                continue
+            if char == '<':
+                end = find_matching(fragment, i, '<', '>')
+                token = fragment[i + 1:end].strip()
+                parts.append(
+                    expand_template_token(
+                        handler,
+                        token,
+                        config,
+                        slot_name=token,
+                        seen_tokens=seen_tokens,
+                        group_counters=group_counters,
+                    )
+                )
+                i = end + 1
+                continue
+            if char == '{':
+                end = find_matching(fragment, i, '{', '}')
+                token = fragment[i + 1:end].split(':', 1)[0].strip()
+                parts.append(
+                    expand_template_token(
+                        handler,
+                        token,
+                        config,
+                        slot_name=token,
+                        fallback='(?!)',
+                        seen_tokens=seen_tokens,
+                        group_counters=group_counters,
+                    )
+                )
+                i = end + 1
+                continue
+            if char.isspace():
+                parts.append(r'\s*')
+            elif char in '()|':
+                parts.append(char)
+            else:
+                parts.append(re.escape(char))
+            i += 1
+        return ''.join(parts)
+
+    body = _convert(template.strip())
+    return rf'^\s*{body}[\s。！？?!.，,:：]*$'
+
+
+def expand_template_token(
+    handler: Any,
+    token: str,
+    config: dict[str, Any],
+    *,
+    slot_name: str | None = None,
+    fallback: str = '(?!)',
+    seen_tokens: set[str] | None = None,
+    group_counters: dict[str, int] | None = None,
+) -> str:
+    """Expand a rule/list token into regex."""
+    seen_tokens = set() if seen_tokens is None else set(seen_tokens)
+    group_counters = {} if group_counters is None else group_counters
+    normalized_token = token.strip()
+    strict_slot_regex = resolve_strict_slot_regex(
+        handler,
+        normalized_token,
+        config,
+        slot_name=slot_name,
+        group_counters=group_counters,
+    )
+    if strict_slot_regex is not None:
+        return strict_slot_regex
+
+    expansion_rules = config.get('expansion_rules', {}) if isinstance(config, dict) else {}
+    if normalized_token in expansion_rules and isinstance(expansion_rules[normalized_token], str):
+        if normalized_token in seen_tokens:
+            return fallback
+
+        next_seen = set(seen_tokens)
+        next_seen.add(normalized_token)
+        body = template_to_regex_fragment(
+            handler,
+            expansion_rules[normalized_token],
+            config,
+            next_seen,
+            group_counters,
+        )
+        return wrap_named_group(slot_name, body, group_counters) if slot_name else f'(?:{body})'
+
+    lists_config = config.get('lists', {}) if isinstance(config, dict) else {}
+    list_config = lists_config.get(normalized_token)
+    if isinstance(list_config, dict):
+        values = list_config.get('values')
+        if isinstance(values, list):
+            options: list[str] = []
+            for value in values:
+                if isinstance(value, str):
+                    options.append(re.escape(value.strip()))
+                elif isinstance(value, dict) and isinstance(value.get('in'), str):
+                    options.append(re.escape(value['in'].strip()))
+            if options:
+                return f'(?:{"|".join(options)})'
+
+    return fallback
+
+
+def resolve_strict_slot_regex(
+    handler: Any,
+    token: str,
+    config: dict[str, Any],
+    *,
+    slot_name: str | None = None,
+    group_counters: dict[str, int] | None = None,
+) -> str | None:
+    """Resolve template slots to strict named groups."""
+    if not token:
+        return None
+
+    value_options = get_slot_values(handler, token, config)
+    if not value_options:
+        return None
+
+    escaped = [re.escape(value) for value in sorted(value_options, key=len, reverse=True)]
+    body = f'(?:{"|".join(escaped)})'
+    if slot_name:
+        return wrap_named_group(slot_name, body, group_counters or {})
+    return body
+
+
+def get_slot_values(handler: Any, token: str, config: dict[str, Any]) -> list[str]:
+    """Return allowed concrete values for a template slot."""
+    lists_config = config.get('lists', {}) if isinstance(config, dict) else {}
+    values: list[str] = []
+    seen: set[str] = set()
+
+    def _append(value: str | None) -> None:
+        if not isinstance(value, str):
+            return
+        normalized = value.strip()
+        if not normalized or normalized in seen:
+            return
+        seen.add(normalized)
+        values.append(normalized)
+
+    list_config = lists_config.get(token)
+    if isinstance(list_config, dict):
+        raw_values = list_config.get('values', [])
+        if isinstance(raw_values, list):
+            for item in raw_values:
+                if isinstance(item, str):
+                    _append(item)
+                elif isinstance(item, dict):
+                    _append(item.get('in'))
+
+    if not values and looks_like_entity_name_slot(token):
+        for list_name, list_config in lists_config.items():
+            if not isinstance(list_name, str) or not list_name.endswith('_names'):
+                continue
+            if not isinstance(list_config, dict):
+                continue
+            raw_values = list_config.get('values', [])
+            if not isinstance(raw_values, list):
+                continue
+            for item in raw_values:
+                if isinstance(item, str):
+                    _append(item)
+                elif isinstance(item, dict):
+                    _append(item.get('in'))
+
+        try:
+            for entity_id in handler.hass.states.async_entity_ids():
+                state = handler.hass.states.get(entity_id)
+                if state is None:
+                    continue
+                _append(getattr(state, 'name', None))
+                attributes = getattr(state, 'attributes', {}) or {}
+                _append(attributes.get('friendly_name'))
+        except Exception:
+            pass
+
+    return values
+
+
+def looks_like_entity_name_slot(token: str) -> bool:
+    """Return whether a slot token is intended to capture an entity name."""
+    normalized = token.strip().lower()
+    return normalized == 'name' or normalized.endswith('_name')
+
+
+def template_to_regex_fragment(
+    handler: Any,
+    fragment: str,
+    config: dict[str, Any],
+    seen_tokens: set[str] | None = None,
+    group_counters: dict[str, int] | None = None,
+) -> str:
+    """Convert a template fragment into a non-anchored regex."""
+    regex = template_to_regex(handler, fragment, config, seen_tokens, group_counters)
+    prefix = '^\\s*'
+    suffix = '[\\s。！？?!.，,:：]*$'
+    if regex.startswith(prefix):
+        regex = regex[len(prefix):]
+    if regex.endswith(suffix):
+        regex = regex[:-len(suffix)]
+    return regex
+
+
+def find_matching(text: str, start: int, opener: str, closer: str) -> int:
+    """Find the matching closing delimiter."""
+    depth = 0
+    for index in range(start, len(text)):
+        if text[index] == opener:
+            depth += 1
+        elif text[index] == closer:
+            depth -= 1
+            if depth == 0:
+                return index
+    raise ValueError(f'Unmatched template delimiter: {opener}')
+
+
+def wrap_named_group(slot_name: str | None, body: str, group_counters: dict[str, int]) -> str:
+    """Wrap regex body in a uniquely named capture group."""
+    if not slot_name:
+        return f'(?:{body})'
+
+    safe_name = re.sub(r'\W+', '_', slot_name.strip())
+    if not safe_name:
+        return f'(?:{body})'
+    if safe_name[0].isdigit():
+        safe_name = f'slot_{safe_name}'
+
+    count = group_counters.get(safe_name, 0) + 1
+    group_counters[safe_name] = count
+    group_name = safe_name if count == 1 else f'{safe_name}__{count}'
+    return f'(?P<{group_name}>{body})'
 
 
 def get_local_intents_config() -> dict[str, Any] | None:
@@ -140,7 +460,7 @@ class LocalIntentHandler:
 
         text_lower = text.lower().strip()
 
-        should_handle = self._matches_local_sentence_template(text_lower)
+        should_handle = matches_sentence_template(self, text_lower)
         _LOGGER.debug("Local intent check: '%s' -> %s", text, should_handle)
         return should_handle
 
@@ -156,31 +476,22 @@ class LocalIntentHandler:
         text_lower = text.lower().strip()
         return matches_sentence_template(self, text_lower)
 
-    def _has_explicit_action_word(self, text_lower: str, global_config: dict) -> bool:
-        """Return whether text contains a configured imperative action word."""
-        action_words = global_config.get('on_keywords', []) + global_config.get('off_keywords', [])
-        return any(action in text_lower for action in action_words)
-
     async def handle(self, text: str, language: str = "zh-CN"):
         """处理本地意图."""
-        if not self.should_handle(text):
+        match_result = match_sentence_template(self, text)
+        if match_result is None:
             return None
 
         global_config = self._get_global_device_control_config()
-        text_lower = text.lower().strip()
-
-        # 仅保留 YAML 未覆盖的本地增强开关控制
-        is_on = self._has_explicit_action(text_lower, global_config, global_config.get('on_keywords', []))
-        is_off = self._has_explicit_action(text_lower, global_config, global_config.get('off_keywords', []))
+        is_on, is_off = self._resolve_action_from_match(match_result)
 
         if not (is_on or is_off):
             return None
 
         # 解析设备、设备类型和区域
-        area_names, device_types = self._parse_device_and_area(text_lower, global_config)
-        target_entities = self._match_named_entities(text_lower, device_types or None, area_names)
-        global_keywords = global_config.get('global_keywords', [])
-        has_global_keyword = any(keyword in text_lower for keyword in global_keywords)
+        area_names, device_types = self._parse_device_and_area(global_config, match_result.slots)
+        target_entities = self._match_named_entities(match_result.slots, device_types or None, area_names)
+        has_global_keyword = self._resolve_global_from_match(match_result, global_config)
 
         if not device_types and not target_entities:
             return None
@@ -193,16 +504,35 @@ class LocalIntentHandler:
             area_names, device_types, is_on, global_config, language, target_entities
         )
 
-    def _has_explicit_action(
+    def _resolve_action_from_match(
         self,
-        text_lower: str,
-        global_config: dict,
-        action_words: list[str],
-    ) -> bool:
-        """Return whether text contains one of the configured action words."""
-        return any(action in text_lower for action in action_words)
+        match_result: SentenceMatchResult,
+    ) -> tuple[bool, bool]:
+        """Resolve action direction from the matched yaml sentence."""
+        if match_result.slots.get('turn_on'):
+            return True, False
+        if match_result.slots.get('turn_off'):
+            return False, True
+        template = match_result.template
+        if any(keyword in template for keyword in self._get_global_device_control_config().get('on_keywords', [])):
+            return True, False
+        if any(keyword in template for keyword in self._get_global_device_control_config().get('off_keywords', [])):
+            return False, True
+        return False, False
 
-    def _parse_device_and_area(self, text_lower: str, global_config: dict) -> tuple:
+    def _resolve_global_from_match(
+        self,
+        match_result: SentenceMatchResult,
+        global_config: dict[str, Any],
+    ) -> bool:
+        """Resolve global-control intent from matched slots or matched yaml literals."""
+        if match_result.slots.get('all'):
+            return True
+
+        template = match_result.template
+        return any(keyword in template for keyword in global_config.get('global_keywords', []))
+
+    def _parse_device_and_area(self, global_config: dict, slots: dict[str, str]) -> tuple:
         """解析设备类型和区域."""
         area_names = []
         device_types = []
@@ -215,50 +545,54 @@ class LocalIntentHandler:
             if config and 'lists' in config:
                 areas_config = config['lists'].get('area_names', {}).get('values', [])
                 for area in areas_config:
-                    if area in text_lower:
+                    normalized_area = area.strip().lower() if isinstance(area, str) else ''
+                    if normalized_area and (
+                        slots.get('area_names') == normalized_area
+                        or slots.get('area') == normalized_area
+                    ):
                         area_names.append(area)
         except Exception:
             pass
 
-        # 获取设备类型
-        device_type_keywords = global_config.get('device_type_keywords', {})
+        # 获取设备类型，只依赖已匹配槽位
+        lists_config = config.get('lists', {}) if config else {}
+        for domain in global_config.get('control_domains', []):
+            list_names = [f'{domain}_names']
+            if domain == 'device_tracker' and 'tracker_names' in lists_config:
+                list_names.append('tracker_names')
 
-        if isinstance(device_type_keywords, str) and device_type_keywords.startswith("{{lists}}"):
-            lists_config = config.get('lists', {}) if config else {}
+            for list_name in list_names:
+                slot_value = slots.get(list_name) or slots.get('name')
+                if not slot_value:
+                    continue
 
-            domain_mapping: dict[str, list[str]] = {}
-            for domain in global_config.get('control_domains', []):
-                list_names = [f'{domain}_names']
-                if domain == 'device_tracker' and 'tracker_names' in lists_config:
-                    list_names.append('tracker_names')
-                domain_mapping[domain] = list_names
+                keywords_list = lists_config.get(list_name, {}).get('values', [])
+                if not isinstance(keywords_list, list):
+                    continue
 
-            for domain, list_names in domain_mapping.items():
-                for list_name in list_names:
-                    keywords_list = lists_config.get(list_name, {}).get('values', [])
-                    if keywords_list:
-                        for keyword in keywords_list:
-                            if keyword in text_lower:
-                                device_types.append(domain)
-                                break
-                    if domain in device_types:
+                for keyword in keywords_list:
+                    normalized_keyword = keyword.strip().lower() if isinstance(keyword, str) else ''
+                    if normalized_keyword and slot_value == normalized_keyword:
+                        device_types.append(domain)
                         break
-        else:
-            for keyword, domain in device_type_keywords.items():
-                if keyword in text_lower:
-                    device_types.append(domain)
+
+                if domain in device_types:
+                    break
 
         return area_names, list(set(device_types))
 
     def _match_named_entities(
         self,
-        text_lower: str,
+        slots: dict[str, str],
         allowed_domains: list[str] | None = None,
         area_names: list[str] | None = None,
     ) -> list[str]:
         """Match exposed entities by friendly name from the utterance."""
         area_names = area_names or []
         matches: list[tuple[str, str]] = []
+        requested_name = slots.get('name')
+        if not requested_name:
+            return []
 
         for entity_id in self.hass.states.async_entity_ids():
             domain = entity_id.split('.', 1)[0]
@@ -279,7 +613,7 @@ class LocalIntentHandler:
                 normalized_name = name.strip().lower()
                 if len(normalized_name) < 2:
                     continue
-                if self._contains_exact_entity_name(text_lower, normalized_name):
+                if normalized_name == requested_name:
                     if area_names and not self._entity_matches_areas(entity_id, area_names):
                         continue
                     matches.append((entity_id, normalized_name))
@@ -295,23 +629,6 @@ class LocalIntentHandler:
             seen.add(entity_id)
             unique_entities.append(entity_id)
         return unique_entities
-
-    @staticmethod
-    def _contains_exact_entity_name(text_lower: str, entity_name: str) -> bool:
-        """Return whether the utterance contains the entity name with safe boundaries."""
-        start = 0
-        while True:
-            index = text_lower.find(entity_name, start)
-            if index == -1:
-                return False
-
-            before_ok = index == 0 or not text_lower[index - 1].isalnum()
-            end_index = index + len(entity_name)
-            after_ok = end_index == len(text_lower) or not text_lower[end_index].isalnum()
-            if before_ok and after_ok:
-                return True
-
-            start = index + 1
 
     def _entity_matches_areas(self, entity_id: str, area_names: list[str]) -> bool:
         """Check whether entity belongs to any target area."""
@@ -374,7 +691,6 @@ class LocalIntentHandler:
             all_errors = 0
             all_failed_devices = []
 
-            # 按域分组设备
             devices_by_domain = {}
             for device_id in all_devices:
                 domain = device_id.split('.')[0]
@@ -382,7 +698,6 @@ class LocalIntentHandler:
                     devices_by_domain[domain] = []
                 devices_by_domain[domain].append(device_id)
 
-            # 执行操作
             for domain, devices in devices_by_domain.items():
                 service_name = domain_services.get(domain, {}).get(service_key, service_key)
                 success, errors, failed = await self._execute_device_operations(
@@ -392,7 +707,6 @@ class LocalIntentHandler:
                 all_errors += errors
                 all_failed_devices.extend(failed)
 
-            # 生成响应
             fail_msg = self._format_failure_message(all_errors, all_failed_devices)
             area_text = area_names[0] if area_names else ""
             message_key = 'success_on' if is_on else 'success_off'

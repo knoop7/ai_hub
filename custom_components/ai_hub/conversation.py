@@ -143,14 +143,6 @@ class AIHubConversationAgent(
         except Exception as e:
             _LOGGER.debug("Local intent handler initialization failed: %s", e)
 
-        sentence_matched_result = await self._async_try_sentence_matched_local_intent(
-            user_input,
-            chat_log,
-            intent_handler,
-        )
-        if sentence_matched_result is not None:
-            return sentence_matched_result
-
         # ========== 步骤1: 尝试 HA 内置意图处理 ==========
         # timer、shopping list、设备控制、状态查询等 HA 原生支持的意图
         try:
@@ -276,13 +268,13 @@ class AIHubConversationAgent(
 
         return None
 
-    async def _async_try_sentence_matched_local_intent(
+    async def _async_try_local_intent_fallback(
         self,
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
         intent_handler: Any,
     ) -> conversation.ConversationResult | None:
-        """Handle strictly sentence-matched local intents before other fallbacks."""
+        """Handle strictly sentence-matched local intents after HA built-in intents."""
         if intent_handler is None:
             return None
 
