@@ -241,23 +241,13 @@ class AIHubConversationAgent(
                     )
                     return None
 
-                if intent_handler and intent_handler.should_handle(user_input.text):
-                    _LOGGER.debug("Falling back to local intent processing: %s", user_input.text)
-                    intent_result = await intent_handler.handle(user_input.text, user_input.language)
-                    if intent_result:
-                        speech = intent_result["response"].speech.get("plain", {}).get("speech")
-                        if speech:
-                            chat_log.async_add_assistant_content_without_tools(
-                                conversation.AssistantContent(
-                                    agent_id=self.entity_id,
-                                    content=speech,
-                                )
-                            )
-                        _LOGGER.debug("Conversation result source: ai_hub_local")
-                        return conversation.ConversationResult(
-                            response=intent_result["response"],
-                            conversation_id=chat_log.conversation_id,
-                        )
+                fallback_result = await self._async_try_local_intent_fallback(
+                    user_input,
+                    chat_log,
+                    intent_handler,
+                )
+                if fallback_result is not None:
+                    return fallback_result
 
                 _LOGGER.debug(
                     "HA 内置意图未匹配、返回错误或结果异常("
@@ -272,23 +262,14 @@ class AIHubConversationAgent(
                     continue_conversation,
                     is_follow_up_prompt,
                 )
-            elif intent_handler and intent_handler.should_handle(user_input.text):
-                _LOGGER.debug("HA intents returned None, falling back to local intent: %s", user_input.text)
-                intent_result = await intent_handler.handle(user_input.text, user_input.language)
-                if intent_result:
-                    speech = intent_result["response"].speech.get("plain", {}).get("speech")
-                    if speech:
-                        chat_log.async_add_assistant_content_without_tools(
-                            conversation.AssistantContent(
-                                agent_id=self.entity_id,
-                                content=speech,
-                            )
-                        )
-                    _LOGGER.debug("Conversation result source: ai_hub_local")
-                    return conversation.ConversationResult(
-                        response=intent_result["response"],
-                        conversation_id=chat_log.conversation_id,
-                    )
+            else:
+                fallback_result = await self._async_try_local_intent_fallback(
+                    user_input,
+                    chat_log,
+                    intent_handler,
+                )
+                if fallback_result is not None:
+                    return fallback_result
 
         except Exception as e:
             _LOGGER.warning("HA 内置意图处理异常: %s", e, exc_info=True)

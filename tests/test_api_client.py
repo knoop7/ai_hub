@@ -106,8 +106,9 @@ def _install_homeassistant_stubs() -> None:
 
 
 class _FakeStates:
-    def __init__(self, entity_ids):
+    def __init__(self, entity_ids, states=None):
         self._entity_ids = entity_ids
+        self._states = states or {}
 
     def async_entity_ids(self, domain=None):
         if domain is None:
@@ -115,12 +116,12 @@ class _FakeStates:
         return [entity_id for entity_id in self._entity_ids if entity_id.startswith(f"{domain}.")]
 
     def get(self, entity_id):
-        return None
+        return self._states.get(entity_id)
 
 
 class _FakeHass:
-    def __init__(self, entity_ids):
-        self.states = _FakeStates(entity_ids)
+    def __init__(self, entity_ids, states=None):
+        self.states = _FakeStates(entity_ids, states)
         self.services = SimpleNamespace(async_call=None)
 
 
@@ -371,7 +372,64 @@ def test_local_intent_handler_avoids_recursive_expansion_rule_loops():
         }
     }
 
-    assert handler.should_handle("打开任意名称") is True
+    assert handler.should_handle("打开任意名称") is False
+
+
+def test_local_intent_handler_requires_real_name_slot_values():
+    _install_homeassistant_stubs()
+    from custom_components.ai_hub.intents.handlers import LocalIntentHandler
+
+    fake_state = SimpleNamespace(name="书房灯", attributes={"friendly_name": "书房灯"})
+    handler = LocalIntentHandler(
+        _FakeHass(
+            ["light.study_light"],
+            states={"light.study_light": fake_state},
+        )
+    )
+    handler._config = {
+        "lists": {
+            "light_names": {"values": ["灯", "灯光"]},
+        },
+        "expansion_rules": {
+            "turn_off": "关闭",
+        },
+        "local_sentence_templates": [
+            "<turn_off>{name}",
+        ],
+    }
+    handler._local_config = {
+        "GlobalDeviceControl": {
+            "global_keywords": ["所有"],
+            "device_type_keywords": "{{lists}}",
+            "control_domains": ["light"],
+            "on_keywords": ["打开"],
+            "off_keywords": ["关闭"],
+            "param_keywords": [],
+            "brightness_keywords": [],
+            "volume_keywords": [],
+            "color_keywords": [],
+            "temperature_keywords": [],
+        }
+    }
+
+    assert handler.should_handle("关闭书房灯") is True
+    assert handler.should_handle("关闭书房灯1") is False
+
+
+def test_local_intent_named_entity_match_requires_safe_boundaries():
+    _install_homeassistant_stubs()
+    from custom_components.ai_hub.intents.handlers import LocalIntentHandler
+
+    fake_state = SimpleNamespace(name="书房灯", attributes={"friendly_name": "书房灯"})
+    handler = LocalIntentHandler(
+        _FakeHass(
+            ["light.study_light"],
+            states={"light.study_light": fake_state},
+        )
+    )
+
+    assert handler._match_named_entities("关闭书房灯", ["light"], []) == ["light.study_light"]
+    assert handler._match_named_entities("关闭书房灯1", ["light"], []) == []
 
 
 def test_error_message_extraction():
