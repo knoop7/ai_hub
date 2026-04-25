@@ -26,7 +26,10 @@ from custom_components.ai_hub.const import (
     RECOMMENDED_TEMPERATURE,
 )
 from custom_components.ai_hub.intents.config_cache import ConfigCache
-from custom_components.ai_hub.providers.openai_compatible import OpenAICompatibleProvider
+from custom_components.ai_hub.providers.openai_compatible import (
+    OpenAICompatibleProvider,
+    _truncate_transcript_item,
+)
 from custom_components.ai_hub.providers.ollama_compatible import OllamaCompatibleProvider
 from custom_components.ai_hub.http import resolve_provider_name
 from custom_components.ai_hub.intents.response_utils import create_intent_result
@@ -448,6 +451,106 @@ class TestEntityStreamingSelection:
 class TestProviderStreamRobustness:
     """Tests for provider streaming edge cases."""
 
+    def test_openai_emulated_transcript_truncation_avoids_partial_json(self):
+        """Structured transcript items should not be truncated into invalid JSON fragments."""
+        text = '{"arguments": {"entity_id": "light.study", "brightness": 128, "color": "warm_white"}}' * 40
+
+        truncated = _truncate_transcript_item(text, limit=120)
+
+        assert truncated.startswith("[structured content")
+        assert truncated.endswith("chars total]")
+
+    def test_openai_request_converts_context_with_tool_messages(self):
+        """OpenAI-compatible requests should normalize assistant and tool context locally."""
+        provider = OpenAICompatibleProvider(
+            {
+                "api_key": "test-key",
+                "model": "test-model",
+                "base_url": "https://example.com/v1",
+            }
+        )
+
+        request = provider._build_request(
+            [
+                MagicMock(role="system", content="system prompt", tool_calls=None, tool_call_id=None, tool_name=None),
+                MagicMock(
+                    role="assistant",
+                    content="正在处理",
+                    tool_calls=[
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {
+                                "name": "HassTurnOn",
+                                "arguments": {"name": "书房灯"},
+                            },
+                        }
+                    ],
+                    tool_call_id=None,
+                    tool_name=None,
+                ),
+                MagicMock(
+                    role="tool",
+                    content={"success": True, "entity_id": "light.study"},
+                    tool_calls=None,
+                    tool_call_id="call_1",
+                    tool_name="HassTurnOn",
+                ),
+            ],
+            stream=False,
+        )
+
+        assert request["messages"][0] == {"role": "system", "content": "system prompt"}
+        assert request["messages"][1]["tool_calls"][0]["function"]["arguments"] == '{"name": "书房灯"}'
+        assert request["messages"][2]["role"] == "tool"
+        assert request["messages"][2]["tool_call_id"] == "call_1"
+
+    def test_ollama_request_converts_context_with_tool_messages(self):
+        """Ollama requests should normalize assistant and tool context locally."""
+        provider = OllamaCompatibleProvider(
+            {
+                "api_key": "test-key",
+                "model": "gemma4:26b-a4b-it-q4_K_M",
+                "base_url": "http://localhost:11434/api/chat",
+            }
+        )
+
+        request = provider._build_request(
+            [
+                MagicMock(role="system", content="system prompt", tool_calls=None, tool_call_id=None, tool_name=None),
+                MagicMock(
+                    role="assistant",
+                    content="正在处理",
+                    tool_calls=[
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {
+                                "name": "HassTurnOn",
+                                "arguments": '{"name":"书房灯"}',
+                            },
+                        }
+                    ],
+                    tool_call_id=None,
+                    tool_name=None,
+                ),
+                MagicMock(
+                    role="tool",
+                    content={"success": True, "entity_id": "light.study"},
+                    tool_calls=None,
+                    tool_call_id="call_1",
+                    tool_name="HassTurnOn",
+                ),
+            ],
+            stream=False,
+        )
+
+        assert request["messages"][0] == {"role": "system", "content": "system prompt"}
+        assert request["messages"][1]["tool_calls"][0]["function"]["arguments"] == {"name": "书房灯"}
+        assert request["messages"][2]["role"] == "tool"
+        assert request["messages"][2]["tool_call_id"] == "call_1"
+        assert request["messages"][2]["name"] == "HassTurnOn"
+
     @pytest.mark.asyncio
     async def test_openai_stream_ignores_empty_choices_chunks(self):
         """Streaming should skip SSE chunks without choices instead of crashing."""
@@ -505,6 +608,40 @@ class TestProviderStreamRobustness:
             ]
 
         assert chunks == ["你", "好"]
+
+    def test_ollama_request_normalizes_tool_call_arguments_to_objects(self):
+        """Ollama requests should send tool call arguments as JSON objects, not strings."""
+        provider = OllamaCompatibleProvider(
+            {
+                "api_key": "test-key",
+                "model": "gemma4:26b-a4b-it-q4_K_M",
+                "base_url": "http://localhost:11434/api/chat",
+            }
+        )
+
+        request = provider._build_request(
+            [
+                MagicMock(
+                    role="assistant",
+                    content="",
+                    tool_calls=[
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {
+                                "name": "HassTurnOn",
+                                "arguments": '{"name":"书房灯"}',
+                            },
+                        }
+                    ],
+                    tool_call_id=None,
+                    tool_name=None,
+                )
+            ],
+            stream=False,
+        )
+
+        assert request["messages"][0]["tool_calls"][0]["function"]["arguments"] == {"name": "书房灯"}
 
 
 class TestProviderResolution:

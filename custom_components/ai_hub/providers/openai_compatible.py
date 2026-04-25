@@ -180,6 +180,51 @@ def _coerce_tool_call_arguments(arguments: Any) -> str:
     return json.dumps({"value": arguments}, ensure_ascii=False)
 
 
+def _convert_content_blocks(content: str | list[dict[str, Any]]) -> str | list[dict[str, Any]]:
+    """Normalize message content while keeping multimodal blocks intact."""
+    if isinstance(content, str):
+        return content
+
+    normalized: list[dict[str, Any]] = []
+    for part in content:
+        if not isinstance(part, dict):
+            continue
+        if part.get("type") == "text":
+            normalized.append({"type": "text", "text": str(part.get("text", ""))})
+            continue
+        normalized.append(part)
+    return normalized or ""
+
+
+def _convert_request_tool_calls(tool_calls: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+    """Normalize outgoing OpenAI-compatible tool calls."""
+    if not tool_calls:
+        return None
+
+    normalized: list[dict[str, Any]] = []
+    for item in tool_calls:
+        if not isinstance(item, dict):
+            continue
+        function = item.get("function", {})
+        if not isinstance(function, dict):
+            continue
+        name = function.get("name")
+        if not name:
+            continue
+        normalized.append(
+            {
+                "id": item.get("id") or f"stream_{uuid4().hex}",
+                "type": "function",
+                "function": {
+                    "name": str(name),
+                    "arguments": _coerce_tool_call_arguments(function.get("arguments", {})),
+                },
+            }
+        )
+
+    return normalized or None
+
+
 def _extract_openai_message(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """Extract message payload from OpenAI-compatible JSON."""
     choices = data.get("choices")
@@ -296,7 +341,16 @@ def _render_tool_catalog(
 def _truncate_transcript_item(text: str, *, limit: int = _EMULATED_ITEM_LIMIT) -> str:
     if len(text) <= limit:
         return text
-    return text[:limit] + f"...[truncated, {len(text)} chars total]"
+
+    stripped = text.lstrip()
+    if stripped.startswith("{") or stripped.startswith("["):
+        return f"[structured content omitted, {len(text)} chars total]"
+
+    prefix = text[:limit]
+    if prefix.count("{") > prefix.count("}") or prefix.count("[") > prefix.count("]"):
+        return f"[structured content truncated safely, {len(text)} chars total]"
+
+    return prefix + f"...[truncated, {len(text)} chars total]"
 
 
 def _render_emulated_tool_transcript(
@@ -429,7 +483,7 @@ class OpenAICompatibleProvider(LLMProvider):
         """Build the API request body."""
         request: dict[str, Any] = {
             "model": self.config.model,
-            "messages": [msg.to_dict() for msg in messages],
+            "messages": self._convert_messages(messages),
             "stream": stream,
             "temperature": self.config.temperature,
             "max_tokens": self.config.max_tokens,
@@ -445,6 +499,40 @@ class OpenAICompatibleProvider(LLMProvider):
         request.update(kwargs)
 
         return request
+
+    def _convert_messages(self, messages: list[LLMMessage]) -> list[dict[str, Any]]:
+        """Convert shared chat history into OpenAI-compatible message payloads."""
+        converted: list[dict[str, Any]] = []
+
+        for message in messages:
+            if message.role in {"system", "user", "assistant"}:
+                converted_message: dict[str, Any] = {
+                    "role": message.role,
+                    "content": _convert_content_blocks(message.content),
+                }
+                converted_tool_calls = _convert_request_tool_calls(message.tool_calls)
+                if converted_tool_calls:
+                    converted_message["tool_calls"] = converted_tool_calls
+                converted.append(converted_message)
+                continue
+
+            if message.role == "tool":
+                tool_result_content = message.content
+                if isinstance(tool_result_content, (dict, list)):
+                    tool_result_content = json.dumps(tool_result_content, ensure_ascii=False, default=str)
+                elif not isinstance(tool_result_content, str):
+                    tool_result_content = str(tool_result_content) if tool_result_content is not None else "{}"
+
+                converted.append(
+                    {
+                        "role": "tool",
+                        "content": tool_result_content,
+                        "tool_call_id": message.tool_call_id or "tool_call",
+                        "tool_name": message.tool_name or "tool",
+                    }
+                )
+
+        return converted
 
     def _build_emulated_tool_messages(
         self,

@@ -16,6 +16,79 @@ from .common_compatible import check_provider_health, finalize_buffered_tool_cal
 _LOGGER = logging.getLogger(__name__)
 
 
+def _parse_arguments_object(arguments: Any) -> Any:
+    """Convert OpenAI-style JSON-string arguments into Ollama-native objects."""
+    if isinstance(arguments, dict):
+        return arguments
+
+    if isinstance(arguments, str):
+        stripped = arguments.strip()
+        if not stripped:
+            return {}
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            return {"value": arguments}
+        return parsed if isinstance(parsed, dict) else {"value": parsed}
+
+    if arguments is None:
+        return {}
+
+    return {"value": arguments}
+
+
+def _convert_content_blocks(content: str | list[dict[str, Any]]) -> str | list[dict[str, Any]]:
+    """Keep text content readable while preserving non-text blocks."""
+    if isinstance(content, str):
+        return content
+
+    blocks: list[dict[str, Any]] = []
+    text_parts: list[str] = []
+    for part in content:
+        if not isinstance(part, dict):
+            continue
+        if part.get("type") == "text":
+            text_parts.append(str(part.get("text", "")))
+            continue
+        blocks.append(part)
+
+    if blocks:
+        if text_parts:
+            blocks.append({"type": "text", "text": "".join(text_parts)})
+        return blocks
+
+    return "".join(text_parts)
+
+
+def _convert_request_tool_calls(tool_calls: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+    """Convert shared tool calls into Ollama-native request objects."""
+    if not tool_calls:
+        return None
+
+    converted: list[dict[str, Any]] = []
+    for tool_call in tool_calls:
+        if not isinstance(tool_call, dict):
+            continue
+        function = tool_call.get("function", {})
+        if not isinstance(function, dict):
+            continue
+        name = function.get("name")
+        if not name:
+            continue
+
+        converted_call: dict[str, Any] = {
+            "function": {
+                "name": str(name),
+                "arguments": _parse_arguments_object(function.get("arguments", {})),
+            }
+        }
+        if tool_call.get("id"):
+            converted_call["id"] = tool_call["id"]
+        converted.append(converted_call)
+
+    return converted or None
+
+
 def _normalize_ollama_api_url(url: str | None) -> str:
     """Normalize Ollama URLs to the `/api/chat` endpoint."""
     default_url = "http://localhost:11434/api/chat"
@@ -118,7 +191,7 @@ class OllamaCompatibleProvider(LLMProvider):
         """Build an Ollama `/api/chat` request."""
         request: dict[str, Any] = {
             "model": self.config.model,
-            "messages": [msg.to_dict() for msg in messages],
+            "messages": self._convert_messages(messages),
             "stream": stream,
             "options": {
                 "temperature": self.config.temperature,
@@ -139,6 +212,40 @@ class OllamaCompatibleProvider(LLMProvider):
         request.update(extra)
         request.update(kwargs)
         return request
+
+    def _convert_messages(self, messages: list[LLMMessage]) -> list[dict[str, Any]]:
+        """Convert shared chat history into Ollama-native message payloads."""
+        converted: list[dict[str, Any]] = []
+
+        for message in messages:
+            if message.role in {"system", "user", "assistant"}:
+                ollama_message: dict[str, Any] = {
+                    "role": message.role,
+                    "content": _convert_content_blocks(message.content),
+                }
+                converted_tool_calls = _convert_request_tool_calls(message.tool_calls)
+                if converted_tool_calls:
+                    ollama_message["tool_calls"] = converted_tool_calls
+                converted.append(ollama_message)
+                continue
+
+            if message.role == "tool":
+                tool_result_content = message.content
+                if isinstance(tool_result_content, (dict, list)):
+                    tool_result_content = json.dumps(tool_result_content, ensure_ascii=False, default=str)
+                elif not isinstance(tool_result_content, str):
+                    tool_result_content = str(tool_result_content) if tool_result_content is not None else "{}"
+
+                converted.append(
+                    {
+                        "role": "tool",
+                        "content": tool_result_content,
+                        "tool_call_id": message.tool_call_id or "tool_call",
+                        "name": message.tool_name or "tool",
+                    }
+                )
+
+        return converted
 
     async def complete(
         self,
