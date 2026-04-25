@@ -143,6 +143,14 @@ class AIHubConversationAgent(
         except Exception as e:
             _LOGGER.debug("Local intent handler initialization failed: %s", e)
 
+        sentence_matched_result = await self._async_try_sentence_matched_local_intent(
+            user_input,
+            chat_log,
+            intent_handler,
+        )
+        if sentence_matched_result is not None:
+            return sentence_matched_result
+
         # ========== 步骤1: 尝试 HA 内置意图处理 ==========
         # timer、shopping list、设备控制、状态查询等 HA 原生支持的意图
         try:
@@ -286,6 +294,40 @@ class AIHubConversationAgent(
             _LOGGER.warning("HA 内置意图处理异常: %s", e, exc_info=True)
 
         return None
+
+    async def _async_try_sentence_matched_local_intent(
+        self,
+        user_input: conversation.ConversationInput,
+        chat_log: conversation.ChatLog,
+        intent_handler: Any,
+    ) -> conversation.ConversationResult | None:
+        """Handle strictly sentence-matched local intents before other fallbacks."""
+        if intent_handler is None:
+            return None
+
+        matches_sentence_template = getattr(intent_handler, "matches_sentence_template", None)
+        if not callable(matches_sentence_template) or not matches_sentence_template(user_input.text):
+            return None
+
+        _LOGGER.debug("Sentence-matched local intent processing: %s", user_input.text)
+        intent_result = await intent_handler.handle(user_input.text, user_input.language)
+        if not intent_result:
+            return None
+
+        speech = intent_result["response"].speech.get("plain", {}).get("speech")
+        if speech:
+            chat_log.async_add_assistant_content_without_tools(
+                conversation.AssistantContent(
+                    agent_id=self.entity_id,
+                    content=speech,
+                )
+            )
+
+        _LOGGER.debug("Conversation result source: ai_hub_local_sentence")
+        return conversation.ConversationResult(
+            response=intent_result["response"],
+            conversation_id=chat_log.conversation_id,
+        )
 
     async def _async_handle_llm_message(
         self,

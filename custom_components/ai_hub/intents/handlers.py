@@ -143,6 +143,18 @@ class LocalIntentHandler:
         _LOGGER.debug("Local intent check: '%s' -> %s", text, should_handle)
         return should_handle
 
+    def matches_sentence_template(self, text: str) -> bool:
+        """Return whether the text matches a configured local sentence template."""
+        if not self.local_config:
+            return False
+
+        global_config = self._get_global_device_control_config()
+        if not global_config:
+            return False
+
+        text_lower = text.lower().strip()
+        return self._matches_local_sentence_template(text_lower)
+
     def _matches_local_sentence_template(self, text_lower: str) -> bool:
         """Return whether text matches any configured local sentence template."""
         patterns = self._get_local_sentence_patterns()

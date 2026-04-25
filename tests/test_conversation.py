@@ -257,6 +257,55 @@ class TestAIHubConversationAgent:
         assert result is None
         intent_handler.handle.assert_not_awaited()
 
+    @pytest.mark.asyncio
+    async def test_sentence_matched_local_intent_runs_before_ha_query_response(self, mock_hass, mock_config_entry):
+        """Strict local sentence matches should not be swallowed by HA query replies."""
+        subentry = list(mock_config_entry.subentries.values())[0]
+        agent = AIHubConversationAgent(mock_config_entry, subentry)
+        agent.hass = mock_hass
+
+        user_input = MagicMock()
+        user_input.text = "打开书房灯"
+        user_input.language = "zh-CN"
+        user_input.conversation_id = "conv-local-sentence-1"
+
+        chat_log = MagicMock()
+        chat_log.content = []
+        chat_log.conversation_id = "conv-local-sentence-1"
+        chat_log.async_add_assistant_content_without_tools = MagicMock()
+
+        local_result = create_intent_result(
+            "zh-CN",
+            "已打开书房灯",
+            success_results=[{"type": "entity", "name": "书房灯", "id": "light.study"}],
+        )
+
+        ha_response = MagicMock()
+        ha_response.response_type = conversation.intent.IntentResponseType.QUERY_ANSWER
+        ha_response.speech = {"plain": {"speech": "您想打开什么？"}}
+        ha_response.error = None
+        ha_response.data = {"targets": [], "success": [], "failed": []}
+
+        intent_handler = MagicMock()
+        intent_handler.matches_sentence_template.return_value = True
+        intent_handler.handle = AsyncMock(return_value=local_result)
+
+        with patch(
+            "homeassistant.components.conversation.async_handle_intents",
+            AsyncMock(return_value=ha_response),
+        ) as ha_handle:
+            with patch(
+                "custom_components.ai_hub.conversation.get_global_intent_handler",
+                return_value=intent_handler,
+                create=True,
+            ):
+                result = await agent._async_handle_local_and_builtin_intents(user_input, chat_log)
+
+        assert result is not None
+        assert result.response is local_result["response"]
+        intent_handler.handle.assert_awaited_once_with("打开书房灯", "zh-CN")
+        ha_handle.assert_not_awaited()
+
     def test_extract_automation_description(self, mock_hass, mock_config_entry):
         """Test automation description extraction."""
         subentry = list(mock_config_entry.subentries.values())[0]
