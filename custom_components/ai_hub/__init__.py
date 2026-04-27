@@ -250,6 +250,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Create AI task subentry with defaults
         ai_task_data = {
             CONF_RECOMMENDED: True,
+            CONF_CHAT_URL: AI_HUB_CHAT_URL,
             CONF_CHAT_MODEL: RECOMMENDED_AI_TASK_MODEL,
             CONF_TEMPERATURE: RECOMMENDED_AI_TASK_TEMPERATURE,
             CONF_TOP_P: RECOMMENDED_AI_TASK_TOP_P,

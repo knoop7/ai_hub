@@ -226,8 +226,8 @@ async def _handle_analyze_image(call: ServiceCall) -> dict:
         SUBENTRY_CONVERSATION,
         (CONF_CHAT_URL, AI_HUB_CHAT_URL),
         (CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
-        lambda config: (config[2], config[0]),
-        handle_analyze_image,
+        config_mapper=lambda config: (config[2], config[0]),
+        handler=handle_analyze_image,
     )
 
 
@@ -237,8 +237,8 @@ async def _handle_generate_image(call: ServiceCall) -> dict:
         call,
         SUBENTRY_AI_TASK,
         (CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL),
-        lambda config: (config[1], config[0]),
-        handle_generate_image,
+        config_mapper=lambda config: (config[1], config[0]),
+        handler=handle_generate_image,
     )
 
 
@@ -248,8 +248,8 @@ async def _handle_stt_transcribe(call: ServiceCall) -> dict:
         call,
         SUBENTRY_STT,
         (CONF_STT_URL, SILICONFLOW_ASR_URL),
-        lambda config: (config[1], config[0]),
-        handle_stt_transcribe,
+        config_mapper=lambda config: (config[1], config[0]),
+        handler=handle_stt_transcribe,
     )
 
 

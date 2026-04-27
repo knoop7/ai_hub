@@ -287,7 +287,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                         part["text"] = str(part.get("text", ""))
                         _LOGGER.warning("Message %d part %d had non-string text, converted", i, j)
 
-        api_url = options.get(CONF_CHAT_URL)
+        api_url = model_config.get(CONF_CHAT_URL, options.get(CONF_CHAT_URL))
         if not isinstance(api_url, str) or not api_url.strip():
             raise HomeAssistantError(
                 translation_domain=DOMAIN,

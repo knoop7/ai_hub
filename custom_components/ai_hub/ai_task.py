@@ -14,8 +14,10 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .consts import (
+    AI_HUB_CHAT_URL,
     AI_HUB_IMAGE_GEN_URL,
     CONF_CHAT_MODEL,
+    CONF_CHAT_URL,
     CONF_IMAGE_MODEL,
     CONF_IMAGE_URL,
     ERROR_GETTING_RESPONSE,
@@ -45,6 +47,16 @@ def _get_conversation_model(config_entry: ConfigEntry) -> str:
         if subentry.subentry_type == SUBENTRY_CONVERSATION:
             return subentry.data.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
     return RECOMMENDED_CHAT_MODEL
+
+
+def _get_conversation_chat_url(config_entry: ConfigEntry) -> str:
+    """Get the chat URL from Conversation Agent subentry."""
+    for subentry in config_entry.subentries.values():
+        if subentry.subentry_type == SUBENTRY_CONVERSATION:
+            chat_url = subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL)
+            if isinstance(chat_url, str) and chat_url.strip():
+                return chat_url
+    return AI_HUB_CHAT_URL
 
 
 async def async_setup_entry(
@@ -99,6 +111,15 @@ class AIHubTaskEntity(
             or is_recommended  # Always enable in recommended mode
         ):
             self._attr_supported_features |= ai_task.AITaskEntityFeature.GENERATE_IMAGE
+
+    def _get_model_config(self, chat_log: conversation.ChatLog | None = None) -> dict[str, Any]:
+        """AI Task follows Conversation model and chat URL settings."""
+        model_config = super()._get_model_config(chat_log)
+        chat_url = self.subentry.data.get(CONF_CHAT_URL)
+        if not isinstance(chat_url, str) or not chat_url.strip():
+            chat_url = _get_conversation_chat_url(self.entry)
+        model_config[CONF_CHAT_URL] = chat_url
+        return model_config
 
     async def _async_generate_data(
         self,
