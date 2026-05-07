@@ -101,7 +101,6 @@ class ChatMessageBuilder:
         if successful_images:
             message["content"] = successful_images + [{"type": "text", "text": ensure_string(content.content)}]
         else:
-            _LOGGER.warning("No images were processed successfully, falling back to text only")
             message["content"] = ensure_string(content.content)
         return message
 
@@ -169,6 +168,10 @@ class ChatMessageBuilder:
                 )
             message["tool_calls"] = tool_calls_list
         message["content"] = ensure_string(content.content)
+        # DeepSeek thinking mode requires reasoning_content to be passed back
+        thinking = getattr(content, "thinking_content", None)
+        if thinking:
+            message["reasoning_content"] = thinking
         return message
 
     @staticmethod
