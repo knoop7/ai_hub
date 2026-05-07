@@ -70,6 +70,7 @@ class LLMMessage:
     tool_calls: list[dict[str, Any]] | None = None
     tool_call_id: str | None = None
     tool_name: str | None = None
+    reasoning_content: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format."""
@@ -128,6 +129,7 @@ class LLMResponse:
     model: str | None = None
     finish_reason: str | None = None
     raw_response: Any = None
+    reasoning_content: str | None = None
 
     @property
     def has_tool_calls(self) -> bool:

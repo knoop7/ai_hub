@@ -513,6 +513,10 @@ class OpenAICompatibleProvider(LLMProvider):
                 converted_tool_calls = _convert_request_tool_calls(message.tool_calls)
                 if converted_tool_calls:
                     converted_message["tool_calls"] = converted_tool_calls
+                # DeepSeek thinking mode requires reasoning_content to be passed back
+                reasoning = getattr(message, "reasoning_content", None)
+                if reasoning:
+                    converted_message["reasoning_content"] = reasoning
                 converted.append(converted_message)
                 continue
 
@@ -786,6 +790,7 @@ class OpenAICompatibleProvider(LLMProvider):
             model=data.get("model"),
             finish_reason=choice.get("finish_reason"),
             raw_response=data,
+            reasoning_content=message.get("reasoning_content"),
         )
 
     async def complete_stream(

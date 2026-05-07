@@ -323,6 +323,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                     tool_calls=msg.get("tool_calls"),
                     tool_call_id=msg.get("tool_call_id"),
                     tool_name=msg.get("tool_name"),
+                    reasoning_content=msg.get("reasoning_content"),
                 )
                 for msg in messages
             ]
@@ -448,6 +449,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
             agent_id=self.entity_id,
             content=content_text or None,
             tool_calls=tool_calls or None,
+            thinking_content=response.reasoning_content or None,
             native=response.raw_response,
         )
         async for _ in chat_log.async_add_assistant_content(assistant_content):
@@ -466,6 +468,10 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 continue
             if isinstance(chunk, dict):
                 if "thinking_content" in chunk:
+                    if not has_started:
+                        yield {"role": "assistant"}
+                        has_started = True
+                    yield {"thinking_content": chunk["thinking_content"]}
                     continue
                 if "role" not in chunk and not has_started:
                     yield {"role": "assistant"}
