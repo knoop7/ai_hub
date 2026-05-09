@@ -134,139 +134,27 @@ class AIHubConversationAgent(
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult | None:
-        """Run Home Assistant built-in intents first, then local fallback intents."""
+        """Strict local intent match only; never invoke hassil."""
+        language = (getattr(user_input, "language", None) or "").lower()
+        if not language.startswith("zh"):
+            return None
 
-        intent_handler = None
         try:
             from .intents import get_global_intent_handler
             intent_handler = get_global_intent_handler(self.hass)
         except Exception as e:
-            _LOGGER.debug("Local intent handler initialization failed: %s", e)
+            _LOGGER.debug("Local intent handler init failed: %s", e)
+            return None
 
-        # ========== 步骤1: 尝试 HA 内置意图处理 ==========
-        # timer、shopping list、设备控制、状态查询等 HA 原生支持的意图
         try:
-            from homeassistant.components import conversation as ha_conversation
-
-            ha_chat_log = replace(chat_log, content=chat_log.content.copy())
-
-            _LOGGER.debug("调用 HA 内置 intents 处理: %s", user_input.text)
-            ha_response = await ha_conversation.async_handle_intents(
-                self.hass,
+            return await self._async_try_local_intent_fallback(
                 user_input,
-                ha_chat_log,
+                chat_log,
+                intent_handler,
             )
-
-            _LOGGER.debug("HA intents 返回结果: %s", ha_response)
-
-            if ha_response is not None:
-                response_type = ha_response.response_type
-                _LOGGER.debug("HA intents response_type: %s", response_type)
-
-                plain_speech = None
-                if ha_response.speech and ha_response.speech.get("plain"):
-                    plain_speech = ha_response.speech["plain"].get("speech")
-
-                response_data = getattr(ha_response, "data", None) or {}
-                has_error = hasattr(ha_response, "error") and ha_response.error
-                is_error_type = response_type == intent.IntentResponseType.ERROR
-                is_no_match = (
-                    response_type == intent.IntentResponseType.NO_INTENT_MATCHED
-                    if hasattr(intent.IntentResponseType, "NO_INTENT_MATCHED")
-                    else False
-                )
-                response_has_content = bool(plain_speech)
-                success_results = response_data.get("success") or getattr(ha_response, "success_results", []) or []
-                failed_results = response_data.get("failed") or getattr(ha_response, "failed_results", []) or []
-                has_explicit_success = bool(success_results)
-                has_explicit_failure = bool(failed_results)
-                has_explicit_outcome = has_explicit_success or has_explicit_failure
-                continue_conversation = bool(getattr(ha_chat_log, "continue_conversation", False))
-                is_empty_action_done = (
-                    response_type == intent.IntentResponseType.ACTION_DONE
-                    and not has_explicit_outcome
-                )
-                is_follow_up_prompt = (
-                    response_type == intent.IntentResponseType.QUERY_ANSWER
-                    and continue_conversation
-                    and not has_explicit_outcome
-                )
-                is_acceptable_type = (
-                    (
-                        response_type == intent.IntentResponseType.QUERY_ANSWER
-                        and not is_follow_up_prompt
-                    )
-                    or (
-                        response_type == intent.IntentResponseType.ACTION_DONE
-                        and has_explicit_outcome
-                    )
-                )
-
-                if (
-                    not has_error
-                    and not is_error_type
-                    and not is_no_match
-                    and response_has_content
-                    and is_acceptable_type
-                    and not is_empty_action_done
-                ):
-                    chat_log.content = ha_chat_log.content
-                    if not isinstance(chat_log.content[-1], conversation.AssistantContent):
-                        chat_log.async_add_assistant_content_without_tools(
-                            conversation.AssistantContent(
-                                agent_id=self.entity_id,
-                                content=plain_speech,
-                            )
-                        )
-                    _LOGGER.debug("Conversation result source: ha_builtin")
-                    _LOGGER.info("HA 内置意图处理成功: %s, type: %s", user_input.text, response_type)
-                    return conversation.ConversationResult(
-                        response=ha_response,
-                        conversation_id=chat_log.conversation_id,
-                        continue_conversation=continue_conversation,
-                    )
-
-                if response_type == intent.IntentResponseType.QUERY_ANSWER and not has_explicit_outcome:
-                    _LOGGER.debug(
-                        "HA 内置意图已判定为查询类响应，跳过本地 fallback: %s",
-                        user_input.text,
-                    )
-                    return None
-
-                fallback_result = await self._async_try_local_intent_fallback(
-                    user_input,
-                    chat_log,
-                    intent_handler,
-                )
-                if fallback_result is not None:
-                    return fallback_result
-
-                _LOGGER.debug(
-                    "HA 内置意图未匹配、返回错误或结果异常("
-                    "has_error=%s, is_error_type=%s, is_no_match=%s, "
-                    "is_acceptable_type=%s, is_empty_action_done=%s, "
-                    "continue_conversation=%s, is_follow_up_prompt=%s)，交给 LLM 处理",
-                    has_error,
-                    is_error_type,
-                    is_no_match,
-                    is_acceptable_type,
-                    is_empty_action_done,
-                    continue_conversation,
-                    is_follow_up_prompt,
-                )
-            else:
-                fallback_result = await self._async_try_local_intent_fallback(
-                    user_input,
-                    chat_log,
-                    intent_handler,
-                )
-                if fallback_result is not None:
-                    return fallback_result
-
         except Exception as e:
-            _LOGGER.warning("HA 内置意图处理异常: %s", e, exc_info=True)
-
-        return None
+            _LOGGER.warning("Local intent strict match failed: %s", e, exc_info=True)
+            return None
 
     async def _async_try_local_intent_fallback(
         self,
