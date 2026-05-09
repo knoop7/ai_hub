@@ -1,0 +1,300 @@
+"""The AI Hub integration."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from typing import Any, TypeAlias
+
+import aiohttp
+
+try:
+    from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+    from homeassistant.const import CONF_API_KEY, Platform
+    from homeassistant.core import HomeAssistant
+    from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test environments
+    ConfigEntry = Any  # type: ignore[assignment]
+    ConfigSubentry = Any  # type: ignore[assignment]
+    HomeAssistant = Any  # type: ignore[assignment]
+    CONF_API_KEY = "api_key"
+
+    class ConfigEntryAuthFailed(Exception):
+        """Fallback exception when Home Assistant is not installed."""
+
+    class ConfigEntryNotReady(Exception):
+        """Fallback exception when Home Assistant is not installed."""
+
+    Platform = None  # type: ignore[assignment]
+
+from .consts import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
+
+if Platform is None:
+    PLATFORMS: list[Any] = []
+else:
+    PLATFORMS = [
+        Platform.CONVERSATION,
+        Platform.AI_TASK,
+        Platform.TTS,
+        Platform.STT,
+        Platform.BUTTON,
+        Platform.SENSOR,
+    ]
+
+AIHubConfigEntry: TypeAlias = ConfigEntry  # Store API key
+
+
+@dataclass
+class AIHubData:
+    """Runtime data for AI Hub integration.
+
+    This class holds all runtime state for the integration,
+    avoiding global variables and ensuring proper cleanup on reload.
+    """
+
+    api_key: str | None = None
+    tts_cache: Any = None
+    provider_registry: Any = None
+    diagnostics_collector: Any = None
+    stats: dict[str, Any] = field(default_factory=dict)
+
+    def cleanup(self) -> None:
+        """Clean up resources."""
+        if self.tts_cache is not None:
+            self.tts_cache.clear()
+        self.provider_registry = None
+
+
+def get_ai_hub_data(hass: HomeAssistant) -> AIHubData | None:
+    """Get AI Hub runtime data."""
+    return hass.data.get(DOMAIN)
+
+
+def get_configured_api_key(entry: ConfigEntry) -> str:
+    """Return the configured main API key from options or entry data."""
+    api_key = entry.options.get(CONF_API_KEY) or entry.data.get(CONF_API_KEY) or ""
+    return api_key.strip() if isinstance(api_key, str) else str(api_key).strip()
+
+
+def get_or_create_ai_hub_data(hass: HomeAssistant) -> AIHubData:
+    """Get or create AI Hub runtime data."""
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = AIHubData()
+    return hass.data[DOMAIN]
+
+
+def get_provider_registry(hass: HomeAssistant):
+    """Get or create the provider registry for this Home Assistant instance.
+
+    This ensures proper lifecycle management - the registry is cleaned up
+    when the integration is unloaded.
+
+    Args:
+        hass: Home Assistant instance
+
+    Returns:
+        UnifiedProviderRegistry instance
+    """
+    from .providers import get_registry
+
+    ai_hub_data = get_or_create_ai_hub_data(hass)
+    if ai_hub_data.provider_registry is None:
+        ai_hub_data.provider_registry = get_registry()
+    return ai_hub_data.provider_registry
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
+    """Set up AI Hub from a config entry."""
+
+    # Get API key (may be None if not provided)
+    # No startup validation - each entity validates on actual use
+    api_key = get_configured_api_key(entry)
+
+    # Initialize runtime data in hass.data
+    ai_hub_data = get_or_create_ai_hub_data(hass)
+    ai_hub_data.api_key = api_key
+
+    # Store in entry.runtime_data
+    entry.runtime_data = api_key
+
+    # Each step is independent - one failure does not block others
+    try:
+        from .intents.loader import async_sync_intent_lists
+        await async_sync_intent_lists(hass)
+    except Exception as err:
+        _LOGGER.warning("Intent list sync failed (non-fatal): %s", err)
+
+    try:
+        from .intents import async_setup_intents
+        await async_setup_intents(hass)
+    except Exception as err:
+        _LOGGER.warning("Intent handlers setup failed (non-fatal): %s", err)
+
+    try:
+        from .services import async_setup_services
+        await async_setup_services(hass, entry)
+    except Exception as err:
+        _LOGGER.warning("Services setup failed (non-fatal): %s", err)
+
+    # Forward setup to platforms individually - one failure should not block others
+    for platform in PLATFORMS:
+        try:
+            await hass.config_entries.async_forward_entry_setups(entry, [platform])
+        except Exception as err:
+            _LOGGER.warning("Platform %s setup failed (others continue): %s", platform, err)
+
+    # Listen for options updates
+    entry.async_on_unload(entry.add_update_listener(async_update_options))
+
+    return True
+
+
+async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Handle options update."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
+    """Unload a config entry."""
+    remaining_entries = [
+        config_entry
+        for config_entry in hass.config_entries.async_entries(DOMAIN)
+        if config_entry.entry_id != entry.entry_id
+    ]
+
+    all_ok = True
+    for platform in PLATFORMS:
+        try:
+            if not await hass.config_entries.async_unload_platforms(entry, [platform]):
+                _LOGGER.warning("Failed to unload platform %s", platform)
+                all_ok = False
+        except Exception as err:
+            _LOGGER.warning("Error unloading platform %s: %s", platform, err)
+            all_ok = False
+
+    from .services import async_unload_services
+    await async_unload_services(hass, entry.entry_id)
+
+    if not remaining_entries:
+        ai_hub_data = get_ai_hub_data(hass)
+        if ai_hub_data is not None:
+            ai_hub_data.cleanup()
+            hass.data.pop(DOMAIN, None)
+
+    return all_ok
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate old entry."""
+    _LOGGER.debug("Migrating configuration from version %s.%s", entry.version, entry.minor_version)
+
+    if entry.version == 1:
+        # Migrate from version 1 to version 2
+        # Version 2 uses subentries for conversation and ai_task
+        new_data = {**entry.data}
+        new_options = {**entry.options}
+
+        # Create default subentries
+        from homeassistant.helpers import llm
+
+        from .consts import (
+            CONF_CHAT_MODEL,
+            CONF_LLM_HASS_API,
+            CONF_MAX_TOKENS,
+            CONF_PROMPT,
+            CONF_RECOMMENDED,
+            CONF_TEMPERATURE,
+            CONF_TOP_P,
+            DEFAULT_AI_TASK_NAME,
+            DEFAULT_CONVERSATION_NAME,
+            LEGACY_AI_TASK_TITLES,
+            LEGACY_CONVERSATION_TITLES,
+            LLM_API_ASSIST,
+            RECOMMENDED_AI_TASK_MAX_TOKENS,
+            RECOMMENDED_AI_TASK_MODEL,
+            RECOMMENDED_AI_TASK_TEMPERATURE,
+            RECOMMENDED_AI_TASK_TOP_P,
+            RECOMMENDED_CHAT_MODEL,
+            RECOMMENDED_MAX_TOKENS,
+            RECOMMENDED_TEMPERATURE,
+            RECOMMENDED_TOP_P,
+            SUBENTRY_AI_TASK,
+            SUBENTRY_CONVERSATION,
+        )
+
+        # Create conversation subentry from old options
+        conversation_data = {
+            CONF_RECOMMENDED: new_options.get(CONF_RECOMMENDED, True),
+            CONF_CHAT_MODEL: new_options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
+            CONF_TEMPERATURE: new_options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
+            CONF_TOP_P: new_options.get(CONF_TOP_P, RECOMMENDED_TOP_P),
+            CONF_MAX_TOKENS: new_options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
+            CONF_PROMPT: new_options.get(CONF_PROMPT, llm.DEFAULT_INSTRUCTIONS_PROMPT),
+            CONF_LLM_HASS_API: new_options.get(CONF_LLM_HASS_API, [LLM_API_ASSIST]),
+        }
+
+        # Create AI task subentry with defaults
+        ai_task_data = {
+            CONF_RECOMMENDED: True,
+            CONF_CHAT_URL: AI_HUB_CHAT_URL,
+            CONF_CHAT_MODEL: RECOMMENDED_AI_TASK_MODEL,
+            CONF_TEMPERATURE: RECOMMENDED_AI_TASK_TEMPERATURE,
+            CONF_TOP_P: RECOMMENDED_AI_TASK_TOP_P,
+            CONF_MAX_TOKENS: RECOMMENDED_AI_TASK_MAX_TOKENS,
+        }
+
+        hass.config_entries.async_update_entry(
+            entry,
+            data=new_data,
+            options={},
+            version=2,
+            minor_version=2,
+        )
+
+        # Add subentries
+        conversation_subentry = ConfigSubentry(
+            data=conversation_data,
+            subentry_type=SUBENTRY_CONVERSATION,
+            title=DEFAULT_CONVERSATION_NAME,
+            unique_id=None,
+        )
+        hass.config_entries.async_add_subentry(entry, conversation_subentry)
+
+        ai_task_subentry = ConfigSubentry(
+            data=ai_task_data,
+            subentry_type=SUBENTRY_AI_TASK,
+            title=DEFAULT_AI_TASK_NAME,
+            unique_id=None,
+        )
+        hass.config_entries.async_add_subentry(entry, ai_task_subentry)
+
+        _LOGGER.debug("Migration to version %s.%s successful", entry.version, entry.minor_version)
+
+    if entry.version == 2 and entry.minor_version == 1:
+        # Migrate from version 2.1 to 2.2
+        # Update subentry titles
+        from .consts import DEFAULT_AI_TASK_NAME, DEFAULT_CONVERSATION_NAME
+
+        for subentry in entry.subentries.values():
+            # Update old titles to new format
+            if subentry.subentry_type == SUBENTRY_CONVERSATION:
+                if subentry.title in LEGACY_CONVERSATION_TITLES:
+                    hass.config_entries.async_update_subentry(
+                        entry, subentry.subentry_id, title=DEFAULT_CONVERSATION_NAME
+                    )
+            elif subentry.subentry_type == SUBENTRY_AI_TASK:
+                if subentry.title in LEGACY_AI_TASK_TITLES:
+                    hass.config_entries.async_update_subentry(
+                        entry, subentry.subentry_id, title=DEFAULT_AI_TASK_NAME
+                    )
+
+        hass.config_entries.async_update_entry(
+            entry,
+            minor_version=2,
+        )
+
+        _LOGGER.debug("Migration to version %s.%s successful", entry.version, entry.minor_version)
+
+    return True
