@@ -39,6 +39,10 @@ async def async_post_json(
             return await response.json()
 
 
+class FirstChunkTimeoutError(TimeoutError):
+    """Raised when the first chunk is not received within the timeout."""
+
+
 async def async_stream_response_text(
     url: str,
     *,
@@ -47,15 +51,33 @@ async def async_stream_response_text(
     ssl: bool | None,
     timeout: float,
     error_label: str,
+    first_chunk_timeout: float = 15.0,
 ) -> AsyncGenerator[str, None]:
     """POST JSON and yield decoded response chunks."""
+    import asyncio
+
     async with aiohttp.ClientSession(timeout=client_timeout(timeout)) as session:
         async with session.post(url, json=payload, headers=headers, ssl=ssl) as response:
             if response.status != 200:
                 error_text = await response.text()
                 raise RuntimeError(f"{error_label}: {error_text}")
 
-            async for chunk in response.content:
+            content_iter = response.content.__aiter__()
+            try:
+                first_chunk = await asyncio.wait_for(
+                    content_iter.__anext__(), timeout=first_chunk_timeout
+                )
+            except asyncio.TimeoutError as err:
+                raise FirstChunkTimeoutError(
+                    f"No response from server within {first_chunk_timeout}s"
+                ) from err
+            except StopAsyncIteration:
+                return
+
+            if first_chunk:
+                yield first_chunk.decode("utf-8", errors="ignore")
+
+            async for chunk in content_iter:
                 if chunk:
                     yield chunk.decode("utf-8", errors="ignore")
 

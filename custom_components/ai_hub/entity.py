@@ -16,6 +16,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import ulid
 from .providers import LLMMessage, create_provider
+from .http import FirstChunkTimeoutError
 from .consts import (
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
@@ -397,20 +398,33 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
         provider: Any,
         llm_messages: list[LLMMessage],
         tools: list[dict[str, Any]] | None = None,
+        _retry_count: int = 0,
     ) -> None:
         """Run a provider in streaming mode for text-only turns."""
         _LOGGER.debug(
-            "Invoking provider=%s stream=%s tools=%d",
+            "Invoking provider=%s stream=%s tools=%d retry=%d",
             provider_name,
             True,
             len(tools or []),
+            _retry_count,
         )
         has_output = False
-        async for _ in chat_log.async_add_delta_content_stream(
-            self.entity_id,
-            self._transform_provider_stream(provider.complete_stream(llm_messages, tools=tools)),
-        ):
-            has_output = True
+        try:
+            async for _ in chat_log.async_add_delta_content_stream(
+                self.entity_id,
+                self._transform_provider_stream(provider.complete_stream(llm_messages, tools=tools)),
+            ):
+                has_output = True
+        except FirstChunkTimeoutError:
+            if _retry_count < 1:
+                _LOGGER.warning(
+                    "Provider %s first chunk timeout, retrying...",
+                    provider_name,
+                )
+                return await self._async_run_provider_stream(
+                    chat_log, provider_name, provider, llm_messages, tools, _retry_count + 1
+                )
+            raise
 
         if not has_output:
             _LOGGER.warning(
