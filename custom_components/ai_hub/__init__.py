@@ -109,33 +109,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     """Set up AI Hub from a config entry."""
 
     # Get API key (may be None if not provided)
+    # No startup validation - each entity validates on actual use
     api_key = get_configured_api_key(entry)
-
-    # Validate API key by testing API connection only if provided
-    if api_key and api_key.strip():
-        try:
-            from .config_flow_validation import validate_input
-
-            await validate_input(hass, {CONF_API_KEY: api_key})
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Failed to connect to API: %s", err)
-            raise ConfigEntryNotReady(f"Failed to connect: {err}") from err
-        except ValueError as err:
-            reason = str(err)
-            if reason == "invalid_auth":
-                raise ConfigEntryAuthFailed("Invalid API key") from err
-            if reason == "cannot_connect":
-                raise ConfigEntryNotReady("API test failed") from err
-            if reason.startswith("cannot_connect:"):
-                detail = reason.split(":", 1)[1].strip()
-                raise ConfigEntryNotReady(f"API test failed: {detail}") from err
-            _LOGGER.error("API validation failed: %s", err)
-            raise ConfigEntryNotReady(f"API validation failed: {err}") from err
-        except ConfigEntryAuthFailed:
-            raise
-        except Exception as err:
-            _LOGGER.error("API validation failed: %s", err)
-            raise ConfigEntryNotReady(f"API validation failed: {err}") from err
 
     # Initialize runtime data in hass.data
     ai_hub_data = get_or_create_ai_hub_data(hass)
@@ -144,24 +119,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     # Store in entry.runtime_data
     entry.runtime_data = api_key
 
-    # Sync auto-generated intent lists before loading local intent config
-    from .intents.loader import async_sync_intent_lists
-    await async_sync_intent_lists(hass)
+    # Each step is independent - one failure does not block others
+    try:
+        from .intents.loader import async_sync_intent_lists
+        await async_sync_intent_lists(hass)
+    except Exception as err:
+        _LOGGER.warning("Intent list sync failed (non-fatal): %s", err)
 
-    # Set up intent handlers
-    from .intents import async_setup_intents
-    await async_setup_intents(hass)
+    try:
+        from .intents import async_setup_intents
+        await async_setup_intents(hass)
+    except Exception as err:
+        _LOGGER.warning("Intent handlers setup failed (non-fatal): %s", err)
 
-    # Set up services
-    from .services import async_setup_services
-    await async_setup_services(hass, entry)
+    try:
+        from .services import async_setup_services
+        await async_setup_services(hass, entry)
+    except Exception as err:
+        _LOGGER.warning("Services setup failed (non-fatal): %s", err)
 
-    # Forward setup to platforms last. If any initialization above fails and Home
-    # Assistant retries the config entry, delaying platform setup prevents the
-    # entity component from seeing the same entry as already configured.
-    _LOGGER.debug("Setting up AI Hub platforms: %s", PLATFORMS)
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _LOGGER.debug("Platforms setup completed")
+    # Forward setup to platforms individually - one failure should not block others
+    for platform in PLATFORMS:
+        try:
+            await hass.config_entries.async_forward_entry_setups(entry, [platform])
+        except Exception as err:
+            _LOGGER.warning("Platform %s setup failed (others continue): %s", platform, err)
 
     # Listen for options updates
     entry.async_on_unload(entry.add_update_listener(async_update_options))
@@ -182,9 +164,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bo
         if config_entry.entry_id != entry.entry_id
     ]
 
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if not unload_ok:
-        return False
+    all_ok = True
+    for platform in PLATFORMS:
+        try:
+            if not await hass.config_entries.async_unload_platforms(entry, [platform]):
+                _LOGGER.warning("Failed to unload platform %s", platform)
+                all_ok = False
+        except Exception as err:
+            _LOGGER.warning("Error unloading platform %s: %s", platform, err)
+            all_ok = False
 
     from .services import async_unload_services
     await async_unload_services(hass, entry.entry_id)
@@ -195,7 +183,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bo
             ai_hub_data.cleanup()
             hass.data.pop(DOMAIN, None)
 
-    return True
+    return all_ok
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
