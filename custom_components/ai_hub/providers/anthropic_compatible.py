@@ -73,8 +73,6 @@ class AnthropicCompatibleProvider(LLMProvider):
         for part in content:
             if part.get("type") == "text":
                 blocks.append({"type": "text", "text": str(part.get("text", ""))})
-            elif part.get("type") == "thinking":
-                blocks.append({"type": "thinking", "thinking": str(part.get("thinking", ""))})
         return blocks or ""
 
     def _convert_messages(self, messages: list[LLMMessage]) -> tuple[str | None, list[dict[str, Any]]]:
@@ -88,50 +86,31 @@ class AnthropicCompatibleProvider(LLMProvider):
                 continue
 
             if message.role in {"user", "assistant"}:
-                content = self._convert_content_blocks(message.content)
-                if message.role == "assistant":
-                    content_blocks: list[dict[str, Any]] = []
-                    if isinstance(content, str):
-                        if content:
-                            content_blocks.append({"type": "text", "text": content})
-                    elif isinstance(content, list):
-                        content_blocks = list(content)
-                    else:
-                        if content:
-                            content_blocks.append({"type": "text", "text": str(content)})
-
-                    # Anthropic extended thinking: thinking must be in content array
-                    reasoning = getattr(message, "reasoning_content", None)
-                    if reasoning:
-                        content_blocks.insert(0, {"type": "thinking", "thinking": reasoning})
-
-                    if message.tool_calls:
-                        for tool_call in message.tool_calls:
-                            function_data = tool_call.get("function", {})
-                            arguments = function_data.get("arguments", {})
-                            if isinstance(arguments, str):
-                                try:
-                                    arguments = json.loads(arguments)
-                                except json.JSONDecodeError:
-                                    arguments = {"raw_arguments": arguments}
-                            content_blocks.append(
-                                {
-                                    "type": "tool_use",
-                                    "id": tool_call.get("id") or function_data.get("name", "tool_call"),
-                                    "name": function_data.get("name", "tool"),
-                                    "input": arguments if isinstance(arguments, dict) else {"value": arguments},
-                                }
-                            )
-
-                    anthropic_message: dict[str, Any] = {
-                        "role": message.role,
-                        "content": content_blocks if content_blocks else "",
-                    }
-                else:
-                    anthropic_message = {
-                        "role": message.role,
-                        "content": content,
-                    }
+                anthropic_message: dict[str, Any] = {
+                    "role": message.role,
+                    "content": self._convert_content_blocks(message.content),
+                }
+                if message.role == "assistant" and message.tool_calls:
+                    content_blocks = anthropic_message["content"]
+                    if isinstance(content_blocks, str):
+                        content_blocks = [{"type": "text", "text": content_blocks}] if content_blocks else []
+                    for tool_call in message.tool_calls:
+                        function_data = tool_call.get("function", {})
+                        arguments = function_data.get("arguments", {})
+                        if isinstance(arguments, str):
+                            try:
+                                arguments = json.loads(arguments)
+                            except json.JSONDecodeError:
+                                arguments = {"raw_arguments": arguments}
+                        content_blocks.append(
+                            {
+                                "type": "tool_use",
+                                "id": tool_call.get("id") or function_data.get("name", "tool_call"),
+                                "name": function_data.get("name", "tool"),
+                                "input": arguments if isinstance(arguments, dict) else {"value": arguments},
+                            }
+                        )
+                    anthropic_message["content"] = content_blocks
                 converted.append(anthropic_message)
                 continue
 
@@ -227,33 +206,6 @@ class AnthropicCompatibleProvider(LLMProvider):
 
         return ""
 
-    def _extract_reasoning_content(self, data: dict[str, Any]) -> str | None:
-        """Extract reasoning/thinking content from an Anthropic-compatible response."""
-        content = data.get("content", [])
-        if isinstance(content, list):
-            thinking_parts = [
-                block.get("thinking", "")
-                for block in content
-                if block.get("type") == "thinking"
-            ]
-            if thinking_parts:
-                return "\n".join(thinking_parts)
-
-        message = data.get("message")
-        if isinstance(message, dict):
-            msg_content = message.get("content")
-            if isinstance(msg_content, list):
-                thinking_parts = [
-                    block.get("thinking", "")
-                    for block in msg_content
-                    if block.get("type") == "thinking"
-                ]
-                if thinking_parts:
-                    return "\n".join(thinking_parts)
-
-        return None
-
-
     def _extract_response_tool_calls(self, data: dict[str, Any]) -> list[dict[str, Any]] | None:
         """Extract tool calls from Anthropic-compatible responses."""
         content = data.get("content", [])
@@ -321,9 +273,6 @@ class AnthropicCompatibleProvider(LLMProvider):
         if anthropic_tools:
             request["tools"] = anthropic_tools
 
-        if self.config.enable_thinking and "thinking" not in self.config.extra:
-            request["thinking"] = {"type": "enabled", "budget_tokens": self.config.max_tokens}
-
         request.update(self.config.extra)
         request.update(kwargs)
         return request
@@ -360,8 +309,6 @@ class AnthropicCompatibleProvider(LLMProvider):
         if not text_content and not tool_calls:
             _LOGGER.debug("Anthropic-compatible empty response payload: %s", data)
 
-        reasoning_content = self._extract_reasoning_content(data)
-
         return LLMResponse(
             content=text_content,
             tool_calls=tool_calls,
@@ -369,7 +316,6 @@ class AnthropicCompatibleProvider(LLMProvider):
             model=data.get("model"),
             finish_reason=data.get("stop_reason"),
             raw_response=data,
-            reasoning_content=reasoning_content,
         )
 
     async def complete_stream(

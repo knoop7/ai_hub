@@ -731,6 +731,13 @@ class LocalIntentHandler:
 
             fail_msg = self._format_failure_message(all_errors, all_failed_devices)
             area_text = area_names[0] if area_names else ""
+            if all_success == 0 and all_errors > 0:
+                message = self._format_response_message(
+                    'error',
+                    error=fail_msg.strip('，, ') or "state verification failed",
+                )
+                return self._create_response(language, message, is_error=True)
+
             message_key = 'success_on' if is_on else 'success_off'
             message = self._format_response_message(
                 message_key,
@@ -794,7 +801,6 @@ class LocalIntentHandler:
         return all_devices
 
     def _match_area_name(self, area_name: str, target_areas: list) -> bool:
-        """区域名称匹配."""
         if area_name in target_areas:
             return True
         area_lower = area_name.lower()
@@ -802,6 +808,68 @@ class LocalIntentHandler:
             if target.lower() in area_lower or area_lower in target.lower():
                 return True
         return False
+
+    def _expected_state_after_service(
+        self,
+        domain: str,
+        service_name: str,
+        before_state: str | None,
+    ) -> str | None:
+        if service_name == "turn_on" and domain in {"light", "switch", "fan", "input_boolean", "automation"}:
+            return "on"
+        if service_name == "turn_off" and domain in {"light", "switch", "fan", "input_boolean", "automation"}:
+            return "off"
+        if service_name == "toggle" and domain in {"light", "switch", "fan", "input_boolean"}:
+            if before_state == "on":
+                return "off"
+            if before_state == "off":
+                return "on"
+        if domain == "cover" and service_name in {"open_cover", "turn_on"}:
+            return "open"
+        if domain == "cover" and service_name in {"close_cover", "turn_off"}:
+            return "closed"
+        if domain == "lock" and service_name == "lock":
+            return "locked"
+        if domain == "lock" and service_name == "unlock":
+            return "unlocked"
+        if domain == "valve" and service_name == "open_valve":
+            return "open"
+        if domain == "valve" and service_name == "close_valve":
+            return "closed"
+        if domain == "media_player" and service_name == "media_play":
+            return "playing"
+        if domain == "media_player" and service_name == "media_pause":
+            return "paused"
+        return None
+
+    async def _verify_device_operation(
+        self,
+        device_id: str,
+        domain: str,
+        service_name: str,
+        before_state: str | None,
+    ) -> bool:
+        expected = self._expected_state_after_service(domain, service_name, before_state)
+        if expected is None:
+            return True
+
+        global_config = get_global_config() or {}
+        device_ops = global_config.get('device_operations', {})
+        verification = device_ops.get('verification', {})
+        wait_times = verification.get('wait_times', [0.15, 0.35, 0.7])
+        timeout = float(verification.get('total_timeout', 2))
+        deadline = time.monotonic() + max(0.5, timeout)
+
+        for wait_time in wait_times:
+            state = self.hass.states.get(device_id)
+            if state is not None and state.state == expected:
+                return True
+            if time.monotonic() >= deadline:
+                break
+            await asyncio.sleep(float(wait_time))
+
+        state = self.hass.states.get(device_id)
+        return bool(state is not None and state.state == expected)
 
     async def _execute_device_operations(
         self, devices: list, domain: str, service_name: str, service_data: dict | None = None
@@ -816,9 +884,21 @@ class LocalIntentHandler:
 
         for device_id in devices:
             try:
+                before_state_obj = self.hass.states.get(device_id)
+                before_state = before_state_obj.state if before_state_obj else None
                 data = {'entity_id': device_id, **service_data}
-                await self.hass.services.async_call(domain, service_name, data)
-                success_count += 1
+                await self.hass.services.async_call(domain, service_name, data, blocking=True)
+                verified = await self._verify_device_operation(
+                    device_id,
+                    domain,
+                    service_name,
+                    before_state,
+                )
+                if verified:
+                    success_count += 1
+                else:
+                    error_count += 1
+                    failed_devices.append(self._get_device_friendly_name(device_id))
             except Exception as e:
                 _LOGGER.debug(f"Failed to control device {device_id}: {e}")
                 error_count += 1
