@@ -23,6 +23,7 @@ from .config_flow_schema import (
 )
 from .config_flow_validation import (
     FLOW_DESCRIPTION_PLACEHOLDERS,
+    normalize_subentry_input,
     validate_input,
 )
 from .consts import (
@@ -127,6 +128,8 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
 
                 if self._subentry_type == SUBENTRY_CONVERSATION:
                     processed_input[CONF_LLM_HASS_API] = [LLM_API_ASSIST]
+
+                processed_input = await normalize_subentry_input(self.hass, processed_input)
 
                 if self._is_new:
                     return self.async_create_entry(

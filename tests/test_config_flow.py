@@ -19,7 +19,12 @@ from custom_components.ai_hub.config_flow import (
     STEP_USER_DATA_SCHEMA,
     validate_input,
 )
+from custom_components.ai_hub.config_flow_validation import normalize_subentry_input
+from custom_components.ai_hub import _build_initial_subentries
 from custom_components.ai_hub.const import (
+    CONF_CHAT_URL,
+    CONF_CUSTOM_API_KEY,
+    CONF_LLM_PROVIDER,
     CONF_CHAT_MODEL,
     CONF_PROMPT,
     CONF_RECOMMENDED,
@@ -259,3 +264,71 @@ class TestAIHubSubentryFlowHandler:
                 result = await subentry_flow.async_step_init({CONF_RECOMMENDED: True})
 
         assert result["type"] == "form"
+
+
+class TestNormalizeSubentryInput:
+    """Tests for config-time chat URL normalization."""
+
+    @pytest.mark.asyncio
+    async def test_openai_base_url_without_key_is_normalized_locally(self, mock_hass):
+        """OpenAI-compatible base URLs should be normalized even without probing."""
+        data = {
+            CONF_LLM_PROVIDER: "openai_compatible",
+            CONF_CHAT_URL: "https://example.com/v1",
+            CONF_CHAT_MODEL: "test-model",
+            CONF_CUSTOM_API_KEY: "",
+        }
+
+        normalized = await normalize_subentry_input(mock_hass, data)
+
+        assert normalized[CONF_CHAT_URL] == "https://example.com/v1/chat/completions"
+
+    @pytest.mark.asyncio
+    async def test_openai_base_url_probes_and_persists_responses_endpoint(self, mock_hass):
+        """Config-time probing should persist /responses when chat completions is unsupported."""
+        data = {
+            CONF_LLM_PROVIDER: "openai_compatible",
+            CONF_CHAT_URL: "https://example.com/v1",
+            CONF_CHAT_MODEL: "test-model",
+            CONF_CUSTOM_API_KEY: "test-key",
+        }
+
+        async def _response(status: int, text: str = ""):
+            response = AsyncMock()
+            response.status = status
+            response.text = AsyncMock(return_value=text)
+            return response
+
+        chat_ctx = AsyncMock()
+        chat_ctx.__aenter__.return_value = await _response(404, "not found")
+        responses_ctx = AsyncMock()
+        responses_ctx.__aenter__.return_value = await _response(200)
+
+        with patch("aiohttp.ClientSession.post", side_effect=[chat_ctx, responses_ctx]) as mock_post:
+            normalized = await normalize_subentry_input(mock_hass, data)
+
+        assert normalized[CONF_CHAT_URL] == "https://example.com/v1/responses"
+        assert mock_post.call_args_list[0].args[0] == "https://example.com/v1/chat/completions"
+        assert mock_post.call_args_list[1].args[0] == "https://example.com/v1/responses"
+
+
+class TestInitialSubentries:
+    """Tests for initial subentry creation defaults."""
+
+    def test_without_api_key_creates_no_default_services(self):
+        """Empty API key should not precreate any service subentries."""
+        subentries = _build_initial_subentries("")
+
+        assert subentries == []
+
+    def test_with_api_key_creates_all_default_services(self):
+        """Configured API key should precreate all default service subentries."""
+        subentries = _build_initial_subentries("test-key")
+
+        assert [subentry.subentry_type for subentry in subentries] == [
+            "conversation",
+            "ai_task_data",
+            "tts",
+            "stt",
+            "translation",
+        ]

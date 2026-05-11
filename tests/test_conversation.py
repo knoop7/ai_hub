@@ -505,6 +505,58 @@ class TestProviderStreamRobustness:
         assert request["messages"][2]["role"] == "tool"
         assert request["messages"][2]["tool_call_id"] == "call_1"
 
+    def test_openai_responses_request_uses_input_items(self):
+        """Responses API requests should use input/max_output_tokens payloads."""
+        provider = OpenAICompatibleProvider(
+            {
+                "api_key": "test-key",
+                "model": "test-model",
+                "base_url": "https://example.com/v1/responses",
+            }
+        )
+
+        request = provider._build_request(
+            [
+                MagicMock(role="system", content="system prompt", tool_calls=None, tool_call_id=None, tool_name=None),
+                MagicMock(role="user", content="hi", tool_calls=None, tool_call_id=None, tool_name=None),
+            ],
+            stream=False,
+        )
+
+        assert "input" in request
+        assert "messages" not in request
+        assert request["max_output_tokens"] == 250
+        assert request["input"][0] == {"role": "system", "content": "system prompt"}
+
+    @pytest.mark.asyncio
+    async def test_openai_stream_supports_responses_events(self):
+        """Streaming should parse Responses API text delta events."""
+        provider = OpenAICompatibleProvider(
+            {
+                "api_key": "test-key",
+                "model": "test-model",
+                "base_url": "https://example.com/v1/responses",
+            }
+        )
+
+        async def _fake_stream(*args, **kwargs):
+            yield 'data: {"type":"response.output_text.delta","delta":"你"}\n'
+            yield 'data: {"type":"response.output_text.delta","delta":"好"}\n'
+            yield 'data: [DONE]\n'
+
+        with patch(
+            "custom_components.ai_hub.providers.openai_compatible.async_stream_response_text",
+            _fake_stream,
+        ):
+            chunks = [
+                chunk
+                async for chunk in provider.complete_stream(
+                    [MagicMock(role="user", content="hi", tool_calls=None, tool_call_id=None, tool_name=None)]
+                )
+            ]
+
+        assert chunks == ["你", "好"]
+
     def test_ollama_request_converts_context_with_tool_messages(self):
         """Ollama requests should normalize assistant and tool context locally."""
         provider = OllamaCompatibleProvider(

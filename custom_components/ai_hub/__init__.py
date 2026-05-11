@@ -105,6 +105,74 @@ def get_provider_registry(hass: HomeAssistant):
     return ai_hub_data.provider_registry
 
 
+def _build_initial_subentries(api_key: str) -> list[ConfigSubentry]:
+    """Build default subentries for a newly created integration entry."""
+    from .config_flow_schema import get_default_subentry_options
+    from .consts import (
+        DEFAULT_AI_TASK_NAME,
+        DEFAULT_CONVERSATION_NAME,
+        DEFAULT_STT_NAME,
+        DEFAULT_TRANSLATION_NAME,
+        DEFAULT_TTS_NAME,
+        SUBENTRY_AI_TASK,
+        SUBENTRY_CONVERSATION,
+        SUBENTRY_STT,
+        SUBENTRY_TRANSLATION,
+        SUBENTRY_TTS,
+    )
+
+    if not api_key:
+        return []
+
+    subentries = [
+        ConfigSubentry(
+            data=get_default_subentry_options(SUBENTRY_CONVERSATION),
+            subentry_type=SUBENTRY_CONVERSATION,
+            title=DEFAULT_CONVERSATION_NAME,
+            unique_id=None,
+        )
+    ]
+
+    subentries.extend(
+        [
+            ConfigSubentry(
+                data=get_default_subentry_options(SUBENTRY_AI_TASK),
+                subentry_type=SUBENTRY_AI_TASK,
+                title=DEFAULT_AI_TASK_NAME,
+                unique_id=None,
+            ),
+            ConfigSubentry(
+                data=get_default_subentry_options(SUBENTRY_TTS),
+                subentry_type=SUBENTRY_TTS,
+                title=DEFAULT_TTS_NAME,
+                unique_id=None,
+            ),
+            ConfigSubentry(
+                data=get_default_subentry_options(SUBENTRY_STT),
+                subentry_type=SUBENTRY_STT,
+                title=DEFAULT_STT_NAME,
+                unique_id=None,
+            ),
+            ConfigSubentry(
+                data=get_default_subentry_options(SUBENTRY_TRANSLATION),
+                subentry_type=SUBENTRY_TRANSLATION,
+                title=DEFAULT_TRANSLATION_NAME,
+                unique_id=None,
+            ),
+        ]
+    )
+    return subentries
+
+
+def _ensure_initial_subentries(hass: HomeAssistant, entry: ConfigEntry, api_key: str) -> None:
+    """Create the initial service subentries when the entry has none."""
+    if getattr(entry, "subentries", None):
+        return
+
+    for subentry in _build_initial_subentries(api_key):
+        hass.config_entries.async_add_subentry(entry, subentry)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
     """Set up AI Hub from a config entry."""
 
@@ -118,6 +186,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
 
     # Store in entry.runtime_data
     entry.runtime_data = api_key
+
+    _ensure_initial_subentries(hass, entry, api_key)
 
     # Each step is independent - one failure does not block others
     try:

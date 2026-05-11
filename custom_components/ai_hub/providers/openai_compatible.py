@@ -44,14 +44,14 @@ def _get_ssl_setting(url: str) -> bool:
 
 
 def _normalize_openai_api_url(url: str | None) -> str:
-    """Normalize OpenAI-compatible URLs to a chat completions endpoint.
+    """Normalize OpenAI-compatible URLs to a request endpoint.
 
     Users often paste either:
     - a full chat-completions URL
     - a provider base URL ending in `/v1`
     - a plain host URL
 
-    Accept all of them and normalize to the endpoint this provider expects.
+    Accept all of them and normalize to a default endpoint this provider expects.
     """
     default_url = "https://api.openai.com/v1/chat/completions"
     if not url:
@@ -60,6 +60,9 @@ def _normalize_openai_api_url(url: str | None) -> str:
     normalized = url.rstrip("/")
     parsed = urlparse(normalized)
     path = parsed.path.rstrip("/")
+
+    if path.endswith("/responses"):
+        return normalized
 
     if path.endswith("/chat/completions") or path.endswith("/completions"):
         return normalized
@@ -71,6 +74,11 @@ def _normalize_openai_api_url(url: str | None) -> str:
         return f"{normalized}/v1/chat/completions"
 
     return f"{normalized}/chat/completions"
+
+
+def _is_responses_api_url(url: str) -> bool:
+    """Return whether the URL targets the Responses API."""
+    return urlparse(url).path.rstrip("/").endswith("/responses")
 
 
 async def _decode_json_response(response: aiohttp.ClientResponse) -> dict[str, Any]:
@@ -239,6 +247,17 @@ def _extract_response_payload(data: dict[str, Any]) -> tuple[dict[str, Any], dic
     """Extract a normalized response payload from common compatible formats."""
     if isinstance(data.get("choices"), list):
         return _extract_openai_message(data)
+    if isinstance(data.get("output"), list) or isinstance(data.get("output_text"), str):
+        message: dict[str, Any] = {
+            "content": _extract_responses_text(data),
+        }
+        tool_calls = _extract_responses_tool_calls(data)
+        if tool_calls:
+            message["tool_calls"] = tool_calls
+        reasoning = _extract_responses_reasoning(data)
+        if reasoning:
+            message["reasoning_content"] = reasoning
+        return {}, message
     return {}, {}
 
 
@@ -281,11 +300,139 @@ def _extract_response_tool_calls(message: dict[str, Any]) -> list[dict[str, Any]
     return normalized or None
 
 
+def _extract_responses_text(data: dict[str, Any]) -> str:
+    """Extract assistant text from Responses API payloads."""
+    output_text = data.get("output_text")
+    if isinstance(output_text, str):
+        return output_text
+
+    texts: list[str] = []
+    for item in data.get("output", []):
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") != "message":
+            continue
+        for part in item.get("content", []):
+            if not isinstance(part, dict):
+                continue
+            if part.get("type") in {"output_text", "text"} and isinstance(part.get("text"), str):
+                texts.append(part["text"])
+    return "".join(texts)
+
+
+def _extract_responses_reasoning(data: dict[str, Any]) -> str | None:
+    """Extract reasoning text from Responses API payloads when present."""
+    reasoning_parts: list[str] = []
+    for item in data.get("output", []):
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "reasoning":
+            summary = item.get("summary")
+            if isinstance(summary, list):
+                for part in summary:
+                    if isinstance(part, dict) and isinstance(part.get("text"), str):
+                        reasoning_parts.append(part["text"])
+        if item.get("type") != "message":
+            continue
+        for part in item.get("content", []):
+            if not isinstance(part, dict):
+                continue
+            if part.get("type") in {"reasoning", "reasoning_text"} and isinstance(part.get("text"), str):
+                reasoning_parts.append(part["text"])
+    return "\n".join(part for part in reasoning_parts if part) or None
+
+
+def _extract_responses_tool_calls(data: dict[str, Any]) -> list[dict[str, Any]] | None:
+    """Extract tool calls from Responses API payloads."""
+    normalized: list[dict[str, Any]] = []
+    for item in data.get("output", []):
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") != "function_call":
+            continue
+        name = item.get("name")
+        if not name:
+            continue
+        normalized.append(
+            {
+                "id": item.get("call_id") or item.get("id") or f"stream_{uuid4().hex}",
+                "type": "function",
+                "function": {
+                    "name": str(name),
+                    "arguments": _coerce_tool_call_arguments(item.get("arguments", {})),
+                },
+            }
+        )
+    return normalized or None
+
+
 def _stringify_message_content(content: str | list[dict[str, Any]]) -> str:
     """Convert a message payload to readable text for emulated tool mode."""
     if isinstance(content, str):
         return content
     return json.dumps(content, ensure_ascii=False)
+
+
+def _convert_content_blocks_for_responses(
+    content: str | list[dict[str, Any]],
+) -> str | list[dict[str, Any]]:
+    """Convert multimodal content to the common Responses API shape."""
+    if isinstance(content, str):
+        return content
+
+    normalized: list[dict[str, Any]] = []
+    for part in content:
+        if not isinstance(part, dict):
+            continue
+        part_type = part.get("type")
+        if part_type == "text":
+            normalized.append({"type": "input_text", "text": str(part.get("text", ""))})
+            continue
+        if part_type == "image_url":
+            image_url = part.get("image_url")
+            if isinstance(image_url, dict):
+                image_url = image_url.get("url")
+            if image_url:
+                normalized.append({"type": "input_image", "image_url": str(image_url)})
+            continue
+        normalized.append(part)
+    return normalized or ""
+
+
+def _extract_responses_stream_delta(data: dict[str, Any]) -> dict[str, Any]:
+    """Extract content/reasoning/tool-calls from a Responses API stream event."""
+    event_type = data.get("type")
+    if not isinstance(event_type, str):
+        return {"content": "", "reasoning": "", "tool_calls": []}
+
+    if event_type in {"response.output_text.delta", "response.output_text"}:
+        delta = data.get("delta") or data.get("text") or ""
+        return {"content": delta if isinstance(delta, str) else "", "reasoning": "", "tool_calls": []}
+
+    if event_type in {"response.reasoning.delta", "response.reasoning_summary_text.delta"}:
+        delta = data.get("delta") or ""
+        return {"content": "", "reasoning": delta if isinstance(delta, str) else "", "tool_calls": []}
+
+    if event_type == "response.function_call_arguments.done":
+        name = data.get("name")
+        if not name:
+            return {"content": "", "reasoning": "", "tool_calls": []}
+        return {
+            "content": "",
+            "reasoning": "",
+            "tool_calls": [
+                {
+                    "id": data.get("call_id") or data.get("item_id") or f"stream_{uuid4().hex}",
+                    "type": "function",
+                    "function": {
+                        "name": str(name),
+                        "arguments": _coerce_tool_call_arguments(data.get("arguments", {})),
+                    },
+                }
+            ],
+        }
+
+    return {"content": "", "reasoning": "", "tool_calls": []}
 
 
 def _render_tool_catalog(
@@ -473,6 +620,10 @@ class OpenAICompatibleProvider(LLMProvider):
         """Get the API URL."""
         return _normalize_openai_api_url(self.config.base_url)
 
+    def _is_responses_api(self, url: str | None = None) -> bool:
+        """Return whether the request should use the Responses API payload shape."""
+        return _is_responses_api_url(url or self._get_api_url())
+
     def _build_request(
         self,
         messages: list[LLMMessage],
@@ -481,6 +632,12 @@ class OpenAICompatibleProvider(LLMProvider):
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Build the API request body."""
+        if self._is_responses_api():
+            request = self._build_responses_request(messages, stream=stream, tools=tools, **kwargs)
+            request.update(self.config.extra)
+            request.update(kwargs)
+            return request
+
         request: dict[str, Any] = {
             "model": self.config.model,
             "messages": self._convert_messages(messages),
@@ -497,6 +654,35 @@ class OpenAICompatibleProvider(LLMProvider):
 
         request.update(self.config.extra)
         request.update(kwargs)
+
+        return request
+
+    def _build_responses_request(
+        self,
+        messages: list[LLMMessage],
+        stream: bool = False,
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Build a Responses API request body."""
+        request: dict[str, Any] = {
+            "model": self.config.model,
+            "input": self._convert_messages_for_responses(messages),
+            "temperature": self.config.temperature,
+            "max_output_tokens": self.config.max_tokens,
+        }
+
+        if stream:
+            request["stream"] = True
+
+        if tools:
+            request["tools"] = tools
+
+        if self.config.enable_thinking:
+            request["reasoning"] = {"effort": "medium"}
+
+        if "max_tokens" in kwargs and "max_output_tokens" not in kwargs:
+            request["max_output_tokens"] = kwargs["max_tokens"]
 
         return request
 
@@ -533,6 +719,42 @@ class OpenAICompatibleProvider(LLMProvider):
                         "content": tool_result_content,
                         "tool_call_id": message.tool_call_id or "tool_call",
                         "tool_name": message.tool_name or "tool",
+                    }
+                )
+
+        return converted
+
+    def _convert_messages_for_responses(self, messages: list[LLMMessage]) -> list[dict[str, Any]]:
+        """Convert shared chat history into Responses API input items."""
+        converted: list[dict[str, Any]] = []
+
+        for message in messages:
+            if message.role in {"system", "user", "assistant"}:
+                item: dict[str, Any] = {
+                    "role": message.role,
+                    "content": _convert_content_blocks_for_responses(message.content),
+                }
+                converted_tool_calls = _convert_request_tool_calls(message.tool_calls)
+                if converted_tool_calls:
+                    item["tool_calls"] = converted_tool_calls
+                reasoning = getattr(message, "reasoning_content", None)
+                if reasoning:
+                    item["reasoning_content"] = reasoning
+                converted.append(item)
+                continue
+
+            if message.role == "tool":
+                tool_output = message.content
+                if isinstance(tool_output, (dict, list)):
+                    tool_output = json.dumps(tool_output, ensure_ascii=False, default=str)
+                elif not isinstance(tool_output, str):
+                    tool_output = str(tool_output) if tool_output is not None else "{}"
+
+                converted.append(
+                    {
+                        "type": "function_call_output",
+                        "call_id": message.tool_call_id or "tool_call",
+                        "output": tool_output,
                     }
                 )
 
@@ -744,10 +966,8 @@ class OpenAICompatibleProvider(LLMProvider):
         Returns:
             LLMResponse containing the generated content
         """
-        request = self._build_request(messages, stream=False, tools=tools, **kwargs)
         headers = self._get_headers()
         url = self._get_api_url()
-        ssl = _get_ssl_setting(url)
 
         if tools and _NATIVE_TOOL_SUPPORT_BY_URL.get(url) is False:
             _LOGGER.info(
@@ -761,7 +981,7 @@ class OpenAICompatibleProvider(LLMProvider):
                 request=request,
                 headers=headers,
                 url=url,
-                ssl=ssl,
+                ssl=_get_ssl_setting(url),
             )
         except Exception as err:
             if not self._supports_tool_compat_retry(err, tools):
@@ -841,6 +1061,16 @@ class OpenAICompatibleProvider(LLMProvider):
                     data = json.loads(data_str)
                 except json.JSONDecodeError:
                     _LOGGER.debug("SSE parse failed: %s", data_str)
+                    continue
+
+                if _is_responses_api_url(url):
+                    delta = _extract_responses_stream_delta(data)
+                    if delta["reasoning"]:
+                        yield {"thinking_content": delta["reasoning"]}
+                    if delta["content"]:
+                        yield delta["content"]
+                    for tool_call in delta["tool_calls"]:
+                        tool_call_buffer[len(tool_call_buffer)] = tool_call
                     continue
 
                 choices = data.get("choices")
