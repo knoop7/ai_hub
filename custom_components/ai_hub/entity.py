@@ -33,6 +33,7 @@ from .consts import (
     RECOMMENDED_MAX_HISTORY_MESSAGES,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
+    TIMEOUT_CHAT_API,
 )
 from .http import resolve_provider_name
 from .helpers import translation_placeholders
@@ -338,6 +339,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                     "temperature": model_config.get("temperature", RECOMMENDED_TEMPERATURE),
                     "max_tokens": model_config.get("max_tokens", RECOMMENDED_MAX_TOKENS),
                     "enable_thinking": model_config.get("enable_thinking", RECOMMENDED_ENABLE_THINKING),
+                    "timeout": TIMEOUT_CHAT_API * 2,
                 },
             )
             if provider is None:
