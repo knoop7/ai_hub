@@ -177,7 +177,15 @@ async def normalize_subentry_input(hass: HomeAssistant, data: dict[str, Any]) ->
         and chat_url.strip()
         and api_key
     ):
-        normalized[CONF_CHAT_URL] = await resolve_openai_chat_url(chat_url, api_key, model)
+        fallback_url = _normalize_openai_api_url(chat_url)
+        try:
+            normalized[CONF_CHAT_URL] = await resolve_openai_chat_url(chat_url, api_key, model)
+        except ValueError as err:
+            reason = str(err)
+            if reason.startswith("cannot_connect:TimeoutError") or reason.startswith("cannot_connect:Timeout"):
+                normalized[CONF_CHAT_URL] = fallback_url
+            else:
+                raise
     elif provider == "openai_compatible" and isinstance(chat_url, str) and chat_url.strip():
         normalized[CONF_CHAT_URL] = _normalize_openai_api_url(chat_url)
 

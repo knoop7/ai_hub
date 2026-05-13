@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "连接到AI Hub",
-        "description": "主 SiliconFlow API 密钥现在可以先留空，进入集成详情页后再按需添加你需要的服务。[注册]({register_url}) | [获取 API Key]({api_key_url})",
+        "description": "新手建议在这一步直接填写 SiliconFlow API 密钥，系统会自动帮你配置好常用服务；熟悉配置的用户也可以直接跳过，进入集成详情页后再按需自由添加各类服务。[注册]({register_url}) | [获取 API Key]({api_key_url})",
         "data": {
           "api_key": "SiliconFlow API密钥（可选主密钥，用于对话、AI任务、汉化、语音识别等服务）"
         }

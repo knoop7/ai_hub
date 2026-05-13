@@ -33,13 +33,13 @@ from .config import (
 )
 
 RECOMMENDED: Final[dict[str, Any]] = {
-    "chat_model": "Qwen/Qwen3.5-4B",
+    "chat_model": "Qwen/Qwen3-8B",
     "temperature": 0.3,
     "top_p": 0.5,
     "top_k": 1,
     "max_tokens": 8192,
     "max_history_messages": 30,
-    "ai_task_model": "Qwen/Qwen3.5-4B",
+    "ai_task_model": "Qwen/Qwen3-8B",
     "ai_task_temperature": 0.95,
     "ai_task_top_p": 0.7,
     "ai_task_max_tokens": 8192,

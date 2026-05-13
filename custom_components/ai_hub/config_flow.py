@@ -124,30 +124,40 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
             self.last_rendered_recommended = self.options.get(CONF_RECOMMENDED, True)
         else:
             if user_input[CONF_RECOMMENDED] == self.last_rendered_recommended:
-                processed_input = user_input.copy()
+                try:
+                    processed_input = user_input.copy()
 
-                if self._subentry_type == SUBENTRY_CONVERSATION:
-                    processed_input[CONF_LLM_HASS_API] = [LLM_API_ASSIST]
+                    if self._subentry_type == SUBENTRY_CONVERSATION:
+                        processed_input[CONF_LLM_HASS_API] = [LLM_API_ASSIST]
 
-                processed_input = await normalize_subentry_input(self.hass, processed_input)
-
-                if self._is_new:
-                    return self.async_create_entry(
-                        title=processed_input.pop(
-                            CONF_NAME,
-                            get_default_subentry_name(
-                                self._subentry_type,
-                                processed_input,
+                    processed_input = await normalize_subentry_input(self.hass, processed_input)
+                except ValueError as err:
+                    reason = str(err)
+                    if reason == "invalid_auth":
+                        errors["base"] = "invalid_auth"
+                    elif reason.startswith("cannot_connect"):
+                        errors["base"] = "cannot_connect"
+                    else:
+                        _LOGGER.exception("Unexpected subentry validation error: %s", err)
+                        errors["base"] = "unknown"
+                else:
+                    if self._is_new:
+                        return self.async_create_entry(
+                            title=processed_input.pop(
+                                CONF_NAME,
+                                get_default_subentry_name(
+                                    self._subentry_type,
+                                    processed_input,
+                                ),
                             ),
-                        ),
+                            data=processed_input,
+                        )
+
+                    return self.async_update_and_abort(
+                        self._get_entry(),
+                        self._get_reconfigure_subentry(),
                         data=processed_input,
                     )
-
-                return self.async_update_and_abort(
-                    self._get_entry(),
-                    self._get_reconfigure_subentry(),
-                    data=processed_input,
-                )
 
             self.last_rendered_recommended = user_input[CONF_RECOMMENDED]
             self.options.update(user_input)
