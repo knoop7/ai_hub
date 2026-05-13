@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to AI Hub",
-        "description": "New users are encouraged to enter a SiliconFlow API key here so AI Hub can automatically set up the common services for you. Advanced users can skip this step and add whatever services they need later from the integration details page. [Register]({register_url}) | [Get API Key]({api_key_url})",
+        "description": "New users are encouraged to enter a SiliconFlow API key here so AI Hub can automatically set up the common services for you. Advanced users can submit directly and add whatever services they need later from the integration details page. [Register]({register_url}) | [Get API Key]({api_key_url})",
         "data": {
           "api_key": "SiliconFlow API Key (optional main key for conversation, AI tasks, translation, STT, etc.)"
         }
