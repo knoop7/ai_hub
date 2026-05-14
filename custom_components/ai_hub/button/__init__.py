@@ -85,7 +85,7 @@ class _AIHubServiceButton(ButtonEntity):
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
-            manufacturer="老王杂谈说",
+            manufacturer="Home Assistant China (unofficial)",
             model=self._model,
             entry_type=dr.DeviceEntryType.SERVICE,
         )

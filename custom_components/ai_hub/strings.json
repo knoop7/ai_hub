@@ -169,7 +169,7 @@
           },
           "data_description": {
             "recommended": "Use recommended settings",
-            "chat_model": "Select or enter custom model name",
+            "chat_model": "After entering the API URL and API key, disable recommended mode and click Submit to let AI Hub try to fetch the model list automatically. If discovery fails, you can still enter the model name manually",
             "chat_url": "Complete chat API URL",
             "custom_api_key": "Custom API key (leave empty to use main key)",
             "list_components": "Only list available components without translating",

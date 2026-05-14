@@ -149,7 +149,7 @@ class _AIHubEntityMixin:
         return dr.DeviceInfo(
             identifiers={(domain, self.subentry.subentry_id)},
             name=self.subentry.title,
-            manufacturer="老王杂谈说",
+            manufacturer="Home Assistant China (unofficial)",
             model=self._get_device_model(self.default_model),
             entry_type=dr.DeviceEntryType.SERVICE,
         )

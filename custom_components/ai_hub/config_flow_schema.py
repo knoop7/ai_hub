@@ -46,12 +46,7 @@ from .consts import (
     CONF_TOP_K,
     CONF_TTS_LANG,
     CONF_TTS_VOICE,
-    DEFAULT_AI_TASK_NAME,
-    DEFAULT_CONVERSATION_NAME,
     DEFAULT_INSTRUCTIONS_PROMPT,
-    DEFAULT_STT_NAME,
-    DEFAULT_TRANSLATION_NAME,
-    DEFAULT_TTS_NAME,
     EDGE_TTS_VOICES,
     LLM_API_ASSIST,
     RECOMMENDED_AI_TASK_MAX_TOKENS,
@@ -79,6 +74,7 @@ from .consts import (
     SILICONFLOW_STT_MODELS,
     TTS_DEFAULT_LANG,
     TTS_DEFAULT_VOICE,
+    get_default_service_name,
 )
 
 SUBENTRY_TYPES = {
@@ -108,44 +104,42 @@ def get_default_subentry_name(subentry_type: str, options: Mapping[str, Any]) ->
     if CONF_NAME in options:
         return str(options[CONF_NAME])
     if subentry_type == SUBENTRY_TYPES["ai_task_data"]:
-        return DEFAULT_AI_TASK_NAME
+        return get_default_service_name("ai_task", dict(options))
     if subentry_type == SUBENTRY_TYPES["tts"]:
-        return DEFAULT_TTS_NAME
+        return get_default_service_name("tts", dict(options))
     if subentry_type == SUBENTRY_TYPES["stt"]:
-        return DEFAULT_STT_NAME
+        return get_default_service_name("stt", dict(options))
     if subentry_type == SUBENTRY_TYPES["translation"]:
-        return DEFAULT_TRANSLATION_NAME
-    return DEFAULT_CONVERSATION_NAME
+        return get_default_service_name("translation", dict(options))
+    return get_default_service_name("conversation", dict(options))
 
 
 async def ai_hub_config_option_schema(
     is_new: bool,
     subentry_type: str,
     options: Mapping[str, Any],
+    chat_model_options: list[str] | None = None,
 ) -> dict:
     """Return a schema for AI Hub completion options."""
     schema: dict[Any, Any] = {}
-
-    if is_new:
-        schema[vol.Required(CONF_NAME, default=get_default_subentry_name(subentry_type, options))] = str
 
     schema[vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, True))] = bool
 
     if options.get(CONF_RECOMMENDED):
         if subentry_type == SUBENTRY_TYPES["conversation"]:
-            schema.update(_build_conversation_schema(options, recommended_only=True))
+            schema.update(_build_conversation_schema(options, recommended_only=True, chat_model_options=chat_model_options))
             options[CONF_LLM_HASS_API] = [LLM_API_ASSIST]
         elif subentry_type == SUBENTRY_TYPES["ai_task_data"]:
             schema.update(_build_ai_task_schema(options, recommended_only=True))
         elif subentry_type == SUBENTRY_TYPES["stt"]:
             schema.update(_build_stt_schema(options))
         elif subentry_type == SUBENTRY_TYPES["translation"]:
-            schema.update(_build_translation_schema(options))
+            schema.update(_build_translation_schema(options, chat_model_options=chat_model_options))
         return schema
 
     if subentry_type == SUBENTRY_TYPES["conversation"]:
         options[CONF_LLM_HASS_API] = [LLM_API_ASSIST]
-        schema.update(_build_conversation_schema(options, recommended_only=False))
+        schema.update(_build_conversation_schema(options, recommended_only=False, chat_model_options=chat_model_options))
     elif subentry_type == SUBENTRY_TYPES["ai_task_data"]:
         schema.update(_build_ai_task_schema(options, recommended_only=False))
     elif subentry_type == SUBENTRY_TYPES["tts"]:
@@ -153,12 +147,16 @@ async def ai_hub_config_option_schema(
     elif subentry_type == SUBENTRY_TYPES["stt"]:
         schema.update(_build_stt_schema(options))
     elif subentry_type == SUBENTRY_TYPES["translation"]:
-        schema.update(_build_translation_schema(options))
+        schema.update(_build_translation_schema(options, chat_model_options=chat_model_options))
 
     return schema
 
 
-def _build_conversation_schema(options: Mapping[str, Any], recommended_only: bool) -> dict[Any, Any]:
+def _build_conversation_schema(
+    options: Mapping[str, Any],
+    recommended_only: bool,
+    chat_model_options: list[str] | None = None,
+) -> dict[Any, Any]:
     schema = {
         vol.Optional(
             CONF_PROMPT,
@@ -176,17 +174,6 @@ def _build_conversation_schema(options: Mapping[str, Any], recommended_only: boo
             )
         ),
         vol.Optional(
-            CONF_CHAT_MODEL,
-            default=options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
-            description={"suggested_value": options.get(CONF_CHAT_MODEL)},
-        ): SelectSelector(
-            SelectSelectorConfig(
-                options=AI_HUB_CHAT_MODELS,
-                mode=SelectSelectorMode.DROPDOWN,
-                custom_value=True,
-            )
-        ),
-        vol.Optional(
             CONF_CHAT_URL,
             default=options.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
             description={"suggested_value": options.get(CONF_CHAT_URL)},
@@ -196,6 +183,17 @@ def _build_conversation_schema(options: Mapping[str, Any], recommended_only: boo
             default=options.get(CONF_CUSTOM_API_KEY, ""),
             description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
         ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+        vol.Optional(
+            CONF_CHAT_MODEL,
+            default=options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
+            description={"suggested_value": options.get(CONF_CHAT_MODEL)},
+        ): SelectSelector(
+            SelectSelectorConfig(
+                options=chat_model_options or AI_HUB_CHAT_MODELS,
+                mode=SelectSelectorMode.DROPDOWN,
+                custom_value=True,
+            )
+        ),
     }
     if not recommended_only:
         schema.update(
@@ -308,15 +306,11 @@ def _build_stt_schema(options: Mapping[str, Any]) -> dict[Any, Any]:
     }
 
 
-def _build_translation_schema(options: Mapping[str, Any]) -> dict[Any, Any]:
+def _build_translation_schema(
+    options: Mapping[str, Any],
+    chat_model_options: list[str] | None = None,
+) -> dict[Any, Any]:
     return {
-        vol.Optional(
-            CONF_CHAT_MODEL,
-            default=options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
-            description={"suggested_value": options.get(CONF_CHAT_MODEL)},
-        ): SelectSelector(
-            SelectSelectorConfig(options=AI_HUB_CHAT_MODELS, mode=SelectSelectorMode.DROPDOWN, custom_value=True)
-        ),
         vol.Optional(
             CONF_CHAT_URL,
             default=options.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
@@ -327,6 +321,17 @@ def _build_translation_schema(options: Mapping[str, Any]) -> dict[Any, Any]:
             default=options.get(CONF_CUSTOM_API_KEY, ""),
             description={"suggested_value": options.get(CONF_CUSTOM_API_KEY)},
         ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+        vol.Optional(
+            CONF_CHAT_MODEL,
+            default=options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL),
+            description={"suggested_value": options.get(CONF_CHAT_MODEL)},
+        ): SelectSelector(
+            SelectSelectorConfig(
+                options=chat_model_options or AI_HUB_CHAT_MODELS,
+                mode=SelectSelectorMode.DROPDOWN,
+                custom_value=True,
+            )
+        ),
         vol.Optional(
             CONF_LIST_COMPONENTS,
             default=options.get(CONF_LIST_COMPONENTS, False),
