@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 AI_HUB_CHAT_MODELS: Final = [
+    "Qwen/Qwen3.5-4B",
     "Qwen/Qwen3-8B",
     "Qwen/Qwen2.5-7B-Instruct",
     "Qwen/Qwen2.5-72B-Instruct",

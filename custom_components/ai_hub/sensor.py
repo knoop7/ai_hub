@@ -65,7 +65,7 @@ def _get_diagnostic_device_info(entry: ConfigEntry) -> dr.DeviceInfo:
     return dr.DeviceInfo(
         identifiers={(DOMAIN, f"{entry.entry_id}_{DIAGNOSTIC_DEVICE_ID}")},
         name="AI Hub Diagnostic",
-        manufacturer="老王杂谈说",
+        manufacturer="Home Assistant China (unofficial)",
         model="Diagnostic Service",
         entry_type=dr.DeviceEntryType.SERVICE,
     )

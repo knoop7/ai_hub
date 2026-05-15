@@ -14,7 +14,7 @@ from homeassistant.config_entries import (
     ConfigSubentryFlow,
     SubentryFlowResult,
 )
-from homeassistant.const import CONF_API_KEY, CONF_NAME
+from homeassistant.const import CONF_API_KEY
 from .config_flow_schema import (
     SUBENTRY_TYPES,
     ai_hub_config_option_schema,
@@ -23,8 +23,10 @@ from .config_flow_schema import (
 )
 from .config_flow_validation import (
     FLOW_DESCRIPTION_PLACEHOLDERS,
+    normalize_subentry_input,
     validate_input,
 )
+from .model_discovery import async_discover_chat_models
 from .consts import (
     CONF_LLM_HASS_API,
     CONF_RECOMMENDED,
@@ -102,6 +104,15 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
 
     options: dict[str, Any]
     last_rendered_recommended: bool = False
+    chat_model_options: list[str] | None = None
+
+    def _should_refresh_model_options(self, user_input: dict[str, Any]) -> bool:
+        """Return whether the form should refresh model options before saving."""
+        if self._subentry_type not in {SUBENTRY_CONVERSATION, SUBENTRY_TYPES["translation"]}:
+            return False
+
+        watched_keys = ("llm_provider", "chat_url", "custom_api_key")
+        return any(self.options.get(key) != user_input.get(key) for key in watched_keys)
 
     @property
     def _is_new(self) -> bool:
@@ -123,36 +134,64 @@ class AIHubSubentryFlowHandler(ConfigSubentryFlow):
             self.last_rendered_recommended = self.options.get(CONF_RECOMMENDED, True)
         else:
             if user_input[CONF_RECOMMENDED] == self.last_rendered_recommended:
-                processed_input = user_input.copy()
+                if self._should_refresh_model_options(user_input):
+                    self.options.update(user_input)
+                    self.chat_model_options = await async_discover_chat_models(self.options)
+                    schema = await ai_hub_config_option_schema(
+                        self._is_new,
+                        self._subentry_type,
+                        self.options,
+                        chat_model_options=self.chat_model_options,
+                    )
+                    return self.async_show_form(
+                        step_id="init",
+                        data_schema=vol.Schema(schema),
+                        errors=errors,
+                        description_placeholders=FLOW_DESCRIPTION_PLACEHOLDERS,
+                    )
 
-                if self._subentry_type == SUBENTRY_CONVERSATION:
-                    processed_input[CONF_LLM_HASS_API] = [LLM_API_ASSIST]
+                try:
+                    processed_input = user_input.copy()
 
-                if self._is_new:
-                    return self.async_create_entry(
-                        title=processed_input.pop(
-                            CONF_NAME,
-                            get_default_subentry_name(
+                    if self._subentry_type == SUBENTRY_CONVERSATION:
+                        processed_input[CONF_LLM_HASS_API] = [LLM_API_ASSIST]
+
+                    processed_input = await normalize_subentry_input(self.hass, processed_input)
+                except ValueError as err:
+                    reason = str(err)
+                    if reason == "invalid_auth":
+                        errors["base"] = "invalid_auth"
+                    elif reason.startswith("cannot_connect"):
+                        errors["base"] = "cannot_connect"
+                    else:
+                        _LOGGER.exception("Unexpected subentry validation error: %s", err)
+                        errors["base"] = "unknown"
+                else:
+                    if self._is_new:
+                        return self.async_create_entry(
+                            title=get_default_subentry_name(
                                 self._subentry_type,
                                 processed_input,
                             ),
-                        ),
+                            data=processed_input,
+                        )
+
+                    return self.async_update_and_abort(
+                        self._get_entry(),
+                        self._get_reconfigure_subentry(),
                         data=processed_input,
                     )
 
-                return self.async_update_and_abort(
-                    self._get_entry(),
-                    self._get_reconfigure_subentry(),
-                    data=processed_input,
-                )
-
             self.last_rendered_recommended = user_input[CONF_RECOMMENDED]
             self.options.update(user_input)
+
+        self.chat_model_options = await async_discover_chat_models(self.options)
 
         schema = await ai_hub_config_option_schema(
             self._is_new,
             self._subentry_type,
             self.options,
+            chat_model_options=self.chat_model_options,
         )
 
         return self.async_show_form(

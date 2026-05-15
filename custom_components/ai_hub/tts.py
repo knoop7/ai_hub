@@ -148,7 +148,7 @@ class AIHubTTSEntity(TextToSpeechEntity, AIHubEntityBase):
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
-            manufacturer="老王杂谈说",
+            manufacturer="Home Assistant China (unofficial)",
             model="Edge TTS",
             sw_version=edge_tts.__version__,
             entry_type=dr.DeviceEntryType.SERVICE,

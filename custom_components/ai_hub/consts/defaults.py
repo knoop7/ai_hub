@@ -37,12 +37,12 @@ RECOMMENDED: Final[dict[str, Any]] = {
     "temperature": 0.3,
     "top_p": 0.5,
     "top_k": 1,
-    "max_tokens": 131072,
+    "max_tokens": 8192,
     "max_history_messages": 30,
     "ai_task_model": "Qwen/Qwen3-8B",
     "ai_task_temperature": 0.95,
     "ai_task_top_p": 0.7,
-    "ai_task_max_tokens": 131072,
+    "ai_task_max_tokens": 8192,
     "image_model": "Kwai-Kolors/Kolors",
     "image_analysis_model": "THUDM/GLM-4.1V-9B-Thinking",
     "tts_voice": "zh-CN-XiaoxiaoNeural",
@@ -77,19 +77,59 @@ RECOMMENDED_ENABLE_THINKING: Final = False
 
 DEFAULT_NAMES: Final = {
     "title": "AI Hub",
-    "conversation": {"zh": "AI Hub对话助手", "en": "AI Hub Assistant"},
-    "ai_task": {"zh": "AI Hub AI任务", "en": "AI Hub Task"},
-    "tts": {"zh": "AI Hub TTS语音", "en": "AI Hub TTS"},
-    "stt": {"zh": "AI Hub STT语音", "en": "AI Hub STT"},
-    "translation": {"zh": "AI Hub 汉化", "en": "AI Hub Localization"},
 }
 
+
+def _short_model_name(model: str | None) -> str:
+    """Return the short display name for a model id."""
+    if not model:
+        return "Model"
+    normalized = str(model).strip()
+    if not normalized:
+        return "Model"
+    return normalized.rsplit("/", 1)[-1]
+
+
+def _provider_display_name(provider: str | None) -> str:
+    """Return a concise provider display name."""
+    provider_map = {
+        "openai_compatible": "OpenAI",
+        "anthropic_compatible": "Anthropic",
+        "ollama_compatible": "Ollama",
+        "edge_tts": "EdgeTTS",
+        "siliconflow_stt": "SiliconFlow",
+    }
+    if provider and provider in provider_map:
+        return provider_map[provider]
+    if provider:
+        return str(provider).replace("_", " ").title().replace(" ", "")
+    return "AIHub"
+
+
+def get_default_service_name(name_type: str, options: dict[str, Any] | None = None) -> str:
+    """Return the auto-created default service name."""
+    if name_type == "title":
+        return DEFAULT_NAMES["title"]
+
+    options = options or {}
+    if name_type == "conversation":
+        return f"{_provider_display_name(options.get(CONF_LLM_PROVIDER))}/{_short_model_name(options.get(CONF_CHAT_MODEL))}"
+    if name_type == "ai_task":
+        return f"{_provider_display_name(options.get(CONF_LLM_PROVIDER))}/{_short_model_name(options.get(CONF_CHAT_MODEL))}"
+    if name_type == "translation":
+        return f"{_provider_display_name(options.get(CONF_LLM_PROVIDER))}/{_short_model_name(options.get(CONF_CHAT_MODEL))}"
+    if name_type == "stt":
+        return f"SiliconFlow/{_short_model_name(options.get(CONF_STT_MODEL))}"
+    if name_type == "tts":
+        return f"EdgeTTS/{_short_model_name(options.get(CONF_TTS_VOICE))}"
+    return "AI Hub"
+
 DEFAULT_TITLE: Final = DEFAULT_NAMES["title"]
-DEFAULT_CONVERSATION_NAME: Final = DEFAULT_NAMES["conversation"]["zh"]
-DEFAULT_AI_TASK_NAME: Final = DEFAULT_NAMES["ai_task"]["zh"]
-DEFAULT_TTS_NAME: Final = DEFAULT_NAMES["tts"]["zh"]
-DEFAULT_STT_NAME: Final = DEFAULT_NAMES["stt"]["zh"]
-DEFAULT_TRANSLATION_NAME: Final = DEFAULT_NAMES["translation"]["zh"]
+DEFAULT_CONVERSATION_NAME: Final = "AI Hub"
+DEFAULT_AI_TASK_NAME: Final = "AI Hub"
+DEFAULT_TTS_NAME: Final = "AI Hub"
+DEFAULT_STT_NAME: Final = "AI Hub"
+DEFAULT_TRANSLATION_NAME: Final = "AI Hub"
 
 TTS_DEFAULT_VOICE: Final = "zh-CN-XiaoxiaoNeural"
 TTS_DEFAULT_LANG: Final = "zh-CN"

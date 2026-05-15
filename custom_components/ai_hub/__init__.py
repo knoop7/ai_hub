@@ -105,6 +105,76 @@ def get_provider_registry(hass: HomeAssistant):
     return ai_hub_data.provider_registry
 
 
+def _build_initial_subentries(api_key: str) -> list[ConfigSubentry]:
+    """Build default subentries for a newly created integration entry."""
+    from .config_flow_schema import get_default_subentry_options
+    from .consts import (
+        SUBENTRY_AI_TASK,
+        SUBENTRY_CONVERSATION,
+        SUBENTRY_STT,
+        SUBENTRY_TRANSLATION,
+        SUBENTRY_TTS,
+        get_default_service_name,
+    )
+
+    if not api_key:
+        return []
+
+    conversation_options = get_default_subentry_options(SUBENTRY_CONVERSATION)
+    ai_task_options = get_default_subentry_options(SUBENTRY_AI_TASK)
+    tts_options = get_default_subentry_options(SUBENTRY_TTS)
+    stt_options = get_default_subentry_options(SUBENTRY_STT)
+    translation_options = get_default_subentry_options(SUBENTRY_TRANSLATION)
+
+    subentries = [
+        ConfigSubentry(
+            data=conversation_options,
+            subentry_type=SUBENTRY_CONVERSATION,
+            title=get_default_service_name("conversation", conversation_options),
+            unique_id=None,
+        )
+    ]
+
+    subentries.extend(
+        [
+            ConfigSubentry(
+                data=ai_task_options,
+                subentry_type=SUBENTRY_AI_TASK,
+                title=get_default_service_name("ai_task", ai_task_options),
+                unique_id=None,
+            ),
+            ConfigSubentry(
+                data=tts_options,
+                subentry_type=SUBENTRY_TTS,
+                title=get_default_service_name("tts", tts_options),
+                unique_id=None,
+            ),
+            ConfigSubentry(
+                data=stt_options,
+                subentry_type=SUBENTRY_STT,
+                title=get_default_service_name("stt", stt_options),
+                unique_id=None,
+            ),
+            ConfigSubentry(
+                data=translation_options,
+                subentry_type=SUBENTRY_TRANSLATION,
+                title=get_default_service_name("translation", translation_options),
+                unique_id=None,
+            ),
+        ]
+    )
+    return subentries
+
+
+def _ensure_initial_subentries(hass: HomeAssistant, entry: ConfigEntry, api_key: str) -> None:
+    """Create the initial service subentries when the entry has none."""
+    if getattr(entry, "subentries", None):
+        return
+
+    for subentry in _build_initial_subentries(api_key):
+        hass.config_entries.async_add_subentry(entry, subentry)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
     """Set up AI Hub from a config entry."""
 
@@ -118,6 +188,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
 
     # Store in entry.runtime_data
     entry.runtime_data = api_key
+
+    _ensure_initial_subentries(hass, entry, api_key)
 
     # Each step is independent - one failure does not block others
     try:
@@ -207,8 +279,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             CONF_RECOMMENDED,
             CONF_TEMPERATURE,
             CONF_TOP_P,
-            DEFAULT_AI_TASK_NAME,
-            DEFAULT_CONVERSATION_NAME,
             LEGACY_AI_TASK_TITLES,
             LEGACY_CONVERSATION_TITLES,
             LLM_API_ASSIST,
@@ -222,6 +292,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             RECOMMENDED_TOP_P,
             SUBENTRY_AI_TASK,
             SUBENTRY_CONVERSATION,
+            get_default_service_name,
         )
 
         # Create conversation subentry from old options
@@ -257,7 +328,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         conversation_subentry = ConfigSubentry(
             data=conversation_data,
             subentry_type=SUBENTRY_CONVERSATION,
-            title=DEFAULT_CONVERSATION_NAME,
+            title=get_default_service_name("conversation", conversation_data),
             unique_id=None,
         )
         hass.config_entries.async_add_subentry(entry, conversation_subentry)
@@ -265,7 +336,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ai_task_subentry = ConfigSubentry(
             data=ai_task_data,
             subentry_type=SUBENTRY_AI_TASK,
-            title=DEFAULT_AI_TASK_NAME,
+            title=get_default_service_name("ai_task", ai_task_data),
             unique_id=None,
         )
         hass.config_entries.async_add_subentry(entry, ai_task_subentry)
@@ -275,19 +346,23 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.version == 2 and entry.minor_version == 1:
         # Migrate from version 2.1 to 2.2
         # Update subentry titles
-        from .consts import DEFAULT_AI_TASK_NAME, DEFAULT_CONVERSATION_NAME
+        from .consts import get_default_service_name
 
         for subentry in entry.subentries.values():
             # Update old titles to new format
             if subentry.subentry_type == SUBENTRY_CONVERSATION:
                 if subentry.title in LEGACY_CONVERSATION_TITLES:
                     hass.config_entries.async_update_subentry(
-                        entry, subentry.subentry_id, title=DEFAULT_CONVERSATION_NAME
+                        entry,
+                        subentry.subentry_id,
+                        title=get_default_service_name("conversation", subentry.data),
                     )
             elif subentry.subentry_type == SUBENTRY_AI_TASK:
                 if subentry.title in LEGACY_AI_TASK_TITLES:
                     hass.config_entries.async_update_subentry(
-                        entry, subentry.subentry_id, title=DEFAULT_AI_TASK_NAME
+                        entry,
+                        subentry.subentry_id,
+                        title=get_default_service_name("ai_task", subentry.data),
                     )
 
         hass.config_entries.async_update_entry(

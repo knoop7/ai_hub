@@ -206,7 +206,7 @@ class AIHubSTTEntity(SpeechToTextEntity, AIHubEntityBase):
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
-            manufacturer="AI Hub",
+            manufacturer="Home Assistant China (unofficial)",
             model="Silicon Flow ASR",
             entry_type=dr.DeviceEntryType.SERVICE,
         )
