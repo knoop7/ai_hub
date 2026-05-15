@@ -636,6 +636,7 @@ class OpenAICompatibleProvider(LLMProvider):
             request = self._build_responses_request(messages, stream=stream, tools=tools, **kwargs)
             request.update(self.config.extra)
             request.update(kwargs)
+            self._log_request_payload(request)
             return request
 
         request: dict[str, Any] = {
@@ -655,6 +656,7 @@ class OpenAICompatibleProvider(LLMProvider):
         request.update(self.config.extra)
         request.update(kwargs)
 
+        self._log_request_payload(request)
         return request
 
     def _build_responses_request(
@@ -865,6 +867,43 @@ class OpenAICompatibleProvider(LLMProvider):
             raw_response={"emulated_tool_calling": True, "parsed": payload},
         )
 
+    @staticmethod
+    def _log_request_payload(request: dict[str, Any]) -> None:
+        """Log full request payload at INFO level for debugging."""
+        try:
+            msgs = request.get("messages") or request.get("input") or []
+            tools = request.get("tools") or []
+            _LOGGER.info(
+                "[AI_HUB_DEBUG] request model=%s stream=%s msg_count=%d tool_count=%d",
+                request.get("model", "?"),
+                request.get("stream", False),
+                len(msgs),
+                len(tools),
+            )
+            for i, msg in enumerate(msgs):
+                role = msg.get("role", "?")
+                content = msg.get("content", "")
+                content_preview = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, default=str)
+                if len(content_preview) > 2000:
+                    content_preview = content_preview[:2000] + f"...[truncated, total {len(content_preview)}]"
+                tc = msg.get("tool_calls")
+                tc_info = f" tool_calls={json.dumps(tc, ensure_ascii=False)}" if tc else ""
+                extra_keys = {k: msg[k] for k in msg if k not in ("role", "content", "tool_calls")}
+                extra_info = f" extra={json.dumps(extra_keys, ensure_ascii=False, default=str)}" if extra_keys else ""
+                _LOGGER.info(
+                    "[AI_HUB_DEBUG]   msg[%d] role=%s content=%s%s%s",
+                    i, role, content_preview, tc_info, extra_info,
+                )
+            if tools:
+                for i, tool in enumerate(tools):
+                    _LOGGER.info(
+                        "[AI_HUB_DEBUG]   tool[%d] %s",
+                        i,
+                        json.dumps(tool, ensure_ascii=False)[:500],
+                    )
+        except Exception:
+            _LOGGER.info("[AI_HUB_DEBUG] failed to log request payload", exc_info=True)
+
     async def _perform_request(
         self,
         *,
@@ -891,7 +930,7 @@ class OpenAICompatibleProvider(LLMProvider):
         last_error: Exception | None = None
         for attempt in range(_DISCONNECT_RETRY_MAX + 1):
             try:
-                return await async_post_json(
+                data = await async_post_json(
                     url,
                     payload=request,
                     headers=headers,
@@ -900,6 +939,14 @@ class OpenAICompatibleProvider(LLMProvider):
                     error_label="API error",
                     response_decoder=_decode_json_response,
                 )
+                try:
+                    resp_preview = json.dumps(data, ensure_ascii=False, default=str)
+                    if len(resp_preview) > 3000:
+                        resp_preview = resp_preview[:3000] + "...[truncated]"
+                    _LOGGER.info("[AI_HUB_DEBUG] response: %s", resp_preview)
+                except Exception:
+                    _LOGGER.info("[AI_HUB_DEBUG] response keys: %s", list(data.keys()) if isinstance(data, dict) else type(data))
+                return data
             except _RETRYABLE_DISCONNECT_ERRORS as err:
                 last_error = err
                 if attempt >= _DISCONNECT_RETRY_MAX:
@@ -1033,6 +1080,7 @@ class OpenAICompatibleProvider(LLMProvider):
         headers = self._get_headers()
         url = self._get_api_url()
         ssl = _get_ssl_setting(url)
+        _LOGGER.info("[AI_HUB_DEBUG] complete_stream url=%s", url)
 
         buffer = ""
         tool_call_buffer: dict[int, dict[str, Any]] = {}
