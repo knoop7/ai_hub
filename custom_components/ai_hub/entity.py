@@ -6,6 +6,8 @@ import json
 import logging
 import re
 import asyncio
+
+import aiohttp
 from collections.abc import AsyncGenerator, Callable
 from typing import Any
 
@@ -423,6 +425,23 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                     "Provider %s first chunk timeout, retrying...",
                     provider_name,
                 )
+                return await self._async_run_provider_stream(
+                    chat_log, provider_name, provider, llm_messages, tools, _retry_count + 1
+                )
+            raise
+        except (
+            aiohttp.ServerDisconnectedError,
+            aiohttp.ClientPayloadError,
+            aiohttp.ClientOSError,
+        ) as err:
+            if _retry_count < 1:
+                import asyncio as _aio
+                wait = 3.0
+                _LOGGER.warning(
+                    "Provider %s stream disconnected (%s), waiting %.1fs before retry...",
+                    provider_name, type(err).__name__, wait,
+                )
+                await _aio.sleep(wait)
                 return await self._async_run_provider_stream(
                     chat_log, provider_name, provider, llm_messages, tools, _retry_count + 1
                 )

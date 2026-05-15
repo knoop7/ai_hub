@@ -16,6 +16,20 @@ def client_timeout(total: float) -> aiohttp.ClientTimeout:
     return aiohttp.ClientTimeout(total=total)
 
 
+def stream_client_timeout(total: float) -> aiohttp.ClientTimeout:
+    """Build a timeout for streaming: generous total, strict per-chunk read.
+
+    For streaming LLM responses the bottleneck is not total wall-clock time
+    but silence between chunks.  sock_read limits the wait for each chunk
+    while total acts as a safety net for the entire exchange.
+    """
+    return aiohttp.ClientTimeout(
+        total=max(total * 4, 300),
+        sock_read=max(total, 60),
+        sock_connect=30,
+    )
+
+
 async def async_post_json(
     url: str,
     *,
@@ -51,12 +65,12 @@ async def async_stream_response_text(
     ssl: bool | None,
     timeout: float,
     error_label: str,
-    first_chunk_timeout: float = 15.0,
+    first_chunk_timeout: float = 30.0,
 ) -> AsyncGenerator[str, None]:
     """POST JSON and yield decoded response chunks."""
     import asyncio
 
-    async with aiohttp.ClientSession(timeout=client_timeout(timeout)) as session:
+    async with aiohttp.ClientSession(timeout=stream_client_timeout(timeout)) as session:
         async with session.post(url, json=payload, headers=headers, ssl=ssl) as response:
             if response.status != 200:
                 error_text = await response.text()
