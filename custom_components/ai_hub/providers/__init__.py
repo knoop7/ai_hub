@@ -107,6 +107,7 @@ class LLMConfig(BaseProviderConfig):
     temperature: float = 0.3
     max_tokens: int = 250
     enable_thinking: bool = False
+    debug_log: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
 
 

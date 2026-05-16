@@ -24,6 +24,7 @@ from .consts import (
     CONF_CHAT_URL,
     CONF_LLM_PROVIDER,
     CONF_CUSTOM_API_KEY,
+    CONF_DEBUG_LOG,
     CONF_ENABLE_THINKING,
     CONF_MAX_HISTORY_MESSAGES,
     CONF_MAX_TOKENS,
@@ -31,6 +32,7 @@ from .consts import (
     DOMAIN,
     ERROR_GETTING_RESPONSE,
     RECOMMENDED_IMAGE_ANALYSIS_MODEL,
+    RECOMMENDED_DEBUG_LOG,
     RECOMMENDED_ENABLE_THINKING,
     RECOMMENDED_MAX_HISTORY_MESSAGES,
     RECOMMENDED_MAX_TOKENS,
@@ -230,6 +232,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                 options.get(CONF_ENABLE_THINKING, RECOMMENDED_ENABLE_THINKING)
             ),
             "max_tokens": options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
+            "debug_log": bool(options.get(CONF_DEBUG_LOG, RECOMMENDED_DEBUG_LOG)),
         }
 
     async def _async_handle_chat_log(
@@ -341,6 +344,7 @@ class AIHubBaseLLMEntity(Entity, _AIHubEntityMixin):
                     "temperature": model_config.get("temperature", RECOMMENDED_TEMPERATURE),
                     "max_tokens": model_config.get("max_tokens", RECOMMENDED_MAX_TOKENS),
                     "enable_thinking": model_config.get("enable_thinking", RECOMMENDED_ENABLE_THINKING),
+                    "debug_log": model_config.get("debug_log", RECOMMENDED_DEBUG_LOG),
                     "timeout": TIMEOUT_CHAT_API * 2,
                 },
             )

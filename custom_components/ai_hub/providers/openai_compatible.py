@@ -636,7 +636,8 @@ class OpenAICompatibleProvider(LLMProvider):
             request = self._build_responses_request(messages, stream=stream, tools=tools, **kwargs)
             request.update(self.config.extra)
             request.update(kwargs)
-            self._log_request_payload(request)
+            if self.config.debug_log:
+                self._log_request_payload(request)
             return request
 
         request: dict[str, Any] = {
@@ -656,7 +657,8 @@ class OpenAICompatibleProvider(LLMProvider):
         request.update(self.config.extra)
         request.update(kwargs)
 
-        self._log_request_payload(request)
+        if self.config.debug_log:
+            self._log_request_payload(request)
         return request
 
     def _build_responses_request(
@@ -867,8 +869,7 @@ class OpenAICompatibleProvider(LLMProvider):
             raw_response={"emulated_tool_calling": True, "parsed": payload},
         )
 
-    @staticmethod
-    def _log_request_payload(request: dict[str, Any]) -> None:
+    def _log_request_payload(self, request: dict[str, Any]) -> None:
         """Log full request payload at INFO level for debugging."""
         try:
             msgs = request.get("messages") or request.get("input") or []
@@ -939,13 +940,14 @@ class OpenAICompatibleProvider(LLMProvider):
                     error_label="API error",
                     response_decoder=_decode_json_response,
                 )
-                try:
-                    resp_preview = json.dumps(data, ensure_ascii=False, default=str)
-                    if len(resp_preview) > 3000:
-                        resp_preview = resp_preview[:3000] + "...[truncated]"
-                    _LOGGER.info("[AI_HUB_DEBUG] response: %s", resp_preview)
-                except Exception:
-                    _LOGGER.info("[AI_HUB_DEBUG] response keys: %s", list(data.keys()) if isinstance(data, dict) else type(data))
+                if self.config.debug_log:
+                    try:
+                        resp_preview = json.dumps(data, ensure_ascii=False, default=str)
+                        if len(resp_preview) > 3000:
+                            resp_preview = resp_preview[:3000] + "...[truncated]"
+                        _LOGGER.info("[AI_HUB_DEBUG] response: %s", resp_preview)
+                    except Exception:
+                        _LOGGER.info("[AI_HUB_DEBUG] response keys: %s", list(data.keys()) if isinstance(data, dict) else type(data))
                 return data
             except _RETRYABLE_DISCONNECT_ERRORS as err:
                 last_error = err
@@ -1080,7 +1082,8 @@ class OpenAICompatibleProvider(LLMProvider):
         headers = self._get_headers()
         url = self._get_api_url()
         ssl = _get_ssl_setting(url)
-        _LOGGER.info("[AI_HUB_DEBUG] complete_stream url=%s", url)
+        if self.config.debug_log:
+            _LOGGER.info("[AI_HUB_DEBUG] complete_stream url=%s", url)
 
         buffer = ""
         tool_call_buffer: dict[int, dict[str, Any]] = {}

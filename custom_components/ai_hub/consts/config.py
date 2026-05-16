@@ -25,6 +25,7 @@ CONF_LLM_HASS_API: Final = "llm_hass_api"
 CONF_RECOMMENDED: Final = "recommended"
 CONF_MAX_HISTORY_MESSAGES: Final = "max_history_messages"
 CONF_ENABLE_THINKING: Final = "enable_thinking"
+CONF_DEBUG_LOG: Final = "debug_log"
 
 CONF_TTS_VOICE: Final = "voice"
 CONF_TTS_LANG: Final = "lang"
