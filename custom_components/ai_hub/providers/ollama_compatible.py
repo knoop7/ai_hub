@@ -211,6 +211,23 @@ class OllamaCompatibleProvider(LLMProvider):
             request["options"].update(extra_options)
         request.update(extra)
         request.update(kwargs)
+        if self.config.debug_log:
+            try:
+                msgs = request.get("messages", [])
+                tools_list = request.get("tools", [])
+                _LOGGER.info(
+                    "[AI_HUB_DEBUG] ollama request model=%s stream=%s msg_count=%d tool_count=%d",
+                    request.get("model", "?"), request.get("stream", False), len(msgs), len(tools_list),
+                )
+                for i, msg in enumerate(msgs):
+                    role = msg.get("role", "?")
+                    content = msg.get("content", "")
+                    preview = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, default=str)
+                    if len(preview) > 2000:
+                        preview = preview[:2000] + f"...[truncated, total {len(preview)}]"
+                    _LOGGER.info("[AI_HUB_DEBUG]   msg[%d] role=%s content=%s", i, role, preview)
+            except Exception:
+                _LOGGER.info("[AI_HUB_DEBUG] failed to log ollama request", exc_info=True)
         return request
 
     def _convert_messages(self, messages: list[LLMMessage]) -> list[dict[str, Any]]:
@@ -267,6 +284,14 @@ class OllamaCompatibleProvider(LLMProvider):
             timeout=self.config.timeout,
             error_label="API error",
         )
+        if self.config.debug_log:
+            try:
+                resp_preview = json.dumps(data, ensure_ascii=False, default=str)
+                if len(resp_preview) > 3000:
+                    resp_preview = resp_preview[:3000] + "...[truncated]"
+                _LOGGER.info("[AI_HUB_DEBUG] ollama response: %s", resp_preview)
+            except Exception:
+                _LOGGER.info("[AI_HUB_DEBUG] ollama response keys: %s", list(data.keys()) if isinstance(data, dict) else type(data))
 
         message = data.get("message", {})
         if not isinstance(message, dict):
@@ -291,6 +316,8 @@ class OllamaCompatibleProvider(LLMProvider):
         headers = self._get_headers()
         url = self._get_api_url()
         ssl = False if url.startswith("http://") else None
+        if self.config.debug_log:
+            _LOGGER.info("[AI_HUB_DEBUG] ollama complete_stream url=%s", url)
 
         buffer = ""
         tool_call_buffer: dict[int, dict[str, Any]] = {}

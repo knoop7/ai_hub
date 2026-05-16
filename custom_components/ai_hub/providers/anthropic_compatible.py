@@ -326,6 +326,23 @@ class AnthropicCompatibleProvider(LLMProvider):
 
         request.update(self.config.extra)
         request.update(kwargs)
+        if self.config.debug_log:
+            try:
+                msgs = request.get("messages", [])
+                tools = request.get("tools", [])
+                _LOGGER.info(
+                    "[AI_HUB_DEBUG] anthropic request model=%s stream=%s msg_count=%d tool_count=%d",
+                    request.get("model", "?"), request.get("stream", False), len(msgs), len(tools),
+                )
+                for i, msg in enumerate(msgs):
+                    role = msg.get("role", "?")
+                    content = msg.get("content", "")
+                    preview = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, default=str)
+                    if len(preview) > 2000:
+                        preview = preview[:2000] + f"...[truncated, total {len(preview)}]"
+                    _LOGGER.info("[AI_HUB_DEBUG]   msg[%d] role=%s content=%s", i, role, preview)
+            except Exception:
+                _LOGGER.info("[AI_HUB_DEBUG] failed to log anthropic request", exc_info=True)
         return request
 
     async def complete(
@@ -347,6 +364,14 @@ class AnthropicCompatibleProvider(LLMProvider):
             timeout=self.config.timeout,
             error_label="API error",
         )
+        if self.config.debug_log:
+            try:
+                resp_preview = json.dumps(data, ensure_ascii=False, default=str)
+                if len(resp_preview) > 3000:
+                    resp_preview = resp_preview[:3000] + "...[truncated]"
+                _LOGGER.info("[AI_HUB_DEBUG] anthropic response: %s", resp_preview)
+            except Exception:
+                _LOGGER.info("[AI_HUB_DEBUG] anthropic response keys: %s", list(data.keys()) if isinstance(data, dict) else type(data))
 
         usage = data.get("usage")
         if isinstance(usage, dict):
@@ -382,6 +407,8 @@ class AnthropicCompatibleProvider(LLMProvider):
         headers = self._get_headers()
         url = self._get_api_url()
         ssl = resolve_ssl_setting(url, _DEFAULT_API_URL)
+        if self.config.debug_log:
+            _LOGGER.info("[AI_HUB_DEBUG] anthropic complete_stream url=%s", url)
 
         buffer = ""
         tool_call_buffer: dict[int, dict[str, Any]] = {}
