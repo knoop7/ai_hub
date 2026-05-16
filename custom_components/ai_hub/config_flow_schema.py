@@ -28,6 +28,7 @@ from .consts import (
     CONF_CHAT_MODEL,
     CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
+    CONF_DEBUG_LOG,
     CONF_ENABLE_THINKING,
     CONF_FORCE_TRANSLATION,
     CONF_IMAGE_MODEL,
@@ -54,6 +55,7 @@ from .consts import (
     RECOMMENDED_AI_TASK_TEMPERATURE,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
+    RECOMMENDED_DEBUG_LOG,
     RECOMMENDED_ENABLE_THINKING,
     RECOMMENDED_IMAGE_MODEL,
     RECOMMENDED_LLM_PROVIDER,
@@ -222,6 +224,11 @@ def _build_conversation_schema(
                     CONF_ENABLE_THINKING,
                     default=options.get(CONF_ENABLE_THINKING, RECOMMENDED_ENABLE_THINKING),
                     description={"suggested_value": options.get(CONF_ENABLE_THINKING)},
+                ): bool,
+                vol.Optional(
+                    CONF_DEBUG_LOG,
+                    default=options.get(CONF_DEBUG_LOG, RECOMMENDED_DEBUG_LOG),
+                    description={"suggested_value": options.get(CONF_DEBUG_LOG)},
                 ): bool,
             }
         )
