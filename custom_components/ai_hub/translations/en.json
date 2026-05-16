@@ -54,7 +54,8 @@
             "top_k": "Top K",
             "max_tokens": "Max Tokens",
             "max_history_messages": "Max History Messages",
-            "enable_thinking": "Enable Thinking"
+            "enable_thinking": "Enable Thinking",
+            "debug_log": "Debug Log"
           },
           "data_description": {
             "recommended": "Use recommended settings",
@@ -67,7 +68,8 @@
             "top_p": "Sampling parameter (0-1)",
             "max_tokens": "Maximum response length",
             "max_history_messages": "Number of history messages to keep",
-            "enable_thinking": "Enable thinking mode for models that support chain-of-thought"
+            "enable_thinking": "Enable thinking mode for models that support chain-of-thought",
+            "debug_log": "Enable debug logging for LLM requests and responses (verbose, for troubleshooting only)"
           }
         }
       }
