@@ -13,11 +13,14 @@ try:
     from homeassistant.const import CONF_API_KEY, Platform
     from homeassistant.core import HomeAssistant
     from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+    from homeassistant.helpers import device_registry as dr, entity_registry as er
 except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test environments
     ConfigEntry = Any  # type: ignore[assignment]
     ConfigSubentry = Any  # type: ignore[assignment]
     HomeAssistant = Any  # type: ignore[assignment]
     CONF_API_KEY = "api_key"
+    dr = None  # type: ignore[assignment]
+    er = None  # type: ignore[assignment]
 
     class ConfigEntryAuthFailed(Exception):
         """Fallback exception when Home Assistant is not installed."""
@@ -40,7 +43,6 @@ else:
         Platform.TTS,
         Platform.STT,
         Platform.BUTTON,
-        Platform.SENSOR,
     ]
 
 AIHubConfigEntry: TypeAlias = ConfigEntry  # Store API key
@@ -57,7 +59,6 @@ class AIHubData:
     api_key: str | None = None
     tts_cache: Any = None
     provider_registry: Any = None
-    diagnostics_collector: Any = None
     stats: dict[str, Any] = field(default_factory=dict)
 
     def cleanup(self) -> None:
@@ -175,6 +176,33 @@ def _ensure_initial_subentries(hass: HomeAssistant, entry: ConfigEntry, api_key:
         hass.config_entries.async_add_subentry(entry, subentry)
 
 
+async def _async_remove_legacy_diagnostic_entities(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> None:
+    """Remove legacy AI Hub Diagnostic entities and device for existing users."""
+    if er is None or dr is None:
+        return
+
+    entity_registry = er.async_get(hass)
+    legacy_unique_ids = {
+        f"{DOMAIN}_{entry.entry_id}_health_sensor",
+        f"{DOMAIN}_{entry.entry_id}_siliconflow_latency",
+        f"{DOMAIN}_{entry.entry_id}_edge_tts_latency",
+    }
+
+    for entity_entry in er.async_entries_for_config_entry(entity_registry, entry.entry_id):
+        if entity_entry.unique_id in legacy_unique_ids:
+            entity_registry.async_remove(entity_entry.entity_id)
+
+    device_registry = dr.async_get(hass)
+    legacy_device = device_registry.async_get_device(
+        identifiers={(DOMAIN, f"{entry.entry_id}_diagnostic")}
+    )
+    if legacy_device is not None:
+        device_registry.async_remove_device(legacy_device.id)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> bool:
     """Set up AI Hub from a config entry."""
 
@@ -190,6 +218,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: AIHubConfigEntry) -> boo
     entry.runtime_data = api_key
 
     _ensure_initial_subentries(hass, entry, api_key)
+    await _async_remove_legacy_diagnostic_entities(hass, entry)
 
     # Each step is independent - one failure does not block others
     try:

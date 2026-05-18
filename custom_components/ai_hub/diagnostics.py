@@ -1,23 +1,10 @@
-"""Diagnostics support for AI Hub integration.
-
-This module provides diagnostic information collection for troubleshooting
-and debugging purposes. The diagnostics data is accessible through
-Home Assistant's built-in diagnostics feature.
-
-Features:
-- API configuration diagnostics (with sensitive data redacted)
-- Service status information
-- Recent error logs
-- Performance metrics
-- Configuration validation results
-"""
+"""Diagnostics support for AI Hub integration."""
 
 from __future__ import annotations
 
 import logging
 from datetime import datetime
 from typing import Any
-from urllib.parse import urlparse
 
 try:
     from homeassistant.components.diagnostics import async_redact_data
@@ -38,27 +25,16 @@ except ModuleNotFoundError:  # pragma: no cover - used only in lightweight test 
         return redacted
 
 from .consts import (
-    AI_HUB_CHAT_URL,
-    AI_HUB_IMAGE_GEN_URL,
     CONF_API_KEY,
-    CONF_CHAT_URL,
     CONF_CUSTOM_API_KEY,
-    CONF_IMAGE_URL,
-    CONF_STT_URL,
     DOMAIN,
-    EDGE_TTS_BASE_URL,
     RETRY_BASE_DELAY,
     RETRY_MAX_ATTEMPTS,
-    SILICONFLOW_ROOT_URL,
-    SUBENTRY_AI_TASK,
-    SUBENTRY_CONVERSATION,
     TIMEOUT_CHAT_API,
-    TIMEOUT_HEALTH_CHECK,
     TIMEOUT_IMAGE_API,
     TIMEOUT_STT_API,
     TIMEOUT_TTS_API,
 )
-from .api_health import async_probe_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -95,15 +71,14 @@ async def async_get_config_entry_diagnostics(
         "ai_hub": {
             "integration": {
                 "domain": DOMAIN,
-                "title": entry.title,
-                "entry_id": entry.entry_id,
-                "version": entry.version,
-                "minor_version": entry.minor_version,
-            },
+            "title": entry.title,
+            "entry_id": entry.entry_id,
+            "version": entry.version,
+            "minor_version": entry.minor_version,
+        },
             "configuration": await _get_configuration_diagnostics(hass, entry),
             "subentries": await _get_subentries_diagnostics(hass, entry),
             "entities": await _get_entities_diagnostics(hass, entry),
-            "api_status": await _get_api_status_diagnostics(hass, entry),
             "timeout_config": _get_timeout_config(),
             "retry_config": _get_retry_config(),
             "statistics": _get_statistics_diagnostics(hass, entry),
@@ -130,76 +105,6 @@ async def _get_configuration_diagnostics(
     config["api_key_length"] = len(api_key) if api_key else 0
 
     return config
-
-
-def _normalize_monitor_url(url: str) -> str | None:
-    """Normalize a configured endpoint to a base URL for health checks."""
-    parsed = urlparse(url)
-    if not parsed.scheme or not parsed.netloc:
-        return None
-    return f"{parsed.scheme}://{parsed.netloc}"
-
-
-def collect_api_monitor_targets(entry: ConfigEntry) -> list[dict[str, Any]]:
-    """Collect API endpoints that should appear in diagnostics and health checks."""
-    targets: dict[str, dict[str, Any]] = {}
-
-    def add_target(configured_url: str, label: str, source: str) -> None:
-        normalized = _normalize_monitor_url(configured_url)
-        if normalized is None:
-            return
-
-        parsed = urlparse(configured_url)
-        path_key = parsed.path.strip("/").replace("/", "_") or "root"
-        key = (
-            f"{label.lower().replace(' ', '_')}_"
-            f"{parsed.netloc.replace('.', '_').replace(':', '_')}_{path_key}"
-        )
-
-        if configured_url not in targets:
-            targets[configured_url] = {
-                "key": key,
-                "label": label,
-                "url": configured_url,
-                "monitor_url": normalized,
-                "sources": [source],
-            }
-            return
-
-        if source not in targets[configured_url]["sources"]:
-            targets[configured_url]["sources"].append(source)
-
-    for subentry in entry.subentries.values():
-        if subentry.subentry_type == SUBENTRY_CONVERSATION:
-            add_target(
-                subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
-                "Conversation API",
-                subentry.title,
-            )
-        elif subentry.subentry_type == SUBENTRY_AI_TASK:
-            add_target(
-                subentry.data.get(CONF_IMAGE_URL, AI_HUB_IMAGE_GEN_URL),
-                "AI Task Image API",
-                subentry.title,
-            )
-        elif subentry.subentry_type == "stt":
-            add_target(
-                subentry.data.get(CONF_STT_URL, SILICONFLOW_ROOT_URL),
-                "STT API",
-                subentry.title,
-            )
-        elif subentry.subentry_type == "translation":
-            add_target(
-                subentry.data.get(CONF_CHAT_URL, AI_HUB_CHAT_URL),
-                "Translation API",
-                subentry.title,
-            )
-        elif subentry.subentry_type == "tts":
-            add_target(EDGE_TTS_BASE_URL, "Edge TTS API", subentry.title)
-
-    return sorted(targets.values(), key=lambda target: target["label"])
-
-
 async def _get_subentries_diagnostics(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -271,41 +176,6 @@ async def _get_entities_diagnostics(
             if entities  # Only include non-empty categories
         },
     }
-
-
-async def _get_api_status_diagnostics(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-) -> dict[str, Any]:
-    """Get API status diagnostics.
-
-    Tests connectivity to various API endpoints used by the integration.
-    """
-    from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-    status: dict[str, Any] = {}
-    session = async_get_clientsession(hass)
-
-    for target in collect_api_monitor_targets(entry):
-        probe = await async_probe_url(session, target["monitor_url"], timeout_seconds=TIMEOUT_HEALTH_CHECK)
-        status[target["key"]] = {
-            "label": target["label"],
-            "url": target["url"],
-            "monitor_url": target["monitor_url"],
-            "sources": target["sources"],
-            "status": "reachable" if probe.get("reachable") else (
-                "unreachable" if probe.get("error_type") in {"client", "timeout"} else "error"
-            ),
-        }
-        if probe.get("reachable"):
-            status[target["key"]]["http_status"] = probe["http_status"]
-            status[target["key"]]["latency_ms"] = probe["latency_ms"]
-        else:
-            status[target["key"]]["error"] = probe.get("error")
-
-    return status
-
-
 def _get_timeout_config() -> dict[str, Any]:
     """Get current timeout configuration."""
     return {
